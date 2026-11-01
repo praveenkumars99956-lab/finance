@@ -6,7 +6,7 @@ import { writeAuditLog } from '../../services/auditLog'
 
 function AgentAssignments() {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const [categories, setCategories] = useState([])
   const [agents, setAgents] = useState([])
