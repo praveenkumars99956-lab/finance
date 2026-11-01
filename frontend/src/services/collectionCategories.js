@@ -1,8 +1,8 @@
 import { supabase } from './supabase'
 
-export async function ensureWeeklyLoanCategory(createdBy) {
+async function ensureLoanCategory(createdBy, loanName) {
   if (!createdBy) {
-    throw new Error('A signed-in admin is required to create the Weekly Loan category.')
+    throw new Error(`A signed-in admin is required to create the ${loanName} category.`)
   }
 
   const { data, error } = await supabase
@@ -15,23 +15,23 @@ export async function ensureWeeklyLoanCategory(createdBy) {
   }
 
   const categories = data || []
-  const weeklyCategory = categories.find(
+  const loanCategory = categories.find(
     (category) =>
-      String(category.category_name || '').trim().toLowerCase() === 'weekly loan'
+      String(category.category_name || '').trim().toLowerCase() === loanName.toLowerCase()
   )
 
-  if (weeklyCategory?.status === 'active') {
+  if (loanCategory?.status === 'active') {
     return {
       categories: categories.filter(
         (category) => category.status === 'active'
       ),
-      weeklyCategory
+      loanCategory
     }
   }
 
-  if (weeklyCategory) {
+  if (loanCategory) {
     throw new Error(
-      'A Weekly Loan collection category already exists but is inactive. Reactivate it in Collection Categories to continue.'
+      `A ${loanName} collection category already exists but is inactive. Reactivate it in Collection Categories to continue.`
     )
   }
 
@@ -47,15 +47,15 @@ export async function ensureWeeklyLoanCategory(createdBy) {
 
   if (profile?.role !== 'admin') {
     throw new Error(
-      'Only an admin can create the default Weekly Loan collection category.'
+      `Only an admin can create the default ${loanName} collection category.`
     )
   }
 
   const { data: createdCategory, error: createError } = await supabase
     .from('collection_categories')
     .insert({
-      category_name: 'Weekly Loan',
-      description: 'Default collection category for weekly loans',
+      category_name: loanName,
+      description: `Default collection category for ${loanName}`,
       status: 'active',
       created_by: createdBy
     })
@@ -72,6 +72,26 @@ export async function ensureWeeklyLoanCategory(createdBy) {
       .sort((left, right) =>
         left.category_name.localeCompare(right.category_name)
       ),
-    weeklyCategory: createdCategory
+    loanCategory: createdCategory
+  }
+}
+
+export async function ensureWeeklyLoanCategory(createdBy) {
+  const { categories, loanCategory } =
+    await ensureLoanCategory(createdBy, 'Weekly Loan')
+
+  return {
+    categories,
+    weeklyCategory: loanCategory
+  }
+}
+
+export async function ensureMonthlyLoanCategory(createdBy) {
+  const { categories, loanCategory } =
+    await ensureLoanCategory(createdBy, 'Monthly Loan')
+
+  return {
+    categories,
+    monthlyCategory: loanCategory
   }
 }

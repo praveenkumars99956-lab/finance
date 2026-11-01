@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
-import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
+import {
+  ensureMonthlyLoanCategory,
+  ensureWeeklyLoanCategory
+} from '../../services/collectionCategories'
 
 function AgentAssignments() {
   const navigate = useNavigate()
@@ -68,10 +71,19 @@ function AgentAssignments() {
         return
       }
 
-      const { categories: activeCategories } =
+      const { categories: weeklyCategories } =
         await ensureWeeklyLoanCategory(user.id)
+      const { categories: activeCategories } =
+        await ensureMonthlyLoanCategory(user.id)
 
-      setCategories(activeCategories)
+      const categoriesById = new Map(
+        [...weeklyCategories, ...activeCategories].map((category) => [
+          String(category.id),
+          category
+        ])
+      )
+
+      setCategories([...categoriesById.values()])
     } catch (error) {
       console.error(error)
       alert(
