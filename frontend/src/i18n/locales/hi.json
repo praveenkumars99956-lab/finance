@@ -486,6 +486,8 @@
   "loadingSettings": "सेटिंग्स लोड हो रही हैं...",
   "collectionCompleted": "संग्रह पूरा हुआ",
   "noCollectionHistoryFound": "कोई संग्रह इतिहास नहीं मिला।",
+  "gpsAndProofHistory": "GPS और साक्ष्य इतिहास",
+  "noSavedEvidence": "कोई साक्ष्य सहेजा नहीं गया।",
   "settingsLoadFailed": "सेटिंग्स लोड नहीं हो सकीं: {{message}}",
   "settingsRecordNotFound": "सेटिंग्स रिकॉर्ड नहीं मिला।",
   "enterBusinessName": "कृपया व्यवसाय का नाम दर्ज करें।",

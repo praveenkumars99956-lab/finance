@@ -32,10 +32,12 @@ function getLocalDate() {
   return date.toISOString().slice(0, 10)
 }
 
+function getMinimumPaymentDate(finance) {
+  return String(finance?.entry_date || finance?.payment_date || '').slice(0, 10)
+}
+
 function getValidPaymentDate(date, finance) {
-  const minimumDate = String(
-    finance?.last_interest_date || finance?.entry_date || ''
-  ).slice(0, 10)
+  const minimumDate = getMinimumPaymentDate(finance)
   const maximumDate = getLocalDate()
 
   if (minimumDate && minimumDate > maximumDate) return ''
@@ -61,9 +63,7 @@ function AgentCollection() {
 
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(getLocalDate)
-  const minimumPaymentDate = String(
-    finance?.last_interest_date || finance?.entry_date || ''
-  ).slice(0, 10)
+  const minimumPaymentDate = getMinimumPaymentDate(finance)
   const collectionDateUnavailable =
     Boolean(minimumPaymentDate && minimumPaymentDate > getLocalDate())
 
@@ -111,7 +111,7 @@ function AgentCollection() {
     const validDate = getValidPaymentDate(paymentDate, finance)
 
     if (validDate !== paymentDate) setPaymentDate(validDate)
-  }, [finance?.last_interest_date, finance?.entry_date, paymentDate])
+  }, [finance?.entry_date, finance?.payment_date, paymentDate])
 
   // =========================================
   // LOAD COLLECTION SETTINGS

@@ -486,6 +486,8 @@
   "loadingSettings": "ക്രമീകരണങ്ങൾ ലോഡ് ചെയ്യുന്നു...",
   "collectionCompleted": "കളക്ഷൻ പൂർത്തിയായി",
   "noCollectionHistoryFound": "കളക്ഷൻ ചരിത്രം കണ്ടെത്തിയില്ല.",
+  "gpsAndProofHistory": "GPS, തെളിവ് ചരിത്രം",
+  "noSavedEvidence": "സംരക്ഷിച്ച തെളിവുകളില്ല.",
   "settingsLoadFailed": "ക്രമീകരണങ്ങൾ ലോഡ് ചെയ്യാനായില്ല: {{message}}",
   "settingsRecordNotFound": "ക്രമീകരണ രേഖ കണ്ടെത്തിയില്ല.",
   "enterBusinessName": "ബിസിനസിന്റെ പേര് നൽകുക.",

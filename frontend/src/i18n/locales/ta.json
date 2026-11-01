@@ -532,6 +532,8 @@
   "loadingSettings": "அமைப்புகள் ஏற்றப்படுகின்றன...",
   "collectionCompleted": "வசூல் முடிந்தது",
   "noCollectionHistoryFound": "வசூல் வரலாறு எதுவும் கிடைக்கவில்லை.",
+  "gpsAndProofHistory": "GPS மற்றும் சான்று வரலாறு",
+  "noSavedEvidence": "சேமிக்கப்பட்ட சான்றுகள் இல்லை.",
   "settingsLoadFailed": "அமைப்புகளை ஏற்ற முடியவில்லை: {{message}}",
   "settingsRecordNotFound": "அமைப்புப் பதிவு கிடைக்கவில்லை.",
   "enterBusinessName": "வணிகப் பெயரை உள்ளிடவும்.",

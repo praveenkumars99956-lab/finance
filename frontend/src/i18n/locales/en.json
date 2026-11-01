@@ -538,6 +538,8 @@
   "loadingSettings": "Loading Settings...",
   "collectionCompleted": "Collection Completed",
   "noCollectionHistoryFound": "No collection history found.",
+  "gpsAndProofHistory": "GPS and Proof History",
+  "noSavedEvidence": "No saved evidence.",
   "settingsLoadFailed": "Unable to load settings: {{message}}",
   "settingsRecordNotFound": "Settings record was not found.",
   "enterBusinessName": "Please enter the business name.",
