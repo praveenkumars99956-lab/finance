@@ -516,6 +516,7 @@
   "loanStatus": "Loan Status",
   "recordCollection": "Record Collection",
   "collectionDate": "Collection Date",
+  "collectionNotAvailableUntil": "Collections cannot be recorded until {{date}}.",
   "interestPaymentAmount": "Interest Payment Amount",
   "collectionAmount": "Collection Amount",
   "interestDueOnCollectionDate": "Interest Due on Collection Date",

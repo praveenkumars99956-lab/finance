@@ -34,7 +34,9 @@ const getTodayValue = () => {
 function CalendarDatePicker({
   value = '',
   onChange,
-  label = 'Date'
+  label = 'Date',
+  min = '',
+  max = ''
 }) {
   const { i18n, t } = useTranslation()
   const locale = {
@@ -62,6 +64,14 @@ function CalendarDatePicker({
   // =========================================
 
   const selectedDate = parseDateValue(value)
+  const selectedYear = selectedDate?.year
+  const selectedMonth = selectedDate?.month
+
+  const isDateOutsideBounds = (dateValue) =>
+    Boolean(
+      (min && dateValue < String(min).slice(0, 10)) ||
+      (max && dateValue > String(max).slice(0, 10))
+    )
 
   // =========================================
   // VISIBLE CALENDAR MONTH
@@ -80,13 +90,15 @@ function CalendarDatePicker({
   // =========================================
 
   useEffect(() => {
-    const parsed = parseDateValue(value)
+    if (!selectedYear || !selectedMonth) return
 
-    if (!parsed) return
-
-    setVisibleYear(parsed.year)
-    setVisibleMonth(parsed.month)
-  }, [value])
+    setVisibleYear((year) =>
+      year === selectedYear ? year : selectedYear
+    )
+    setVisibleMonth((month) =>
+      month === selectedMonth ? month : selectedMonth
+    )
+  }, [selectedYear, selectedMonth])
 
   // =========================================
   // MONTH NAMES
@@ -169,6 +181,10 @@ function CalendarDatePicker({
       day
     )
 
+    if (isDateOutsideBounds(newDate)) {
+      return
+    }
+
     console.log('CALENDAR DATE SELECTED:', newDate)
 
     if (typeof onChange === 'function') {
@@ -182,6 +198,10 @@ function CalendarDatePicker({
 
   const selectToday = () => {
     const todayValue = getTodayValue()
+
+    if (isDateOutsideBounds(todayValue)) {
+      return
+    }
 
     setVisibleYear(today.year)
     setVisibleMonth(today.month)
@@ -450,15 +470,24 @@ function CalendarDatePicker({
 
             const isSelected =
               value === dateValue
+            const isDisabled =
+              isDateOutsideBounds(dateValue)
 
             return (
               <button
                 key={dateValue}
                 type="button"
+                disabled={isDisabled}
                 style={
                   isSelected
                     ? selectedDayStyle
-                    : dayButtonStyle
+                    : isDisabled
+                      ? {
+                          ...dayButtonStyle,
+                          color: '#cbd5e1',
+                          cursor: 'not-allowed'
+                        }
+                      : dayButtonStyle
                 }
                 onClick={(event) => {
                   event.preventDefault()
@@ -523,6 +552,7 @@ function CalendarDatePicker({
         <button
           type="button"
           style={bottomButtonStyle}
+          disabled={isDateOutsideBounds(getTodayValue())}
           onClick={(event) => {
             event.preventDefault()
             selectToday()

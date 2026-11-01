@@ -33,9 +33,12 @@ function getLocalDate() {
 }
 
 function getValidPaymentDate(date, finance) {
-  const minimumDate = finance?.last_interest_date || finance?.entry_date
+  const minimumDate = String(
+    finance?.last_interest_date || finance?.entry_date || ''
+  ).slice(0, 10)
   const maximumDate = getLocalDate()
 
+  if (minimumDate && minimumDate > maximumDate) return ''
   if (!date || date > maximumDate) return maximumDate
   if (minimumDate && date < minimumDate) return minimumDate
   return date
@@ -58,6 +61,11 @@ function AgentCollection() {
 
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentDate, setPaymentDate] = useState(getLocalDate)
+  const minimumPaymentDate = String(
+    finance?.last_interest_date || finance?.entry_date || ''
+  ).slice(0, 10)
+  const collectionDateUnavailable =
+    Boolean(minimumPaymentDate && minimumPaymentDate > getLocalDate())
 
   // =========================================
   // SETTINGS
@@ -483,6 +491,17 @@ function AgentCollection() {
         String(finance.id) !== String(financeId)) return
 
     const selectedDate = paymentDate
+    if (collectionDateUnavailable) {
+      alert(
+        t(
+          'collectionNotAvailableUntil',
+          'Collections cannot be recorded until {{date}}.',
+          { date: minimumPaymentDate }
+        )
+      )
+      return
+    }
+
     if (!selectedDate) {
       alert(t('selectCollectionDate'))
       return
@@ -1181,13 +1200,27 @@ function AgentCollection() {
                   {t('collectionDate')} *
                 </label>
 
-                <CalendarDatePicker
-                  label={t('collectionDate')}
-                  min={finance.last_interest_date || finance.entry_date}
-                  max={getLocalDate()}
-                  value={getValidPaymentDate(paymentDate, finance)}
-                  onChange={(date) => setPaymentDate(getValidPaymentDate(date, finance))}
-                />
+                {collectionDateUnavailable ? (
+                  <p role="alert">
+                    {t(
+                      'collectionNotAvailableUntil',
+                      'Collections cannot be recorded until {{date}}.',
+                      { date: minimumPaymentDate }
+                    )}
+                  </p>
+                ) : (
+                  <CalendarDatePicker
+                    label={t('collectionDate')}
+                    min={minimumPaymentDate}
+                    max={getLocalDate()}
+                    value={getValidPaymentDate(paymentDate, finance)}
+                    onChange={(date) =>
+                      setPaymentDate(
+                        getValidPaymentDate(date, finance)
+                      )
+                    }
+                  />
+                )}
 
               </div>
 
@@ -1453,7 +1486,8 @@ function AgentCollection() {
                 className="record-payment-button"
                 disabled={
                   saving ||
-                  settingsLoading
+                  settingsLoading ||
+                  collectionDateUnavailable
                 }
               >
                 {
