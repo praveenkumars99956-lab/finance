@@ -30,6 +30,9 @@
   "backToLogin": "Back to Login",
   "manageCollectionCategories": "Manage Collection Categories",
   "backToDailyFinance": "Back to Daily Finance",
+  "backToWeeklyFinance": "Back to Weekly Finance",
+  "backToMonthlyFinance": "Back to Monthly Finance",
+  "backToFinanceSetup": "Back to Finance Setup",
   "invalidEmailOrPassword": "Invalid email or password.",
   "unableIdentifyUser": "Unable to identify the logged-in user.",
   "userProfileNotFound": "User profile not found. Please contact Admin.",
@@ -174,6 +177,7 @@
   "selectedCategory": "Selected Category",
   "noCategorySelected": "No category selected",
   "loadingCategories": "Loading Categories...",
+  "noActiveCollectionCategories": "No active collection categories are available. Add a category before creating this loan.",
 
   "weeklyFinanceDetails": "Weekly Finance Details",
 

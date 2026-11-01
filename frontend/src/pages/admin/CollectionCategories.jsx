@@ -263,11 +263,19 @@ function CollectionCategories() {
       <button
         className="back-button"
         onClick={() =>
-          navigate(returnTo || '/admin')
+          navigate(
+            returnTo || '/admin',
+            returnTo
+              ? { state: location.state?.returnState }
+              : undefined
+          )
         }
       >
         ← {returnTo
-          ? t('backToDailyFinance', 'Back to Daily Finance')
+          ? t(
+              location.state?.returnLabelKey || 'backToFinanceSetup',
+              'Back to Finance Setup'
+            )
           : t('adminDashboard')}
       </button>
 

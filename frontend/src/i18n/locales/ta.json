@@ -30,6 +30,9 @@
   "backToLogin": "உள்நுழைவுக்குத் திரும்பு",
   "manageCollectionCategories": "வசூல் வகைகளை நிர்வகி",
   "backToDailyFinance": "தினசரி நிதிக்குத் திரும்பு",
+  "backToWeeklyFinance": "வாராந்திர நிதிக்குத் திரும்பு",
+  "backToMonthlyFinance": "மாதாந்திர நிதிக்குத் திரும்பு",
+  "backToFinanceSetup": "நிதி அமைப்புக்குத் திரும்பு",
   "invalidEmailOrPassword": "மின்னஞ்சல் அல்லது கடவுச்சொல் தவறானது.",
   "unableIdentifyUser": "உள்நுழைந்த பயனரை அடையாளம் காண முடியவில்லை.",
   "userProfileNotFound": "பயனர் சுயவிவரம் கிடைக்கவில்லை. நிர்வாகியைத் தொடர்புகொள்ளவும்.",
@@ -173,6 +176,7 @@
   "selectCollectionCategory": "வசூல் வகையைத் தேர்ந்தெடுக்கவும்",
   "selectedCategory": "தேர்ந்தெடுக்கப்பட்ட வகை",
   "noCategorySelected": "வகை தேர்ந்தெடுக்கப்படவில்லை",
+  "noActiveCollectionCategories": "செயலில் உள்ள வசூல் வகைகள் இல்லை. இந்தக் கடனை உருவாக்குவதற்கு முன் ஒரு வகையைச் சேர்க்கவும்.",
   "loadingCategories": "வகைகள் ஏற்றப்படுகின்றன...",
 
   "weeklyFinanceDetails": "வாராந்திர நிதி விவரங்கள்",

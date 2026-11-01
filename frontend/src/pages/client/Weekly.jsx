@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
@@ -48,6 +48,8 @@ function Weekly() {
   const [categories, setCategories] = useState([])
   const [collectionCategoryId, setCollectionCategoryId] = useState('')
   const [categoryLoading, setCategoryLoading] = useState(true)
+  const [categoryError, setCategoryError] = useState(false)
+  const categorySelectRef = useRef(null)
 
   // =========================================
   // SAVE STATUS
@@ -107,28 +109,36 @@ function Weekly() {
     const loadCategories = async () => {
       setCategoryLoading(true)
 
-      const { data, error } = await supabase
-        .from('collection_categories')
-        .select('id, category_name, status')
-        .eq('status', 'active')
-        .order('category_name')
+      try {
+        const { data, error } = await supabase
+          .from('collection_categories')
+          .select('id, category_name, status')
+          .eq('status', 'active')
+          .order('category_name')
 
-      if (error) {
-        console.error(error)
+        if (error) {
+          console.error(error)
+          alert(
+            `${t(
+              'unableToLoadCollectionCategories',
+              'Unable to load Collection Categories'
+            )}: ${error.message}`
+          )
+          return
+        }
 
+        setCategories(data || [])
+      } catch (error) {
+        console.error('Collection category loading error:', error)
         alert(
           `${t(
             'unableToLoadCollectionCategories',
             'Unable to load Collection Categories'
           )}: ${error.message}`
         )
-
+      } finally {
         setCategoryLoading(false)
-        return
       }
-
-      setCategories(data || [])
-      setCategoryLoading(false)
     }
 
     loadCategories()
@@ -288,13 +298,12 @@ function Weekly() {
     }
 
     if (!collectionCategoryId) {
-      alert(
-        t(
-          'selectCollectionCategory',
-          'Select Collection Category'
-        )
-      )
-
+      setCategoryError(true)
+      categorySelectRef.current?.focus()
+      categorySelectRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center'
+      })
       return
     }
 
@@ -750,14 +759,23 @@ function Weekly() {
               </label>
 
               <select
+                ref={categorySelectRef}
+                id="weekly-collection-category"
                 value={collectionCategoryId}
-                onChange={(e) =>
+                onChange={(e) => {
                   setCollectionCategoryId(
                     e.target.value
                   )
-                }
+                  setCategoryError(false)
+                }}
                 disabled={categoryLoading}
-                required
+                aria-required="true"
+                aria-invalid={categoryError}
+                aria-describedby={
+                  categoryError
+                    ? 'weekly-collection-category-error'
+                    : undefined
+                }
               >
 
                 <option value="">
@@ -786,6 +804,61 @@ function Weekly() {
                 )}
 
               </select>
+
+              {!categoryLoading && categories.length === 0 && (
+                <small
+                  id="weekly-collection-category-error"
+                  role="alert"
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    color: '#b42318'
+                  }}
+                >
+                  {t(
+                    'noActiveCollectionCategories',
+                    'No active collection categories are available. Add a category before creating this loan.'
+                  )}
+                </small>
+              )}
+
+              {!categoryLoading && categories.length === 0 && (
+                <button
+                  type="button"
+                  className="daily-category-action"
+                  onClick={() =>
+                    navigate('/categories', {
+                      state: {
+                        returnTo: '/weekly',
+                        returnState: location.state,
+                        returnLabelKey: 'backToWeeklyFinance'
+                      }
+                    })
+                  }
+                >
+                  {t(
+                    'manageCollectionCategories',
+                    'Manage Collection Categories'
+                  )}
+                </button>
+              )}
+
+              {categoryError && categories.length > 0 && (
+                <small
+                  id="weekly-collection-category-error"
+                  role="alert"
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    color: '#b42318'
+                  }}
+                >
+                  {t(
+                    'selectCollectionCategory',
+                    'Select Collection Category'
+                  )}
+                </small>
+              )}
 
             </div>
 

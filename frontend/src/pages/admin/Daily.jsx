@@ -1167,7 +1167,11 @@ function Daily() {
                   className="daily-category-action"
                   onClick={() =>
                     navigate('/categories', {
-                      state: { returnTo: '/daily' }
+                      state: {
+                        returnTo: '/daily',
+                        returnState: location.state,
+                        returnLabelKey: 'backToDailyFinance'
+                      }
                     })
                   }
                 >
