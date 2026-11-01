@@ -33,7 +33,16 @@ function getLocalDate() {
 }
 
 function getMinimumPaymentDate(finance) {
-  return String(finance?.entry_date || finance?.payment_date || '').slice(0, 10)
+  const entryDate = String(
+    finance?.entry_date || finance?.payment_date || ''
+  ).slice(0, 10)
+  const financeType = String(finance?.finance_type || '').toLowerCase()
+
+  if (financeType === 'interest_only' || financeType === 'interest-only') {
+    return entryDate
+  }
+
+  return entryDate && entryDate <= getLocalDate() ? entryDate : ''
 }
 
 function getValidPaymentDate(date, finance) {
@@ -79,6 +88,8 @@ function AgentCollection() {
 
   const [settingsLoading, setSettingsLoading] =
     useState(true)
+  const [settingsLoadError, setSettingsLoadError] =
+    useState('')
 
   // =========================================
   // GPS
@@ -111,7 +122,12 @@ function AgentCollection() {
     const validDate = getValidPaymentDate(paymentDate, finance)
 
     if (validDate !== paymentDate) setPaymentDate(validDate)
-  }, [finance?.entry_date, finance?.payment_date, paymentDate])
+  }, [
+    finance?.entry_date,
+    finance?.finance_type,
+    finance?.payment_date,
+    paymentDate
+  ])
 
   // =========================================
   // LOAD COLLECTION SETTINGS
@@ -119,45 +135,38 @@ function AgentCollection() {
 
   useEffect(() => {
     const loadCollectionSettings = async () => {
-      setSettingsLoading(true)
+      try {
+        const { data, error } = await supabase
+          .from('app_settings')
+          .select(
+            'require_gps, require_collection_proof'
+          )
+          .order('id', {
+            ascending: true
+          })
+          .limit(1)
+          .maybeSingle()
 
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select(
-          'require_gps, require_collection_proof'
+        if (error) throw error
+
+        if (data) {
+          setRequireGps(data.require_gps !== false)
+          setRequireCollectionProof(
+            data.require_collection_proof !== false
+          )
+        }
+      } catch (error) {
+        console.error('SETTINGS LOAD ERROR:', error)
+        setSettingsLoadError(
+          t('settingsLoadFailed', {
+            message: error?.message || String(error)
+          })
         )
-        .order('id', {
-          ascending: true
-        })
-        .limit(1)
-        .maybeSingle()
-
-      if (error) {
-        console.error(
-          'SETTINGS LOAD ERROR:',
-          error
-        )
-
-        // Safe fallback:
-        // evidence remains required if Settings
-        // cannot be loaded.
         setRequireGps(true)
         setRequireCollectionProof(true)
+      } finally {
         setSettingsLoading(false)
-        return
       }
-
-      if (data) {
-        setRequireGps(
-          data.require_gps !== false
-        )
-
-        setRequireCollectionProof(
-          data.require_collection_proof !== false
-        )
-      }
-
-      setSettingsLoading(false)
     }
 
     loadCollectionSettings()
@@ -546,17 +555,6 @@ function AgentCollection() {
     if (!rpcName) {
       alert(
         t('financeTypeNotSupported')
-      )
-      return
-    }
-
-    // =========================================
-    // SETTINGS VALIDATION
-    // =========================================
-
-    if (settingsLoading) {
-      alert(
-        t('collectionSettingsLoading')
       )
       return
     }
@@ -1303,6 +1301,11 @@ function AgentCollection() {
                   </strong>
                 </p>
               )}
+              {settingsLoadError && (
+                <p role="alert">
+                  {settingsLoadError}
+                </p>
+              )}
 
               {/* GPS */}
 
@@ -1485,17 +1488,13 @@ function AgentCollection() {
                 type="submit"
                 className="record-payment-button"
                 disabled={
-                  saving ||
-                  settingsLoading ||
-                  collectionDateUnavailable
+                  saving
                 }
               >
                 {
                   saving
                     ? t('recording')
-                    : settingsLoading
-                      ? t('loadingSettings')
-                      : t('recordCollection')
+                    : t('recordCollection')
                 }
               </button>
 
