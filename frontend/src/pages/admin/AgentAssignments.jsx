@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
+import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
 
 function AgentAssignments() {
   const navigate = useNavigate()
@@ -51,18 +52,34 @@ function AgentAssignments() {
   // =========================================
 
   const loadCategories = async () => {
-    const { data, error } = await supabase
-      .from('collection_categories')
-      .select('id, category_name, status')
-      .order('category_name')
+    try {
+      const {
+        data: { user },
+        error: userError
+      } = await supabase.auth.getUser()
 
-    if (error) {
+      if (userError) {
+        throw userError
+      }
+
+      if (!user) {
+        alert(t('pleaseLoginAgain'))
+        navigate('/')
+        return
+      }
+
+      const { categories: activeCategories } =
+        await ensureWeeklyLoanCategory(user.id)
+
+      setCategories(activeCategories)
+    } catch (error) {
       console.error(error)
-      alert(t('categoriesLoadFailed', { message: error.message }))
-      return
+      alert(
+        t('categoriesLoadFailed', {
+          message: error.message
+        })
+      )
     }
-
-    setCategories(data || [])
   }
 
   // =========================================

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
 
 function Weekly() {
   const { t } = useTranslation()
@@ -110,24 +111,25 @@ function Weekly() {
       setCategoryLoading(true)
 
       try {
-        const { data, error } = await supabase
-          .from('collection_categories')
-          .select('id, category_name, status')
-          .eq('status', 'active')
-          .order('category_name')
+        const {
+          data: { user },
+          error: userError
+        } = await supabase.auth.getUser()
 
-        if (error) {
-          console.error(error)
-          alert(
-            `${t(
-              'unableToLoadCollectionCategories',
-              'Unable to load Collection Categories'
-            )}: ${error.message}`
-          )
-          return
+        if (userError) {
+          throw userError
         }
 
-        setCategories(data || [])
+        if (!user) {
+          throw new Error(t('pleaseLoginAgain', 'Please login again'))
+        }
+
+        const { categories: activeCategories, weeklyCategory } =
+          await ensureWeeklyLoanCategory(user.id)
+
+        setCategories(activeCategories)
+        setCollectionCategoryId(String(weeklyCategory.id))
+        setCategoryError(false)
       } catch (error) {
         console.error('Collection category loading error:', error)
         alert(
