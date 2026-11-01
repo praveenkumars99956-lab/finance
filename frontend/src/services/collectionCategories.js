@@ -1,6 +1,6 @@
 import { supabase } from './supabase'
 
-async function ensureLoanCategory(createdBy, loanName) {
+async function ensureLoanCategory(createdBy, loanName, reactivateInactive = false) {
   if (!createdBy) {
     throw new Error(`A signed-in admin is required to create the ${loanName} category.`)
   }
@@ -29,7 +29,7 @@ async function ensureLoanCategory(createdBy, loanName) {
     }
   }
 
-  if (loanCategory) {
+  if (loanCategory && !reactivateInactive) {
     throw new Error(
       `A ${loanName} collection category already exists but is inactive. Reactivate it in Collection Categories to continue.`
     )
@@ -49,6 +49,28 @@ async function ensureLoanCategory(createdBy, loanName) {
     throw new Error(
       `Only an admin can create the default ${loanName} collection category.`
     )
+  }
+
+  if (loanCategory) {
+    const { data: reactivatedCategory, error: reactivateError } = await supabase
+      .from('collection_categories')
+      .update({ status: 'active' })
+      .eq('id', loanCategory.id)
+      .select('id, category_name, status')
+      .single()
+
+    if (reactivateError) {
+      throw reactivateError
+    }
+
+    return {
+      categories: [...categories.filter((category) => category.id !== loanCategory.id), reactivatedCategory]
+        .filter((category) => category.status === 'active')
+        .sort((left, right) =>
+          left.category_name.localeCompare(right.category_name)
+        ),
+      loanCategory: reactivatedCategory
+    }
   }
 
   const { data: createdCategory, error: createError } = await supabase
@@ -88,7 +110,7 @@ export async function ensureWeeklyLoanCategory(createdBy) {
 
 export async function ensureMonthlyLoanCategory(createdBy) {
   const { categories, loanCategory } =
-    await ensureLoanCategory(createdBy, 'Monthly Loan')
+    await ensureLoanCategory(createdBy, 'Monthly Loan', true)
 
   return {
     categories,
