@@ -64,6 +64,11 @@ function Monthly() {
   const [collectionCategoryId, setCollectionCategoryId] =
     useState('')
 
+  const selectedCategory = categories.find(
+    (category) =>
+      String(category.id) === String(collectionCategoryId)
+  )
+
   const [categoryLoading, setCategoryLoading] =
     useState(true)
 
@@ -427,13 +432,6 @@ function Monthly() {
     if (!monthValue) {
       return ''
     }
-
-    const selectedCategory =
-      categories.find(
-        (category) =>
-          String(category.id) ===
-          String(collectionCategoryId)
-      )
 
     const month =
       MONTHS.find(
