@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import { getAssignedFinanceTypes } from '../../services/agentAssignments'
 
 function AgentDashboard() {
   const navigate = useNavigate()
@@ -104,18 +105,7 @@ function AgentDashboard() {
         setErrorMessage(t('agentAssignmentsRefreshFailed'))
         setAssignedTypes([])
       } else {
-        const types = new Set()
-        ;(assignments || []).forEach((assignment) => {
-          const type = String(assignment.collection_type || '').trim().toLowerCase()
-          if (!type || type === 'all') {
-            types.add('daily')
-            types.add('weekly')
-            types.add('monthly')
-          } else if (['daily', 'weekly', 'monthly'].includes(type)) {
-            types.add(type)
-          }
-        })
-        setAssignedTypes([...types])
+        setAssignedTypes(getAssignedFinanceTypes(assignments))
         setLastRefreshed(new Date())
       }
     } catch (error) {
@@ -295,7 +285,7 @@ function AgentDashboard() {
             {t('chooseCollectionTypeToManage')}
           </p>
           <p role="status">
-            {t('assignedCollectionTypes')}: {assignedTypes.length ? assignedTypes.map((type) => t(({ daily: 'dailyLoan', weekly: 'weeklyLoan', monthly: 'monthlyLoan' })[type] || type)).join(', ') : t('none')}
+            {t('assignedCollectionTypes')}: {assignedTypes.length ? assignedTypes.map((type) => t(({ daily: 'dailyLoan', weekly: 'weeklyLoan', monthly: 'monthlyLoan', interest_only: 'interestOnlyLoan' })[type] || type)).join(', ') : t('none')}
           </p>
           {errorMessage && <p role="alert">{errorMessage}</p>}
           <button type="button" className="back-button" onClick={loadAgent}>
@@ -448,6 +438,7 @@ function AgentDashboard() {
             <p>
               {t('viewInterestOnlyAssignedCollections')}
             </p>
+            <small>{assignedLabel('interest_only')}</small>
 
           </button>
 
