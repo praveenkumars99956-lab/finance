@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
@@ -57,6 +57,20 @@ function Monthly() {
 
   const [collectionMonth, setCollectionMonth] =
     useState('')
+
+  const [categories, setCategories] =
+    useState([])
+
+  const [collectionCategoryId, setCollectionCategoryId] =
+    useState('')
+
+  const [categoryLoading, setCategoryLoading] =
+    useState(true)
+
+  const [categoryError, setCategoryError] =
+    useState(false)
+
+  const categorySelectRef = useRef(null)
 
   // =========================================
   // CALCULATED VALUES
@@ -136,6 +150,49 @@ function Monthly() {
 
     loadSettings()
   }, [])
+
+  // =========================================
+  // LOAD COLLECTION CATEGORIES
+  // =========================================
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      setCategoryLoading(true)
+
+      try {
+        const { data, error } = await supabase
+          .from('collection_categories')
+          .select('id, category_name, status')
+          .eq('status', 'active')
+          .order('category_name')
+
+        if (error) {
+          console.error('Collection category error:', error)
+          alert(
+            `${t(
+              'unableToLoadCollectionCategories',
+              'Unable to load Collection Categories'
+            )}: ${error.message}`
+          )
+          return
+        }
+
+        setCategories(data || [])
+      } catch (error) {
+        console.error('Collection category loading error:', error)
+        alert(
+          `${t(
+            'unableToLoadCollectionCategories',
+            'Unable to load Collection Categories'
+          )}: ${error.message}`
+        )
+      } finally {
+        setCategoryLoading(false)
+      }
+    }
+
+    loadCategories()
+  }, [t])
 
   // =========================================
   // AUTO SELECT COLLECTION MONTH
@@ -371,6 +428,13 @@ function Monthly() {
       return ''
     }
 
+    const selectedCategory =
+      categories.find(
+        (category) =>
+          String(category.id) ===
+          String(collectionCategoryId)
+      )
+
     const month =
       MONTHS.find(
         (item) =>
@@ -423,6 +487,16 @@ function Monthly() {
           )
         )
 
+        return
+      }
+
+      if (!collectionCategoryId) {
+        setCategoryError(true)
+        categorySelectRef.current?.focus()
+        categorySelectRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        })
         return
       }
 
@@ -573,6 +647,9 @@ function Monthly() {
                 Number(
                   customerId
                 ),
+
+              collection_category_id:
+                Number(collectionCategoryId),
 
               name:
                 customer
@@ -920,6 +997,140 @@ function Monthly() {
           saveMonthlyFinance
         }
       >
+
+        {/* =================================
+            COLLECTION CATEGORY
+        ================================== */}
+
+        <div className="daily-form-section">
+
+          <h2>
+            {t(
+              'collectionCategory',
+              'Collection Category'
+            )}
+          </h2>
+
+          <div className="daily-form-grid">
+
+            <div>
+              <label htmlFor="monthly-collection-category">
+                {t(
+                  'collectionCategory',
+                  'Collection Category'
+                )} *
+              </label>
+
+              <select
+                ref={categorySelectRef}
+                id="monthly-collection-category"
+                value={collectionCategoryId}
+                onChange={(event) => {
+                  setCollectionCategoryId(event.target.value)
+                  setCategoryError(false)
+                }}
+                disabled={categoryLoading}
+                aria-required="true"
+                aria-invalid={categoryError}
+                aria-describedby={
+                  categoryError
+                    ? 'monthly-collection-category-error'
+                    : undefined
+                }
+              >
+                <option value="">
+                  {categoryLoading
+                    ? t('loadingCategories', 'Loading Categories...')
+                    : t('selectCollectionCategory', 'Select Collection Category')}
+                </option>
+
+                {categories.map((category) => (
+                  <option
+                    key={category.id}
+                    value={category.id}
+                  >
+                    {category.category_name}
+                  </option>
+                ))}
+              </select>
+
+              {!categoryLoading && categories.length === 0 && (
+                <small
+                  id="monthly-collection-category-error"
+                  role="alert"
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    color: '#b42318'
+                  }}
+                >
+                  {t(
+                    'noActiveCollectionCategories',
+                    'No active collection categories are available. Add a category before creating this loan.'
+                  )}
+                </small>
+              )}
+
+              {!categoryLoading && categories.length === 0 && (
+                <button
+                  type="button"
+                  className="daily-category-action"
+                  onClick={() =>
+                    navigate('/categories', {
+                      state: {
+                        returnTo: '/monthly',
+                        returnState: location.state,
+                        returnLabelKey: 'backToMonthlyFinance'
+                      }
+                    })
+                  }
+                >
+                  {t(
+                    'manageCollectionCategories',
+                    'Manage Collection Categories'
+                  )}
+                </button>
+              )}
+
+              {categoryError && categories.length > 0 && (
+                <small
+                  id="monthly-collection-category-error"
+                  role="alert"
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    color: '#b42318'
+                  }}
+                >
+                  {t(
+                    'selectCollectionCategory',
+                    'Select Collection Category'
+                  )}
+                </small>
+              )}
+            </div>
+
+            <div>
+              <label>
+                {t(
+                  'selectedCategory',
+                  'Selected Category'
+                )}
+              </label>
+
+              <input
+                value={selectedCategory?.category_name || ''}
+                placeholder={t(
+                  'noCategorySelected',
+                  'No category selected'
+                )}
+                readOnly
+              />
+            </div>
+
+          </div>
+
+        </div>
 
         {/* =================================
             COLLECTION MONTH
@@ -1404,6 +1615,27 @@ function Monthly() {
                         'notSelected',
                         'Not Selected'
                       )
+                }
+              </strong>
+
+            </div>
+
+            <div>
+
+              <span>
+                {t(
+                  'collectionCategory',
+                  'Collection Category'
+                )}
+              </span>
+
+              <strong>
+                {
+                  selectedCategory?.category_name ||
+                  t(
+                    'notSelected',
+                    'Not Selected'
+                  )
                 }
               </strong>
 
