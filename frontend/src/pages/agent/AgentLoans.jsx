@@ -11,6 +11,7 @@ function AgentLoans() {
 
   const [agent, setAgent] = useState(null)
   const [records, setRecords] = useState([])
+  const [assignedCategories, setAssignedCategories] = useState([])
   const [loading, setLoading] = useState(true)
 
   const normalizeType = (value) => {
@@ -64,6 +65,7 @@ function AgentLoans() {
   const loadAgentLoans = async () => {
     setLoading(true)
     setRecords([])
+    setAssignedCategories([])
 
     try {
       // =========================================
@@ -222,7 +224,10 @@ function AgentLoans() {
           category_id,
           collection_type,
           agent_id,
-          status
+          status,
+          collection_categories (
+            category_name
+          )
         `)
         .eq(
           'agent_id',
@@ -253,6 +258,17 @@ function AgentLoans() {
           return !assignedType || assignedType === 'all' || assignedType === financeType
         })
       )
+
+      const categoriesById = new Map()
+      eligibleAssignments.forEach((assignment) => {
+        if (assignment.category_id) {
+          categoriesById.set(String(assignment.category_id), {
+            id: assignment.category_id,
+            name: assignment.collection_categories?.category_name || ''
+          })
+        }
+      })
+      setAssignedCategories([...categoriesById.values()])
 
       const categoryIds = [...new Set(eligibleAssignments
         .map(
@@ -429,6 +445,7 @@ function AgentLoans() {
 
         <button
           className="back-button"
+          type="button"
           onClick={() =>
             navigate('/agent')
           }
@@ -476,6 +493,27 @@ function AgentLoans() {
 
         </div>
 
+      </div>
+
+      <div className="daily-manage-section">
+        <div className="payment-history-heading">
+          <div>
+            <h2>{t('assignedCategoriesForLoanType', { loanType: getTitle() })}</h2>
+            <p>
+              {assignedCategories.length
+                ? assignedCategories.map((category) => category.name || `${t('collectionCategory')} #${category.id}`).join(', ')
+                : t('noVisibleAgentAssignment', { loanType: getTitle() })}
+            </p>
+          </div>
+          <button
+            type="button"
+            className="back-button"
+            onClick={loadAgentLoans}
+            disabled={loading}
+          >
+            {loading ? t('loadingAgentCollections', { loanType: getTitle() }) : t('refreshAssignments')}
+          </button>
+        </div>
       </div>
 
       {/* SUMMARY */}
@@ -534,7 +572,9 @@ function AgentLoans() {
           records.length === 0
             ? (
               <div className="no-payment-history">
-                {t('noAssignedCollections', { loanType: getTitle() })}
+                {assignedCategories.length
+                  ? t('noActiveLoansInAssignedCategories', { loanType: getTitle() })
+                  : t('noAssignedCollections', { loanType: getTitle() })}
               </div>
             )
             : (
