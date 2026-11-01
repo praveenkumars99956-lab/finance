@@ -1,0 +1,9 @@
+Copy the src folder from this package into E:\Finance-app\frontend. Merge folders and replace the seven matching files when prompted.
+
+This places CollectionEvidence.jsx inside src\components, connects five payment/collection pages, and fixes the four loan-detail routes in App.jsx.
+
+The old src\pages\CollectionEvidence.jsx is not used. It can remain there.
+
+Refresh the browser. Admin: Customers > customer > loan > GPS and proof photo. Agent: assigned collection > GPS/photo.
+
+No database changes are included. Admin evidence requires a nullable agent_id and appropriate existing table/storage policies. If payment succeeds but evidence fails, use Retry evidence only; do not repeat payment.
