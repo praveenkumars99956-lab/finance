@@ -37,6 +37,8 @@ function AgentDashboard() {
     controllerRef.current = controller
     setLoading(true)
     setAgent(null)
+    setAssignedTypes([])
+    setLastRefreshed(null)
     setErrorMessage('')
     const setStep = (message) => {
       if (version !== requestVersion.current) return
@@ -100,6 +102,7 @@ function AgentDashboard() {
         .select('id, category_id, collection_type, status')
         .eq('agent_id', agentData.id)
         .eq('status', 'active')
+        .abortSignal(controller.signal)
       if (assignmentError) {
         console.error('AGENT ASSIGNMENTS ERROR:', assignmentError)
         setErrorMessage(t('agentAssignmentsRefreshFailed'))
@@ -118,6 +121,68 @@ function AgentDashboard() {
     }
   }
 
+  useEffect(() => {
+    if (!agent?.id) return undefined
+
+    let active = true
+    let assignmentController = null
+
+    const refreshAssignments = async () => {
+      if (assignmentController) return
+
+      const requestController = new AbortController()
+      assignmentController = requestController
+
+      try {
+        const { data: assignments, error } = await supabase
+          .from('category_agent_assignments')
+          .select('id, category_id, collection_type, status')
+          .eq('agent_id', agent.id)
+          .eq('status', 'active')
+          .abortSignal(requestController.signal)
+
+        if (!active || requestController.signal.aborted) return
+
+        if (error) {
+          console.error('AGENT ASSIGNMENTS ERROR:', error)
+          setErrorMessage(t('agentAssignmentsRefreshFailed'))
+          return
+        }
+
+        setAssignedTypes(getAssignedFinanceTypes(assignments))
+        setLastRefreshed(new Date())
+        setErrorMessage('')
+      } catch (error) {
+        if (!active || requestController.signal.aborted) return
+        console.error('AGENT ASSIGNMENTS ERROR:', error)
+        setErrorMessage(t('agentAssignmentsRefreshFailed'))
+      } finally {
+        if (assignmentController === requestController) {
+          assignmentController = null
+        }
+      }
+    }
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') {
+        refreshAssignments()
+      }
+    }
+
+    refreshAssignments()
+    const intervalId = window.setInterval(refreshWhenVisible, 15000)
+    window.addEventListener('focus', refreshWhenVisible)
+    document.addEventListener('visibilitychange', refreshWhenVisible)
+
+    return () => {
+      active = false
+      assignmentController?.abort()
+      window.clearInterval(intervalId)
+      window.removeEventListener('focus', refreshWhenVisible)
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
+    }
+  }, [agent?.id, t])
+
   const cancelLoading = () => {
     requestVersion.current += 1
     controllerRef.current?.abort()
@@ -131,7 +196,7 @@ function AgentDashboard() {
 
   const handleLogout = async () => {
     try {
-      const { error } = await supabase.auth.signOut()
+      const { error } = await supabase.auth.signOut({ scope: 'local' })
       if (error) throw error
       requestVersion.current += 1
       setAgent(null)

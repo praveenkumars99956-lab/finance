@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
 import {
+  ensureInterestOnlyLoanCategory,
   ensureMonthlyLoanCategory,
   ensureWeeklyLoanCategory
 } from '../../services/collectionCategories'
@@ -71,19 +72,23 @@ function AgentAssignments() {
         return
       }
 
-      const { categories: weeklyCategories } =
-        await ensureWeeklyLoanCategory(user.id)
-      const { categories: activeCategories } =
-        await ensureMonthlyLoanCategory(user.id)
+      await Promise.all([
+        ensureWeeklyLoanCategory(user.id),
+        ensureMonthlyLoanCategory(user.id),
+        ensureInterestOnlyLoanCategory(user.id)
+      ])
 
-      const categoriesById = new Map(
-        [...weeklyCategories, ...activeCategories].map((category) => [
-          String(category.id),
-          category
-        ])
-      )
+      const { data, error } = await supabase
+        .from('collection_categories')
+        .select('id, category_name, status')
+        .eq('status', 'active')
+        .order('category_name')
 
-      setCategories([...categoriesById.values()])
+      if (error) {
+        throw error
+      }
+
+      setCategories(data || [])
     } catch (error) {
       console.error(error)
       alert(
@@ -101,7 +106,7 @@ function AgentAssignments() {
   const loadAgents = async () => {
     const { data, error } = await supabase
       .from('agents')
-      .select('id, agent_id, full_name, status')
+      .select('id, agent_id, full_name, status, auth_user_id')
       .order('full_name')
 
     if (error) {
@@ -133,7 +138,9 @@ function AgentAssignments() {
         ),
         agents (
           agent_id,
-          full_name
+          full_name,
+          auth_user_id,
+          status
         )
       `)
       .order('created_at', {
@@ -186,9 +193,85 @@ function AgentAssignments() {
       return
     }
 
+    const selectedAgent = agents.find(
+      (agent) => String(agent.id) === String(agentId)
+    )
+
+    if (!selectedAgent) {
+      alert(t('selectAgent'))
+      return
+    }
+
+    if (!selectedAgent.auth_user_id && (!editingId || status === 'active')) {
+      alert(t('agentAssignmentLoginRequired'))
+      return
+    }
+
+    if (selectedAgent.status !== 'active' && status === 'active') {
+      alert(t('agentAssignmentActiveRequired'))
+      return
+    }
+
     if (!assignedDate) {
       alert(t('selectAssignedDate'))
       return
+    }
+
+    const { data: activeCategoryLoans, error: categoryLoansError } =
+      await supabase
+        .from('finance_records')
+        .select('finance_type')
+        .eq('collection_category_id', Number(categoryId))
+        .eq('loan_status', 'active')
+        .gt('pending', 0)
+
+    if (categoryLoansError) {
+      console.error(categoryLoansError)
+      alert(
+        t('assignmentCategoryLoansCheckFailed', {
+          message: categoryLoansError.message
+        })
+      )
+      return
+    }
+
+    const normalizeFinanceType = (value) => {
+      const normalized = String(value || '').trim().toLowerCase()
+      return normalized === 'interest-only' || normalized === 'interestonly'
+        ? 'interest_only'
+        : normalized
+    }
+    const activeFinanceTypes = [
+      ...new Set((activeCategoryLoans || []).map((loan) =>
+        normalizeFinanceType(loan.finance_type)
+      ))
+    ].filter(Boolean)
+
+    if (
+      collectionType !== 'all' &&
+      activeFinanceTypes.length > 0 &&
+      !activeFinanceTypes.includes(collectionType)
+    ) {
+      const selectedCategory = categories.find(
+        (category) => String(category.id) === String(categoryId)
+      )
+      const typeNames = {
+        daily: t('dailyLoan'),
+        weekly: t('weeklyLoan'),
+        monthly: t('monthlyLoan'),
+        interest_only: t('interestOnlyLoan')
+      }
+      const existingTypeNames = activeFinanceTypes
+        .map((type) => typeNames[type] || type)
+        .join(', ')
+
+      if (!window.confirm(t('agentAssignmentTypeMismatch', {
+        category: selectedCategory?.category_name || t('collectionCategory'),
+        selectedType: typeNames[collectionType] || collectionType,
+        existingTypes: existingTypeNames
+      }))) {
+        return
+      }
     }
 
     const {
@@ -458,8 +541,21 @@ function AgentAssignments() {
   const activeAgents =
     agents.filter(
       (item) =>
-        item.status === 'active'
+        item.status === 'active' &&
+        Boolean(item.auth_user_id)
     )
+
+  const activeAssignmentsWithUnavailableAgent = assignments.filter(
+    (assignment) =>
+      assignment.status === 'active' &&
+      (
+        !assignment.agents?.auth_user_id ||
+        assignment.agents?.status !== 'active'
+      )
+  ).length
+  const currentAssignmentAgent = editingId
+    ? agents.find((agent) => String(agent.id) === String(agentId))
+    : null
 
   const formatAssignedDate = (value) => {
     if (!value) return '-'
@@ -544,6 +640,14 @@ function AgentAssignments() {
         </div>
 
       </div>
+
+      {activeAssignmentsWithUnavailableAgent > 0 && (
+        <p role="alert">
+          {t('activeAssignmentsWithUnavailableAgents', {
+            count: activeAssignmentsWithUnavailableAgent
+          })}
+        </p>
+      )}
 
       {/* ADD / EDIT */}
 
@@ -640,6 +744,17 @@ function AgentAssignments() {
                   </option>
                 )
               )}
+
+              {currentAssignmentAgent &&
+                !activeAgents.includes(currentAssignmentAgent) && (
+                  <option value={currentAssignmentAgent.id}>
+                    {currentAssignmentAgent.agent_id} - {currentAssignmentAgent.full_name} (
+                    {currentAssignmentAgent.auth_user_id
+                      ? t('agentAccountInactive')
+                      : t('agentAssignmentLoginRequired')}
+                    )
+                  </option>
+                )}
 
             </select>
           </div>

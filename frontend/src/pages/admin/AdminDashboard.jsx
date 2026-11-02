@@ -11,7 +11,7 @@ function AdminDashboard() {
   // =========================================
 
   const logout = async () => {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     navigate('/')
   }
 
@@ -45,19 +45,24 @@ function AdminDashboard() {
           WELCOME SECTION
       ====================================== */}
 
-      <div className="admin-welcome">
+      <button
+        type="button"
+        className="admin-welcome admin-finance-card"
+        onClick={() => navigate('/loans')}
+        aria-label={`${t('financeLoans')}: ${t('financeLoansDescription')}`}
+      >
+        <span className="admin-finance-icon" aria-hidden="true">₹</span>
 
-        <div>
-          <p>{t('adminPanel')}</p>
-
-          <h2>{t('dashboard')}</h2>
-
-          <span>
-            {t('adminDashboardDescription')}
+        <span className="admin-finance-copy">
+          <span className="admin-finance-eyebrow">{t('adminPanel')}</span>
+          <span className="admin-finance-title">{t('financeLoans')}</span>
+          <span className="admin-finance-description">
+            {t('financeLoansDescription')}
           </span>
-        </div>
+        </span>
 
-      </div>
+        <span className="admin-finance-arrow" aria-hidden="true">→</span>
+      </button>
 
       {/* =====================================
           MANAGEMENT MODULES
@@ -68,6 +73,29 @@ function AdminDashboard() {
       </h2>
 
       <div className="finance-module-grid">
+
+        {/* FINANCE / LOANS */}
+
+        <button
+          className="finance-module-card"
+          onClick={() =>
+            navigate('/loans')
+          }
+        >
+          <span className="finance-icon">
+            ₹
+          </span>
+
+          <div>
+            <h3>
+              {t('financeLoans')}
+            </h3>
+
+            <p>
+              {t('financeLoansDescription')}
+            </p>
+          </div>
+        </button>
 
         {/* SECURITY AUDIT LOGS */}
 
@@ -111,29 +139,6 @@ function AdminDashboard() {
 
             <p>
               {t('customersDescription')}
-            </p>
-          </div>
-        </button>
-
-        {/* FINANCE / LOANS */}
-
-        <button
-          className="finance-module-card"
-          onClick={() =>
-            navigate('/loans')
-          }
-        >
-          <span className="finance-icon">
-            ₹
-          </span>
-
-          <div>
-            <h3>
-              {t('financeLoans')}
-            </h3>
-
-            <p>
-              {t('financeLoansDescription')}
             </p>
           </div>
         </button>

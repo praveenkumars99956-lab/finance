@@ -17,38 +17,15 @@ function LanguageSelector() {
   }
 
   return (
-    <div
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px'
-      }}
-    >
-      <span
-        aria-hidden="true"
-        style={{
-          fontSize: '18px'
-        }}
-      >
-        🌐
-      </span>
-
+    <label className="language-selector">
+      <span aria-hidden="true">🌐</span>
       <select
         value={currentLanguage}
         onChange={changeLanguage}
         aria-label={t('language')}
-        style={{
-          padding: '9px 12px',
-          borderRadius: '8px',
-          border: '1px solid #d7dfeb',
-          background: '#ffffff',
-          cursor: 'pointer',
-          fontWeight: '600',
-          outline: 'none'
-        }}
       >
         <option value="en">
-          English
+          English (US)
         </option>
 
         <option value="ta">
@@ -63,7 +40,7 @@ function LanguageSelector() {
           മലയാളം
         </option>
       </select>
-    </div>
+    </label>
   )
 }
 

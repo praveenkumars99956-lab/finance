@@ -21,6 +21,8 @@ import Navbar from './components/Navbar'
 
 import Login from './pages/auth/Login'
 import AdminCreate from './pages/auth/AdminCreate'
+import ForgotPassword from './pages/auth/ForgotPassword'
+import ResetPassword from './pages/auth/ResetPassword'
 
 // =========================================
 // CLIENT
@@ -102,7 +104,7 @@ function AuthBoundary({
     checking,
     setChecking
   ] = useState(
-    !['/', '/admin/create'].includes(location.pathname)
+    !['/', '/admin/create', '/forgot-password', '/reset-password'].includes(location.pathname)
   )
 
   useEffect(() => {
@@ -110,7 +112,7 @@ function AuthBoundary({
     // LOGIN PAGE
     // =====================================
 
-    if (['/', '/admin/create'].includes(location.pathname)) {
+    if (['/', '/admin/create', '/forgot-password', '/reset-password'].includes(location.pathname)) {
       setChecking(false)
 
       return
@@ -404,6 +406,20 @@ function App() {
             path="/admin/create"
             element={
               <AdminCreate />
+            }
+          />
+
+          <Route
+            path="/forgot-password"
+            element={
+              <ForgotPassword />
+            }
+          />
+
+          <Route
+            path="/reset-password"
+            element={
+              <ResetPassword />
             }
           />
 

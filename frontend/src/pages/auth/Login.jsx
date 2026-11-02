@@ -66,7 +66,7 @@ function Login() {
       const user = loginData?.user
 
       if (!user?.id) {
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
 
         setErrorMessage(
           'unableIdentifyUser'
@@ -98,7 +98,7 @@ function Login() {
           profileError
         )
 
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
 
         setErrorMessage(
           'userProfileNotFound'
@@ -108,7 +108,7 @@ function Login() {
       }
 
       if (!profile) {
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
 
         setErrorMessage(
           'userProfileNotFound'
@@ -181,7 +181,7 @@ function Login() {
             agentError
           )
 
-          await supabase.auth.signOut()
+          await supabase.auth.signOut({ scope: 'local' })
 
           setErrorMessage(
             'agentAccountNotLinked'
@@ -191,7 +191,7 @@ function Login() {
         }
 
         if (!agent) {
-          await supabase.auth.signOut()
+          await supabase.auth.signOut({ scope: 'local' })
 
           setErrorMessage(
             'agentAccountNotFound'
@@ -205,7 +205,7 @@ function Login() {
             .trim()
             .toLowerCase() !== 'active'
         ) {
-          await supabase.auth.signOut()
+          await supabase.auth.signOut({ scope: 'local' })
 
           setErrorMessage(
             'agentAccountInactive'
@@ -243,7 +243,7 @@ function Login() {
       // UNKNOWN ROLE
       // =========================================
 
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })
 
       setErrorMessage(
         'invalidFinanceRole'
@@ -254,7 +254,7 @@ function Login() {
         error
       )
 
-      await supabase.auth.signOut()
+      await supabase.auth.signOut({ scope: 'local' })
 
       setErrorMessage(
         error instanceof Error
@@ -272,6 +272,11 @@ function Login() {
       <div className="login-card">
 
         <div className="login-brand">
+          <span className="login-brand-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M5 20V5.8c0-.45.35-.8.8-.8h12.4c.45 0 .8.35.8.8V20M3 20h18M9 9h2m2 0h2m-6 4h2m2 0h2m-6 7v-3h4v3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
           <h1>
             {t('appName')}
           </h1>
@@ -281,52 +286,34 @@ function Login() {
           </p>
         </div>
 
-        <div role="group" aria-label={t('loginType')} style={{ display: 'flex', gap: '10px', marginBottom: '16px' }}>
+        <div role="group" aria-label={t('loginType')} className="login-role-switch">
           {['admin', 'agent'].map((role) => (
-            <div key={role} style={{ flex: 1, minWidth: 0 }}>
+            <div key={role} className="login-role-option">
               <button
                 type="button"
+                className="login-role-button"
                 disabled={loading}
                 aria-pressed={selectedRole === role}
                 onClick={() => { setSelectedRole(role); setErrorMessage(''); setPassword('') }}
-                style={{
-                  padding: '12px', borderRadius: '10px',
-                  border: '1px solid #1767d9', fontWeight: 700,
-                  background: selectedRole === role ? '#1767d9' : '#ffffff',
-                  color: selectedRole === role ? '#ffffff' : '#17477b',
-                  cursor: loading ? 'wait' : 'pointer'
-                }}
               >
                 {t(role)}
               </button>
-              {role === 'admin' && (
-                <button
-                  type="button"
-                  disabled={loading}
-                  onClick={() => navigate('/admin/create')}
-                  style={{
-                    width: 'auto',
-                    display: 'block',
-                    margin: '3px auto 0',
-                    padding: '2px 6px',
-                    border: 0,
-                    borderRadius: 4,
-                    background: 'transparent',
-                    color: '#52657a',
-                    fontSize: 12,
-                    fontWeight: 500,
-                    cursor: loading ? 'wait' : 'pointer'
-                  }}
-                >
-                  {t('adminCreate')}
-                </button>
-              )}
             </div>
           ))}
         </div>
-        <p style={{ textAlign: 'center', margin: '0 0 18px', color: '#52657a' }}>
-          {t('signInToDashboard', { role: t(selectedRole) })}
-        </p>
+        <div className="login-meta">
+          <button
+            type="button"
+            className="admin-create-link"
+            disabled={loading}
+            onClick={() => navigate('/admin/create')}
+          >
+            {t('adminCreate')}
+          </button>
+          <p className="login-context">
+            {t('signInToDashboard', { role: t(selectedRole) })}
+          </p>
+        </div>
 
         <form
           onSubmit={handleLogin}
@@ -334,11 +321,12 @@ function Login() {
         >
 
           <div className="form-group">
-            <label>
+            <label htmlFor="login-email">
               {t('email')}
             </label>
 
             <input
+              id="login-email"
               disabled={loading}
               type="email"
               value={email}
@@ -354,11 +342,22 @@ function Login() {
           </div>
 
           <div className="form-group">
-            <label>
-              {t('password')}
-            </label>
+            <div className="login-password-label">
+              <label htmlFor="login-password">
+                {t('password')}
+              </label>
+              <button
+                type="button"
+                className="forgot-password-link"
+                disabled={loading}
+                onClick={() => navigate('/forgot-password', { state: { email } })}
+              >
+                {t('forgotPassword')}
+              </button>
+            </div>
 
             <input
+              id="login-password"
               disabled={loading}
               type="password"
               value={password}
@@ -403,13 +402,21 @@ function Login() {
           </button>
 
         </form>
-        <button type="button" disabled={loading}
-          onClick={() => { setSelectedRole('client'); setErrorMessage(''); setPassword('') }}
-          style={{ display: 'block', margin: '16px auto 0', border: 0, background: 'transparent', color: '#52657a', cursor: 'pointer', textDecoration: 'underline' }}>
-          {t('clientLogin')}
-        </button>
+        <div className="client-login-prompt">
+          <button type="button" disabled={loading}
+            onClick={() => { setSelectedRole('client'); setErrorMessage(''); setPassword('') }}
+            className="client-login-link">
+            {t('clientLogin')}
+          </button>
+        </div>
 
       </div>
+
+      <footer className="login-footer">
+        <span>{t('collectionManagementSystem')}</span>
+        <span className="login-footer-divider" aria-hidden="true" />
+        <span>{t('financeManagementSystem')}</span>
+      </footer>
 
     </div>
   )

@@ -69,7 +69,7 @@ function AgentCustomers() {
           t('unableVerifyAgentLogin')
         )
 
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
         navigate('/')
         return
       }
@@ -86,7 +86,7 @@ function AgentCustomers() {
         } else if (role === 'client') {
           navigate('/client')
         } else {
-          await supabase.auth.signOut()
+          await supabase.auth.signOut({ scope: 'local' })
           navigate('/')
         }
 
@@ -148,7 +148,7 @@ function AgentCustomers() {
           t('agentAccountInactive')
         )
 
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
         navigate('/')
         return
       }

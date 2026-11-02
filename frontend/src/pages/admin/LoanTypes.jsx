@@ -7,7 +7,7 @@ function LoanTypes() {
   const { t } = useTranslation()
 
   const logout = async () => {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     navigate('/')
   }
 

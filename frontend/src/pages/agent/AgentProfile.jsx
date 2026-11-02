@@ -54,7 +54,7 @@ function AgentProfile() {
         } else if (role === 'client') {
           navigate('/client')
         } else {
-          await supabase.auth.signOut()
+          await supabase.auth.signOut({ scope: 'local' })
           navigate('/')
         }
 
@@ -101,7 +101,7 @@ function AgentProfile() {
   }
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await supabase.auth.signOut({ scope: 'local' })
     navigate('/')
   }
 

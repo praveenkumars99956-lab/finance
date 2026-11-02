@@ -6,37 +6,17 @@ import LanguageSelector from './LanguageSelector'
 function Navbar() {
   const location = useLocation()
   const { t } = useTranslation()
+  const isAuthPage = ['/', '/admin/create', '/forgot-password', '/reset-password'].includes(location.pathname)
 
   return (
-    <header
-      className="app-header"
-      style={{
-        width: '100%',
-        minHeight: '64px',
-        background: '#ffffff',
-        borderBottom: '1px solid #e5e7eb',
-        padding: '10px 24px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '15px',
-        boxSizing: 'border-box',
-        position: 'relative',
-        zIndex: 100
-      }}
-    >
-      <div>
-        <strong
-          style={{
-            fontSize: '20px',
-            color: '#0b3b78',
-            letterSpacing: '0.5px'
-          }}
-        >
-          {t('appName')}
-        </strong>
+    <header className={`app-header${isAuthPage ? ' app-header--auth' : ''}`}>
+      <div className="app-brand">
+        <span className="app-brand-mark" aria-hidden="true">✦</span>
+        <span className="app-brand-copy">
+          <strong>{t('appName')}</strong>
+          <span>Enterprise Suite</span>
+        </span>
       </div>
-
       <LanguageSelector />
     </header>
   )

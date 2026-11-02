@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 
 import { supabase } from '../../services/supabase'
 import CalendarDatePicker from '../../components/CalendarDatePicker'
+import { ensureInterestOnlyLoanCategory } from '../../services/collectionCategories'
+import { generateCustomerId } from '../../utils/customerId'
 
 function InterestOnly() {
   const navigate = useNavigate()
@@ -15,11 +17,16 @@ function InterestOnly() {
   // =========================================
 
   const customer = location.state?.customer || null
-
+  const [createdCustomer, setCreatedCustomer] = useState(null)
+  const activeCustomer = customer || createdCustomer
   const customerId =
     location.state?.customerId ||
-    customer?.id ||
+    activeCustomer?.id ||
     null
+  const [newCustomerId, setNewCustomerId] = useState(generateCustomerId)
+  const [newCustomerName, setNewCustomerName] = useState('')
+  const [newCustomerPhone, setNewCustomerPhone] = useState('')
+  const [newCustomerAddress, setNewCustomerAddress] = useState('')
 
   // =========================================
   // FINANCE DETAILS
@@ -112,7 +119,7 @@ function InterestOnly() {
   }, [])
 
   // =========================================
-  // LOAD INTEREST-ONLY CATEGORY
+  // ENSURE INTEREST-ONLY CATEGORY
   // =========================================
 
   useEffect(() => {
@@ -121,42 +128,23 @@ function InterestOnly() {
         setCategoryLoading(true)
 
         const {
-          data,
-          error
-        } = await supabase
-          .from('collection_categories')
-          .select('id')
-          .eq(
-            'category_name',
-            'Interest-Only Collection'
-          )
-          .eq(
-            'status',
-            'active'
-          )
-          .maybeSingle()
+          data: { user },
+          error: userError
+        } = await supabase.auth.getUser()
 
-        if (error) {
-          console.error(
-            'CATEGORY LOAD ERROR:',
-            error
-          )
-
-          setCategoryError(t('categoryLoadFailed', { message: error.message }))
-
-          return
+        if (userError) {
+          throw userError
         }
 
-        if (!data?.id) {
-          setCategoryError(
-            t('interestOnlyCategoryMissing')
-          )
-
-          return
+        if (!user) {
+          throw new Error(t('pleaseLoginAgain'))
         }
+
+        const { interestOnlyCategory } =
+          await ensureInterestOnlyLoanCategory(user.id)
 
         setCollectionCategoryId(
-          String(data.id)
+          String(interestOnlyCategory.id)
         )
 
         setCategoryError('')
@@ -168,7 +156,7 @@ function InterestOnly() {
 
         setCategoryError(
           t('unableLoadInterestOnlyCategory', {
-            message: error?.message || ''
+            message: error?.message || String(error)
           })
         )
       } finally {
@@ -278,6 +266,7 @@ function InterestOnly() {
 
   const saveInterestOnly = async (e) => {
     e.preventDefault()
+    if (saving) return
 
     const p =
       Number(principal)
@@ -297,9 +286,12 @@ function InterestOnly() {
     // CUSTOMER CHECK
     // =====================================
 
-    if (!customerId) {
+    if (!customerId && !newCustomerName.trim()) {
       alert(
-        t('interestOnlyCustomerMissing')
+        t(
+          'dailyCustomerNameRequired',
+          'Enter the customer name to create an Interest-Only Finance account.'
+        )
       )
 
       return
@@ -421,6 +413,57 @@ function InterestOnly() {
     try {
       setSaving(true)
 
+      let financeCustomer = activeCustomer
+      let financeCustomerDbId = customerId
+
+      if (!financeCustomer && !financeCustomerDbId) {
+        let customerInsertResult = null
+
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          const candidateCustomerId =
+            attempt === 0
+              ? newCustomerId
+              : generateCustomerId()
+
+          const result = await supabase
+            .from('customers')
+            .insert({
+              customer_id: candidateCustomerId,
+              full_name: newCustomerName.trim(),
+              phone: newCustomerPhone.trim(),
+              address: newCustomerAddress.trim(),
+              status: 'active',
+              created_by: user.id,
+              updated_at: new Date().toISOString()
+            })
+            .select('id, customer_id, full_name, phone, address, status')
+            .single()
+
+          if (!result.error) {
+            customerInsertResult = result
+            break
+          }
+
+          if (result.error.code !== '23505') {
+            throw result.error
+          }
+        }
+
+        if (!customerInsertResult?.data) {
+          throw new Error(
+            t(
+              'customerIdGenerationFailed',
+              'Unable to generate a unique customer ID. Please try again.'
+            )
+          )
+        }
+
+        financeCustomer = customerInsertResult.data
+        financeCustomerDbId = customerInsertResult.data.id
+        setCreatedCustomer(customerInsertResult.data)
+        setNewCustomerId(customerInsertResult.data.customer_id)
+      }
+
       // =====================================
       // SAVE TO FINANCE_RECORDS
       // =====================================
@@ -436,7 +479,7 @@ function InterestOnly() {
 
           // CUSTOMER
           customer_id:
-            Number(customerId),
+            Number(financeCustomerDbId),
 
           // CATEGORY
           collection_category_id:
@@ -446,8 +489,7 @@ function InterestOnly() {
 
           // CUSTOMER NAME
           name:
-            customer?.full_name ||
-            'Customer',
+            financeCustomer?.full_name || 'Customer',
 
           // FINANCE TYPE
           finance_type:
@@ -575,7 +617,7 @@ function InterestOnly() {
       )
 
       navigate(
-        `/customers/${customerId}`
+        `/customers/${financeCustomerDbId}`
       )
     } catch (error) {
       console.error(
@@ -713,11 +755,14 @@ function InterestOnly() {
         </h1>
 
         <span>
-          {t('createInterestOnlyFinance')}
+          {activeCustomer
+            ? t('createInterestOnlyFinance')
+            : t('newCustomerForDailyFinance', 'Enter new customer details')}
         </span>
 
       </div>
 
+      <form onSubmit={saveInterestOnly}>
       {/* =====================================
           CUSTOMER
           ===================================== */}
@@ -736,12 +781,16 @@ function InterestOnly() {
               {t('customerName')}
             </span>
 
-            <strong>
-              {
-                customer?.full_name ||
-                t('notSelected')
-              }
-            </strong>
+            {activeCustomer ? (
+              <strong>{activeCustomer.full_name}</strong>
+            ) : (
+              <input
+                value={newCustomerName}
+                onChange={(event) => setNewCustomerName(event.target.value)}
+                autoComplete="name"
+                required
+              />
+            )}
 
           </div>
 
@@ -751,14 +800,36 @@ function InterestOnly() {
               {t('customerId')}
             </span>
 
-            <strong>
-              {
-                customer?.customer_id ||
-                '-'
-              }
-            </strong>
+            {activeCustomer ? (
+              <strong>{activeCustomer.customer_id || '-'}</strong>
+            ) : (
+              <input value={newCustomerId} readOnly />
+            )}
 
           </div>
+
+          {!activeCustomer && (
+            <>
+              <div>
+                <span>{t('phoneNumber', 'Phone Number')}</span>
+                <input
+                  type="tel"
+                  value={newCustomerPhone}
+                  onChange={(event) => setNewCustomerPhone(event.target.value)}
+                  autoComplete="tel"
+                />
+              </div>
+
+              <div>
+                <span>{t('address', 'Address')}</span>
+                <textarea
+                  rows="3"
+                  value={newCustomerAddress}
+                  onChange={(event) => setNewCustomerAddress(event.target.value)}
+                />
+              </div>
+            </>
+          )}
 
         </div>
 
@@ -767,10 +838,6 @@ function InterestOnly() {
       {/* =====================================
           FORM
           ===================================== */}
-
-      <form
-        onSubmit={saveInterestOnly}
-      >
 
         {/* CATEGORY ERROR */}
 

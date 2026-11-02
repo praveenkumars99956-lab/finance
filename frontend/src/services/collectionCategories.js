@@ -117,3 +117,12 @@ export async function ensureMonthlyLoanCategory(createdBy) {
     monthlyCategory: loanCategory
   }
 }
+
+export async function ensureInterestOnlyLoanCategory(createdBy) {
+  const { loanCategory } =
+    await ensureLoanCategory(createdBy, 'Interest-Only Collection', true)
+
+  return {
+    interestOnlyCategory: loanCategory
+  }
+}

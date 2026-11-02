@@ -183,7 +183,7 @@ function Agents() {
           t('adminLoginSessionNotFound')
         )
 
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
 
         navigate('/')
 
@@ -198,7 +198,7 @@ function Agents() {
           t('loginTokenNotFound')
         )
 
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'local' })
 
         navigate('/')
 
