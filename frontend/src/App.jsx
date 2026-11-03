@@ -1,4 +1,6 @@
 import {
+  lazy,
+  Suspense,
   useEffect,
   useState
 } from 'react'
@@ -14,78 +16,49 @@ import {
 import { supabase } from './services/supabase'
 
 import Navbar from './components/Navbar'
+import AdminLayout from './components/AdminLayout'
 
-// =========================================
-// LOGIN
-// =========================================
+const Login = lazy(() => import('./pages/auth/Login'))
+const AdminCreate = lazy(() => import('./pages/auth/AdminCreate'))
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
 
-import Login from './pages/auth/Login'
-import AdminCreate from './pages/auth/AdminCreate'
-import ForgotPassword from './pages/auth/ForgotPassword'
-import ResetPassword from './pages/auth/ResetPassword'
+const ClientDashboard = lazy(() => import('./pages/client/ClientDashboard'))
+const Weekly = lazy(() => import('./pages/client/Weekly'))
+const Monthly = lazy(() => import('./pages/client/Monthly'))
 
-// =========================================
-// CLIENT
-// =========================================
+const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
+const Customers = lazy(() => import('./pages/admin/Customers'))
+const CustomerProfile = lazy(() => import('./pages/admin/CustomerProfile'))
+const CustomerFinance = lazy(() => import('./pages/admin/CustomerFinance'))
+const Daily = lazy(() => import('./pages/admin/Daily'))
+const DailyManage = lazy(() => import('./pages/admin/DailyManage'))
+const WeeklyManage = lazy(() => import('./pages/admin/WeeklyManage'))
+const MonthlyManage = lazy(() => import('./pages/admin/MonthlyManage'))
+const InterestOnly = lazy(() => import('./pages/admin/InterestOnly'))
+const InterestOnlyManage = lazy(() => import('./pages/admin/InterestOnlyManage'))
+const LoanTypes = lazy(() => import('./pages/admin/LoanTypes'))
+const Agents = lazy(() => import('./pages/admin/Agents'))
+const AgentAssignments = lazy(() => import('./pages/admin/AgentAssignments'))
+const CollectionCategories = lazy(() => import('./pages/admin/CollectionCategories'))
+const Collections = lazy(() => import('./pages/admin/Collections'))
+const Payments = lazy(() => import('./pages/admin/Payments'))
+const Pending = lazy(() => import('./pages/admin/Pending'))
+const Reports = lazy(() => import('./pages/admin/Reports'))
+const CollectionReport = lazy(() => import('./pages/admin/CollectionReport'))
+const AgentSettlement = lazy(() => import('./pages/admin/AgentSettlement'))
+const Settings = lazy(() => import('./pages/admin/Settings'))
+const AuditLogs = lazy(() => import('./pages/admin/AuditLogs'))
 
-import ClientDashboard from './pages/client/ClientDashboard'
-import Weekly from './pages/client/Weekly'
-import Monthly from './pages/client/Monthly'
-
-// =========================================
-// ADMIN
-// =========================================
-
-import AdminDashboard from './pages/admin/AdminDashboard'
-
-import Customers from './pages/admin/Customers'
-import CustomerProfile from './pages/admin/CustomerProfile'
-import CustomerFinance from './pages/admin/CustomerFinance'
-
-import Daily from './pages/admin/Daily'
-import DailyManage from './pages/admin/DailyManage'
-
-import WeeklyManage from './pages/admin/WeeklyManage'
-import MonthlyManage from './pages/admin/MonthlyManage'
-
-import InterestOnly from './pages/admin/InterestOnly'
-import InterestOnlyManage from './pages/admin/InterestOnlyManage'
-
-import LoanTypes from './pages/admin/LoanTypes'
-
-import Agents from './pages/admin/Agents'
-import AgentAssignments from './pages/admin/AgentAssignments'
-
-import CollectionCategories from './pages/admin/CollectionCategories'
-import Collections from './pages/admin/Collections'
-
-import Payments from './pages/admin/Payments'
-import Pending from './pages/admin/Pending'
-
-import Reports from './pages/admin/Reports'
-import CollectionReport from './pages/admin/CollectionReport'
-
-import AgentSettlement from './pages/admin/AgentSettlement'
-
-import Settings from './pages/admin/Settings'
-import AuditLogs from './pages/admin/AuditLogs'
-
-// =========================================
-// AGENT
-// =========================================
-
-import AgentDashboard from './pages/agent/AgentDashboard'
-import AgentLoans from './pages/agent/AgentLoans'
-import AgentCollection from './pages/agent/AgentCollection'
-
-import AgentCustomers from './pages/agent/AgentCustomers'
-import AgentToday from './pages/agent/AgentToday'
-import AgentPending from './pages/agent/AgentPending'
-import AgentHistory from './pages/agent/AgentHistory'
-
-import AgentSettlementSummary from './pages/agent/AgentSettlementSummary'
-
-import AgentProfile from './pages/agent/AgentProfile.jsx'
+const AgentDashboard = lazy(() => import('./pages/agent/AgentDashboard'))
+const AgentLoans = lazy(() => import('./pages/agent/AgentLoans'))
+const AgentCollection = lazy(() => import('./pages/agent/AgentCollection'))
+const AgentCustomers = lazy(() => import('./pages/agent/AgentCustomers'))
+const AgentToday = lazy(() => import('./pages/agent/AgentToday'))
+const AgentPending = lazy(() => import('./pages/agent/AgentPending'))
+const AgentHistory = lazy(() => import('./pages/agent/AgentHistory'))
+const AgentSettlementSummary = lazy(() => import('./pages/agent/AgentSettlementSummary'))
+const AgentProfile = lazy(() => import('./pages/agent/AgentProfile.jsx'))
 
 // =========================================
 // AUTH BOUNDARY
@@ -357,39 +330,12 @@ function App() {
 
       <AuthBoundary>
 
+        <Suspense fallback={<div className="route-loading" role="status">Loading...</div>}>
         <Routes>
 
           {/* =================================
               FINANCE MANAGEMENT
           ================================== */}
-
-          <Route
-            path="/daily/:financeId"
-            element={
-              <DailyManage />
-            }
-          />
-
-          <Route
-            path="/weekly/:financeId"
-            element={
-              <WeeklyManage />
-            }
-          />
-
-          <Route
-            path="/monthly/:financeId"
-            element={
-              <MonthlyManage />
-            }
-          />
-
-          <Route
-            path="/interest-only/:financeId"
-            element={
-              <InterestOnlyManage />
-            }
-          />
 
           {/* =================================
               LOGIN
@@ -451,6 +397,39 @@ function App() {
           {/* =================================
               ADMIN DASHBOARD
           ================================== */}
+
+          <Route element={<AdminLayout />}>
+          {/* =================================
+              FINANCE MANAGEMENT
+          ================================== */}
+
+          <Route
+            path="/daily/:financeId"
+            element={
+              <DailyManage />
+            }
+          />
+
+          <Route
+            path="/weekly/:financeId"
+            element={
+              <WeeklyManage />
+            }
+          />
+
+          <Route
+            path="/monthly/:financeId"
+            element={
+              <MonthlyManage />
+            }
+          />
+
+          <Route
+            path="/interest-only/:financeId"
+            element={
+              <InterestOnlyManage />
+            }
+          />
 
           <Route
             path="/admin"
@@ -665,6 +644,7 @@ function App() {
               <AuditLogs />
             }
           />
+          </Route>
 
           {/* =================================
               AGENT DASHBOARD
@@ -777,6 +757,7 @@ function App() {
           />
 
         </Routes>
+        </Suspense>
 
       </AuthBoundary>
 

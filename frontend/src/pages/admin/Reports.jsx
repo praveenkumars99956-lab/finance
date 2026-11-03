@@ -2,9 +2,6 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
-import * as XLSX from 'xlsx'
-import jsPDF from 'jspdf'
-import autoTable from 'jspdf-autotable'
 
 function Reports() {
   const navigate = useNavigate()
@@ -305,12 +302,13 @@ function Reports() {
     return 'all-finance-records'
   }
 
-  const downloadExcel = () => {
+  const downloadExcel = async () => {
     if (filteredRecords.length === 0) {
       alert(t('noRecordsToDownload'))
       return
     }
 
+    const XLSX = (await import('xlsx/dist/xlsx.mini.min.js')).default
     const excelData = filteredRecords.map(
       (record, index) => ({
         [t('serialNumber')]: index + 1,
@@ -375,12 +373,16 @@ function Reports() {
     )
   }
 
-  const downloadPDF = () => {
+  const downloadPDF = async () => {
     if (filteredRecords.length === 0) {
       alert(t('noRecordsToDownload'))
       return
     }
 
+    const [{ default: jsPDF }, { default: autoTable }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable')
+    ])
     const doc = new jsPDF({
       orientation: 'landscape'
     })

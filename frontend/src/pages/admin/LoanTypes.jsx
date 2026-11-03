@@ -1,15 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '../../services/supabase'
 
 function LoanTypes() {
   const navigate = useNavigate()
   const { t } = useTranslation()
-
-  const logout = async () => {
-    await supabase.auth.signOut({ scope: 'local' })
-    navigate('/')
-  }
 
   return (
     <div className="loan-types-page">
@@ -19,13 +13,6 @@ function LoanTypes() {
           <h1>{t('loanManagement')}</h1>
           <p>{t('selectLoanTypeToManage')}</p>
         </div>
-
-        <button
-          className="logout-button"
-          onClick={logout}
-        >
-          {t('logout')}
-        </button>
       </div>
 
       <div className="loan-type-grid">
