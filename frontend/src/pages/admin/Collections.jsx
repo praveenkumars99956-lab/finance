@@ -31,7 +31,6 @@ function Collections() {
 
   const [totalAmount, setTotalAmount] = useState(0)
   const [todayAmount, setTodayAmount] = useState(0)
-  const [liveStatus, setLiveStatus] = useState('connecting')
 
   useEffect(() => {
     loadCollections()
@@ -42,13 +41,11 @@ function Collections() {
       .then((workspaceId) => {
         unsubscribeRealtime = subscribeToCollections({
           workspaceId,
-          onChange: () => loadCollections(false),
-          onStatus: setLiveStatus
+          onChange: () => loadCollections(false)
         })
       })
       .catch(() => {
         // Realtime is best-effort; focus refresh below still keeps data fresh.
-        setLiveStatus('reconnecting')
       })
 
     // Fallback when the socket is unavailable: a payment recorded in a loan
@@ -603,24 +600,6 @@ function Collections() {
           <span>
             {t('collectionsPageDescription')}
           </span>
-
-          <div
-            style={{ marginTop: '6px' }}
-            aria-live="polite"
-          >
-            <span
-              style={{
-                fontSize: '12px',
-                fontWeight: 700,
-                color:
-                  liveStatus === 'live'
-                    ? '#16a34a'
-                    : '#f59e0b'
-              }}
-            >
-              ● {liveStatus === 'live' ? 'LIVE' : 'RECONNECTING'}
-            </span>
-          </div>
         </div>
 
         <button
