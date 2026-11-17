@@ -1,20 +1,32 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
+import { useToast } from '../../components/Toast'
+import SelectMenu from '../../components/SelectMenu'
 
 function Weekly() {
   const { t } = useTranslation()
+  const { showToast } = useToast()
 
   const navigate = useNavigate()
   const location = useLocation()
 
-  const customer = location.state?.customer
+  const providedCustomer = location.state?.customer || null
 
-  const customerId =
+  const providedCustomerId =
     location.state?.customerId ||
-    customer?.id
+    providedCustomer?.id ||
+    null
+
+  const [customer, setCustomer] = useState(providedCustomer)
+  const [customerOptions, setCustomerOptions] = useState([])
+  const [customerLoading, setCustomerLoading] = useState(!providedCustomerId)
+  const [customerError, setCustomerError] = useState(false)
+
+  const customerId = providedCustomerId || customer?.id || null
 
   // =========================================
   // FORM
@@ -132,11 +144,9 @@ function Weekly() {
         setCategoryError(false)
       } catch (error) {
         console.error('Collection category loading error:', error)
-        alert(
-          `${t(
-            'unableToLoadCollectionCategories',
-            'Unable to load Collection Categories'
-          )}: ${error.message}`
+        showToast(
+          `${t('unableToLoadCollectionCategories', 'Unable to load Collection Categories')}: ${error.message}`,
+          'error'
         )
       } finally {
         setCategoryLoading(false)
@@ -144,7 +154,70 @@ function Weekly() {
     }
 
     loadCategories()
-  }, [t])
+  }, [showToast, t])
+
+  // =========================================
+  // LOAD CUSTOMERS (when opened without one)
+  // =========================================
+
+  useEffect(() => {
+    if (providedCustomerId) {
+      return undefined
+    }
+
+    let active = true
+
+    const loadCustomers = async () => {
+      try {
+        setCustomerLoading(true)
+
+        const { data, error } = await supabase
+          .from('customers')
+          .select('id, customer_id, full_name, phone, status')
+          .eq('status', 'active')
+          .order('full_name')
+
+        if (error) {
+          console.error('Unable to load customers:', error)
+          showToast(
+            `${t('unableToLoadCustomers', 'Unable to load customers')}: ${error.message}`,
+            'error'
+          )
+          return
+        }
+
+        if (active) {
+          setCustomerOptions(data || [])
+        }
+      } catch (error) {
+        console.error('Customer loading error:', error)
+      } finally {
+        if (active) {
+          setCustomerLoading(false)
+        }
+      }
+    }
+
+    loadCustomers()
+
+    return () => {
+      active = false
+    }
+  }, [providedCustomerId, showToast, t])
+
+  // =========================================
+  // CUSTOMER SELECTION
+  // =========================================
+
+  const handleCustomerChange = (value) => {
+    const selectedCustomer =
+      customerOptions.find(
+        (option) => String(option.id) === value
+      ) || null
+
+    setCustomer(selectedCustomer)
+    setCustomerError(false)
+  }
 
   // =========================================
   // CALCULATE WEEKLY FINANCE
@@ -241,17 +314,7 @@ function Weekly() {
   // FORMAT MONEY
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value)
 
   // =========================================
   // SELECTED CATEGORY
@@ -289,11 +352,10 @@ function Weekly() {
     // =========================================
 
     if (!customerId) {
-      alert(
-        t(
-          'weeklyCustomerMissing',
-          'Customer information is missing. Please open Weekly Loan from Customer Profile.'
-        )
+      setCustomerError(true)
+      showToast(
+        t('selectCustomerRequired', 'Please select a customer before creating this loan.'),
+        'error'
       )
 
       return
@@ -310,11 +372,9 @@ function Weekly() {
     }
 
     if (!p || p <= 0) {
-      alert(
-        t(
-          'enterValidPrincipal',
-          'Enter a valid Principal Amount'
-        )
+      showToast(
+        t('enterValidPrincipal', 'Enter a valid Principal Amount'),
+        'error'
       )
 
       return
@@ -324,22 +384,18 @@ function Weekly() {
       !Number.isFinite(rate) ||
       rate < 0
     ) {
-      alert(
-        t(
-          'enterValidInterestRate',
-          'Enter a valid Interest Rate'
-        )
+      showToast(
+        t('enterValidInterestRate', 'Enter a valid Interest Rate'),
+        'error'
       )
 
       return
     }
 
     if (paid < 0) {
-      alert(
-        t(
-          'alreadyPaidNegative',
-          'Already Paid cannot be negative'
-        )
+      showToast(
+        t('alreadyPaidNegative', 'Already Paid cannot be negative'),
+        'error'
       )
 
       return
@@ -360,22 +416,18 @@ function Weekly() {
       !Number.isInteger(weeks) ||
       weeks <= 0
     ) {
-      alert(
-        t(
-          'enterValidNumberOfWeeks',
-          'Enter a valid Number of Weeks'
-        )
+      showToast(
+        t('enterValidNumberOfWeeks', 'Enter a valid Number of Weeks'),
+        'error'
       )
 
       return
     }
 
     if (!startDate) {
-      alert(
-        t(
-          'selectStartDate',
-          'Select Start Date'
-        )
+      showToast(
+        t('selectStartDate', 'Select Start Date'),
+        'error'
       )
 
       return
@@ -391,11 +443,9 @@ function Weekly() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      alert(
-        t(
-          'pleaseLoginAgain',
-          'Please login again'
-        )
+      showToast(
+        t('pleaseLoginAgain', 'Please login again'),
+        'error'
       )
 
       navigate('/')
@@ -540,11 +590,9 @@ function Weekly() {
       if (financeError) {
         console.error(financeError)
 
-        alert(
-          `${t(
-            'unableToSaveWeeklyFinance',
-            'Unable to save Weekly Finance'
-          )}: ${financeError.message}`
+        showToast(
+          `${t('unableToSaveWeeklyFinance', 'Unable to save Weekly Finance')}: ${financeError.message}`,
+          'error'
         )
 
         return
@@ -567,11 +615,9 @@ function Weekly() {
       if (scheduleError) {
         console.error(scheduleError)
 
-        alert(
-          `${t(
-            'weeklyCreatedScheduleFailed',
-            'Weekly Finance was created, but schedule generation failed'
-          )}: ${scheduleError.message}`
+        showToast(
+          `${t('weeklyCreatedScheduleFailed', 'Weekly Finance was created, but schedule generation failed')}: ${scheduleError.message}`,
+          'error'
         )
 
         return
@@ -581,11 +627,9 @@ function Weekly() {
       // SUCCESS
       // =========================================
 
-      alert(
-        t(
-          'weeklyFinanceCreatedSuccessfully',
-          'Weekly Finance created successfully'
-        )
+      showToast(
+        t('weeklyFinanceCreatedSuccessfully', 'Weekly Finance created successfully'),
+        'success'
       )
 
       navigate(
@@ -597,12 +641,9 @@ function Weekly() {
         error
       )
 
-      alert(
-        error?.message ||
-        t(
-          'unableToCreateWeeklyFinance',
-          'Unable to create Weekly Finance'
-        )
+      showToast(
+        error?.message || t('unableToCreateWeeklyFinance', 'Unable to create Weekly Finance'),
+        'error'
       )
     } finally {
       setSaving(false)
@@ -685,6 +726,52 @@ function Weekly() {
           )}
         </h2>
 
+        {!providedCustomerId && (
+          <div
+            className="daily-form-grid"
+            style={{ marginBottom: '18px' }}
+          >
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label htmlFor="weekly-customer">
+                {t('customer', 'Customer')} *
+              </label>
+
+              <SelectMenu
+                id="weekly-customer"
+                value={customer ? String(customer.id) : ''}
+                onChange={handleCustomerChange}
+                disabled={customerLoading}
+                ariaLabel={t('customer', 'Customer')}
+                ariaInvalid={customerError}
+                placeholder={
+                  customerLoading
+                    ? t('loadingCustomers', 'Loading customers...')
+                    : t('selectCustomer', 'Select Customer')
+                }
+                options={customerOptions.map((option) => ({
+                  value: String(option.id),
+                  label: `${option.customer_id} - ${option.full_name}`
+                }))}
+              />
+
+              {!customerLoading && customerOptions.length === 0 && (
+                <small
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    color: '#b42318'
+                  }}
+                >
+                  {t(
+                    'noCustomersAvailable',
+                    'No active customers are available. Add a customer before creating this loan.'
+                  )}
+                </small>
+              )}
+            </div>
+          </div>
+        )}
+
         <div className="daily-info-grid">
 
           <div>
@@ -760,52 +847,32 @@ function Weekly() {
                 )} *
               </label>
 
-              <select
+              <SelectMenu
                 ref={categorySelectRef}
                 id="weekly-collection-category"
                 value={collectionCategoryId}
-                onChange={(e) => {
-                  setCollectionCategoryId(
-                    e.target.value
-                  )
+                onChange={(value) => {
+                  setCollectionCategoryId(value)
                   setCategoryError(false)
                 }}
                 disabled={categoryLoading}
-                aria-required="true"
-                aria-invalid={categoryError}
-                aria-describedby={
+                ariaLabel={t('collectionCategory', 'Collection Category')}
+                ariaInvalid={categoryError}
+                ariaDescribedBy={
                   categoryError
                     ? 'weekly-collection-category-error'
                     : undefined
                 }
-              >
-
-                <option value="">
-                  {
-                    categoryLoading
-                      ? t(
-                          'loadingCategories',
-                          'Loading Categories...'
-                        )
-                      : t(
-                          'selectCollectionCategory',
-                          'Select Collection Category'
-                        )
-                  }
-                </option>
-
-                {categories.map(
-                  (category) => (
-                    <option
-                      key={category.id}
-                      value={category.id}
-                    >
-                      {category.category_name}
-                    </option>
-                  )
-                )}
-
-              </select>
+                placeholder={
+                  categoryLoading
+                    ? t('loadingCategories', 'Loading Categories...')
+                    : t('selectCollectionCategory', 'Select Collection Category')
+                }
+                options={categories.map((category) => ({
+                  value: String(category.id),
+                  label: category.category_name
+                }))}
+              />
 
               {!categoryLoading && categories.length === 0 && (
                 <small

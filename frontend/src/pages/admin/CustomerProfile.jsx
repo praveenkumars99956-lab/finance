@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -26,7 +28,7 @@ function CustomerProfile() {
   // LOAD CUSTOMER PROFILE
   // =========================================
 
-  const loadCustomerProfile = async (active = true) => {
+  async function loadCustomerProfile(active = true) {
     setLoading(true)
     setCustomer(null)
     setFinanceRecords([])
@@ -40,7 +42,7 @@ function CustomerProfile() {
 
       setLoading(false)
 
-      alert(
+      notify(
         t(
           'invalidCustomerLink',
           'Invalid customer link. Please select a customer from the customer list.'
@@ -93,7 +95,7 @@ function CustomerProfile() {
     if (customerError) {
       console.error(customerError)
 
-      alert(
+      notify(
         `${t(
           'unableToLoadCustomer',
           'Unable to load customer'
@@ -132,7 +134,7 @@ function CustomerProfile() {
     if (financeError) {
       console.error(financeError)
 
-      alert(
+      notify(
         `${t(
           'unableToLoadFinanceAccounts',
           'Unable to load finance accounts'
@@ -151,17 +153,7 @@ function CustomerProfile() {
   // MONEY FORMAT
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value)
 
   // =========================================
   // LOAN NAME
@@ -297,7 +289,7 @@ function CustomerProfile() {
       return
     }
 
-    alert(
+    notify(
       t(
         'financeTypeNotSupported',
         'Finance type is not supported yet'
@@ -347,8 +339,11 @@ function CustomerProfile() {
 
   if (loading) {
     return (
-      <div className="customer-profile-page">
-        <p>
+      <div className="flex flex-col items-center justify-center w-full gap-space-md p-space-xl bg-surface min-h-screen">
+        <span className="material-symbols-outlined text-primary" style={{ fontSize: '48px' }}>
+          autorenew
+        </span>
+        <p className="font-body-lg text-on-surface-variant">
           {t(
             'loadingCustomerProfile',
             'Loading Customer Profile...'
@@ -364,20 +359,24 @@ function CustomerProfile() {
 
   if (!customer) {
     return (
-      <div className="customer-profile-page">
-        <h2>
+      <div className="flex flex-col items-center justify-center w-full gap-space-md p-space-xl bg-surface min-h-screen">
+        <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '48px' }}>
+          person_off
+        </span>
+        <h2 className="font-headline-md text-on-surface">
           {t(
             'customerNotFound',
             'Customer not found'
           )}
         </h2>
-
         <button
+          className="flex items-center gap-space-sm px-space-md py-space-sm bg-primary text-on-primary rounded-full font-label-lg"
           onClick={() =>
             navigate('/customers')
           }
         >
-          ← {t(
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+          {t(
             'backToCustomers',
             'Back to Customers'
           )}
@@ -391,278 +390,242 @@ function CustomerProfile() {
   // =========================================
 
   return (
-    <div className="customer-profile-page">
+    <div className="flex flex-col w-full gap-space-lg">
 
       {/* =====================================
-          BACK
+          BREADCRUMB + BACK
       ====================================== */}
 
-      <button
-        className="back-button"
-        onClick={() =>
-          navigate('/customers')
-        }
-      >
-        ← {t(
-          'customers',
-          'Customers'
-        )}
-      </button>
+      <div className="flex items-center gap-space-sm px-gutter-desktop" style={{ paddingTop: '1.25rem' }}>
+        <button
+          className="flex items-center gap-space-xs text-on-surface-variant font-label-lg hover:text-primary transition-colors"
+          onClick={() =>
+            navigate('/customers')
+          }
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>arrow_back</span>
+          {t('customers', 'Customers')}
+        </button>
+        <span className="text-outline-variant font-label-lg">/</span>
+        <span
+          className="px-space-sm py-space-xs bg-primary text-on-primary rounded-full font-label-sm"
+          style={{ letterSpacing: '0.04em' }}
+        >
+          {t('customerProfile', 'Counterparty Registry').toUpperCase()}
+        </span>
+      </div>
 
       {/* =====================================
           HEADER
       ====================================== */}
 
-      <div className="customer-profile-header">
-
-        <div>
-          <p>
-            {t(
-              'customerProfile',
-              'Customer Profile'
-            ).toUpperCase()}
-          </p>
-
-          <h1>
+      <div className="flex items-start justify-between px-gutter-desktop gap-space-md">
+        <div className="flex flex-col gap-space-xs">
+          <h1 className="font-headline-xl text-on-surface">
             {customer.full_name}
           </h1>
-
-          <span>
-            {customer.customer_id}
-          </span>
-        </div>
-
-        <span
-          className={
-            customer.status === 'inactive'
-              ? 'loan-big-status closed'
-              : 'loan-big-status active'
-          }
-        >
-          {customer.status === 'inactive'
-            ? t(
-                'inactive',
-                'Inactive'
-              ).toUpperCase()
-            : t(
-                'active',
-                'Active'
-              ).toUpperCase()}
-        </span>
-
-      </div>
-
-      {/* =====================================
-          CUSTOMER INFORMATION
-      ====================================== */}
-
-      <div className="daily-manage-section">
-
-        <h2>
-          {t(
-            'customerInformation',
-            'Customer Information'
-          )}
-        </h2>
-
-        <div className="daily-info-grid">
-
-          <div>
-            <span>
-              {t(
-                'customerName',
-                'Customer Name'
-              )}
-            </span>
-
-            <strong>
-              {customer.full_name}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t(
-                'customerId',
-                'Customer ID'
-              )}
-            </span>
-
-            <strong>
+          <div className="flex items-center gap-space-sm">
+            <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '16px' }}>badge</span>
+            <span className="font-label-lg text-on-surface-variant">
               {customer.customer_id}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t(
-                'phone',
-                'Phone'
-              )}
             </span>
-
-            <strong>
-              {customer.phone || '-'}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t(
-                'status',
-                'Status'
-              )}
-            </span>
-
-            <strong>
+            <span
+              className={
+                customer.status === 'inactive'
+                  ? 'flex items-center gap-space-xs px-space-sm py-space-xs rounded-full font-label-sm bg-error-container text-on-error-container'
+                  : 'flex items-center gap-space-xs px-space-sm py-space-xs rounded-full font-label-sm bg-surface-container-high text-primary'
+              }
+            >
+              <span
+                className="rounded-full"
+                style={{
+                  width: '6px',
+                  height: '6px',
+                  display: 'inline-block',
+                  backgroundColor: customer.status === 'inactive' ? 'var(--color-error)' : 'var(--color-primary)'
+                }}
+              />
               {customer.status === 'inactive'
-                ? t(
-                    'inactive',
-                    'Inactive'
-                  )
-                : t(
-                    'active',
-                    'Active'
-                  )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t(
-                'address',
-                'Address'
-              )}
+                ? t('inactive', 'Inactive').toUpperCase()
+                : t('active', 'Active').toUpperCase()}
             </span>
-
-            <strong>
-              {customer.address || '-'}
-            </strong>
           </div>
-
         </div>
       </div>
 
       {/* =====================================
-          OVERALL SUMMARY
+          INFO CARDS ROW
       ====================================== */}
 
-      <div className="daily-manage-summary">
+      <div className="flex flex-wrap gap-space-md px-gutter-desktop">
 
-        <div>
-          <span>
-            {t(
-              'financeAccounts',
-              'Finance Accounts'
-            )}
+        {/* Phone Card */}
+        <div className="flex items-center gap-space-md p-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow flex-1" style={{ minWidth: '200px' }}>
+          <div className="flex items-center justify-center rounded-DEFAULT bg-surface-container-low" style={{ width: '44px', height: '44px', flexShrink: 0 }}>
+            <span className="material-symbols-outlined text-primary" style={{ fontSize: '22px' }}>call</span>
+          </div>
+          <div className="flex flex-col gap-space-xs">
+            <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {t('phone', 'Phone')}
+            </span>
+            <span className="font-label-lg text-on-surface">
+              {customer.phone || '—'}
+            </span>
+          </div>
+        </div>
+
+        {/* Address Card */}
+        <div className="flex items-center gap-space-md p-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow flex-1" style={{ minWidth: '200px' }}>
+          <div className="flex items-center justify-center rounded-DEFAULT bg-surface-container-low" style={{ width: '44px', height: '44px', flexShrink: 0 }}>
+            <span className="material-symbols-outlined text-primary" style={{ fontSize: '22px' }}>location_on</span>
+          </div>
+          <div className="flex flex-col gap-space-xs">
+            <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {t('address', 'Address')}
+            </span>
+            <span className="font-label-lg text-on-surface">
+              {customer.address || '—'}
+            </span>
+          </div>
+        </div>
+
+        {/* Status Card */}
+        <div className="flex items-center gap-space-md p-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow flex-1" style={{ minWidth: '200px' }}>
+          <div className="flex items-center justify-center rounded-DEFAULT bg-surface-container-low" style={{ width: '44px', height: '44px', flexShrink: 0 }}>
+            <span className="material-symbols-outlined text-primary" style={{ fontSize: '22px' }}>verified_user</span>
+          </div>
+          <div className="flex flex-col gap-space-xs">
+            <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {t('status', 'Status')}
+            </span>
+            <span className="font-label-lg text-on-surface">
+              {customer.status === 'inactive'
+                ? t('inactive', 'Inactive')
+                : t('active', 'Active')}
+            </span>
+          </div>
+        </div>
+
+        {/* Created Date Card */}
+        <div className="flex items-center gap-space-md p-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow flex-1" style={{ minWidth: '200px' }}>
+          <div className="flex items-center justify-center rounded-DEFAULT bg-surface-container-low" style={{ width: '44px', height: '44px', flexShrink: 0 }}>
+            <span className="material-symbols-outlined text-primary" style={{ fontSize: '22px' }}>calendar_today</span>
+          </div>
+          <div className="flex flex-col gap-space-xs">
+            <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+              {t('customerSince', 'Customer Since')}
+            </span>
+            <span className="font-label-lg text-on-surface">
+              {customer.created_at
+                ? new Date(customer.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+                : '—'}
+            </span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* =====================================
+          PORTFOLIO SUMMARY STRIP
+      ====================================== */}
+
+      <div className="flex flex-wrap gap-space-md px-gutter-desktop">
+
+        <div className="flex flex-col gap-space-xs p-space-md bg-primary rounded-DEFAULT flex-1" style={{ minWidth: '160px' }}>
+          <span className="font-label-sm text-on-primary" style={{ opacity: 0.75, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {t('financeAccounts', 'Finance Accounts')}
           </span>
-
-          <strong>
+          <span className="font-data-metric text-on-primary">
             {financeRecords.length}
-          </strong>
+          </span>
         </div>
 
-        <div>
-          <span>
-            {t(
-              'totalPrincipal',
-              'Total Principal'
-            )}
+        <div className="flex flex-col gap-space-xs p-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow flex-1" style={{ minWidth: '160px' }}>
+          <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {t('totalPrincipal', 'Total Principal')}
           </span>
-
-          <strong>
-            ₹{formatMoney(
-              totalPrincipal
-            )}
-          </strong>
+          <span className="font-data-metric text-on-surface">
+            ₹{formatMoney(totalPrincipal)}
+          </span>
         </div>
 
-        <div>
-          <span>
-            {t(
-              'totalPaid',
-              'Total Paid'
-            )}
+        <div className="flex flex-col gap-space-xs p-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow flex-1" style={{ minWidth: '160px' }}>
+          <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {t('totalPaid', 'Total Paid')}
           </span>
-
-          <strong>
-            ₹{formatMoney(
-              totalPaid
-            )}
-          </strong>
+          <span className="font-data-metric text-on-surface">
+            ₹{formatMoney(totalPaid)}
+          </span>
         </div>
 
-        <div>
-          <span>
-            {t(
-              'totalPending',
-              'Total Pending'
-            )}
+        <div className="flex flex-col gap-space-xs p-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow flex-1" style={{ minWidth: '160px' }}>
+          <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            {t('totalPending', 'Total Pending')}
           </span>
-
-          <strong>
-            ₹{formatMoney(
-              totalPending
-            )}
-          </strong>
+          <span className="font-data-metric" style={{ color: Number(totalPending) > 0 ? 'var(--color-error)' : 'var(--color-on-surface)' }}>
+            ₹{formatMoney(totalPending)}
+          </span>
         </div>
 
       </div>
 
       {/* =====================================
-          FINANCE ACCOUNTS
+          LOAN PORTFOLIO SECTION
       ====================================== */}
 
-      <div className="daily-manage-section">
+      <div className="flex flex-col gap-space-md px-gutter-desktop pb-space-xl">
 
-        <div className="payment-history-heading">
-
-          <div>
-            <h2>
-              {t(
-                'financeAccounts',
-                'Finance Accounts'
-              )}
+        {/* Section heading row */}
+        <div className="flex items-center justify-between gap-space-md">
+          <div className="flex items-center gap-space-sm">
+            <span className="material-symbols-outlined text-primary" style={{ fontSize: '22px' }}>account_balance_wallet</span>
+            <h2 className="font-headline-md text-on-surface">
+              {t('loanPortfolio', 'Loan Portfolio')}
             </h2>
-
-            <p>
-              {t(
-                'financeAccountsDescription',
-                'All finance accounts belonging to this customer.'
-              )}
-            </p>
+            {financeRecords.length > 0 && (
+              <span className="px-space-sm py-space-xs bg-primary text-on-primary rounded-full font-label-sm">
+                {financeRecords.length}
+              </span>
+            )}
           </div>
 
           <button
-            className="record-payment-button"
+            className="flex items-center gap-space-xs px-space-md py-space-sm bg-primary text-on-primary rounded-full font-label-lg"
+            style={{ whiteSpace: 'nowrap' }}
             onClick={() =>
               navigate(
                 `/customers/${id}/finance`,
                 {
                   state: {
                     customer,
-                    customerId:
-                      Number(id)
+                    customerId: Number(id)
                   }
                 }
               )
             }
           >
-            + {t(
-              'addFinance',
-              'Add Finance'
-            )}
+            <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>add</span>
+            {t('addFinance', 'Add Finance')}
           </button>
-
         </div>
 
+        <p className="font-body-md text-on-surface-variant" style={{ marginTop: '-0.5rem' }}>
+          {t(
+            'financeAccountsDescription',
+            'All finance accounts belonging to this customer.'
+          )}
+        </p>
+
+        {/* Empty state */}
         {financeRecords.length === 0 ? (
 
-          <div className="no-payment-history">
-            {t(
-              'noFinanceAccounts',
-              'No finance accounts created yet.'
-            )}
+          <div className="flex flex-col items-center justify-center gap-space-md p-space-xl bg-surface-container-lowest rounded-DEFAULT stitch-shadow" style={{ minHeight: '180px' }}>
+            <span className="material-symbols-outlined text-on-surface-variant" style={{ fontSize: '48px' }}>
+              folder_open
+            </span>
+            <span className="font-body-md text-on-surface-variant">
+              {t('noFinanceAccounts', 'No finance accounts created yet.')}
+            </span>
           </div>
 
         ) : (
@@ -671,10 +634,8 @@ function CustomerProfile() {
             className="finance-account-grid"
             style={{
               display: 'grid',
-              gridTemplateColumns:
-                'repeat(auto-fit, minmax(280px, 1fr))',
-              gap: '16px',
-              marginTop: '20px'
+              gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+              gap: '1rem'
             }}
           >
 
@@ -686,11 +647,8 @@ function CustomerProfile() {
                 // =================================
 
                 const isClosed =
-                  record.loan_status ===
-                    'closed' ||
-                  Number(
-                    record.pending || 0
-                  ) <= 0
+                  record.loan_status === 'closed' ||
+                  Number(record.pending || 0) <= 0
 
                 // =================================
                 // COLLECTION CATEGORY
@@ -698,247 +656,120 @@ function CustomerProfile() {
 
                 const categoryName =
                   getCollectionCategoryName(
-                    record
-                      .collection_categories
-                      ?.category_name
+                    record.collection_categories?.category_name
                   )
 
                 return (
 
                   <div
                     key={record.id}
-                    className="finance-account-card"
-                    style={{
-                      border:
-                        '1px solid #d7e0ec',
-                      borderRadius:
-                        '14px',
-                      padding:
-                        '20px',
-                      background:
-                        '#ffffff'
-                    }}
+                    className="flex flex-col gap-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow"
+                    style={{ border: '1px solid var(--color-outline-variant)', overflow: 'hidden' }}
                   >
 
                     {/* =============================
                         CARD HEADER
                     ============================== */}
 
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent:
-                          'space-between',
-                        alignItems:
-                          'flex-start',
-                        gap: '12px'
-                      }}
-                    >
-
-                      <div>
-                        <small>
-                          {t(
-                            'loanType',
-                            'Loan Type'
-                          ).toUpperCase()}
-                        </small>
-
-                        <h3
-                          style={{
-                            margin:
-                              '4px 0 14px'
-                          }}
-                        >
-                          {getLoanName(
-                            record
-                          )}
-                        </h3>
+                    <div className="flex items-start justify-between gap-space-sm p-space-lg" style={{ paddingBottom: 0 }}>
+                      <div className="flex flex-col gap-space-xs">
+                        <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                          {t('loanType', 'Loan Type')}
+                        </span>
+                        <span className="font-headline-sm text-on-surface">
+                          {getLoanName(record)}
+                        </span>
                       </div>
 
                       <span
                         className={
                           isClosed
-                            ? 'schedule-status schedule-paid'
-                            : 'schedule-status schedule-pending'
+                            ? 'flex items-center gap-space-xs px-space-sm py-space-xs rounded-full font-label-sm bg-surface-container text-on-surface-variant'
+                            : 'flex items-center gap-space-xs px-space-sm py-space-xs rounded-full font-label-sm bg-surface-container-high text-primary'
                         }
+                        style={{ whiteSpace: 'nowrap', marginTop: '2px' }}
                       >
+                        <span
+                          className="rounded-full"
+                          style={{
+                            width: '6px',
+                            height: '6px',
+                            display: 'inline-block',
+                            backgroundColor: isClosed ? 'var(--color-outline)' : 'var(--color-primary)'
+                          }}
+                        />
                         {isClosed
-                          ? t(
-                              'closed',
-                              'Closed'
-                            )
-                          : t(
-                              'active',
-                              'Active'
-                            )}
+                          ? t('closed', 'Closed')
+                          : t('active', 'Active')}
                       </span>
-
                     </div>
 
                     {/* =============================
-                        COLLECTION CATEGORY
+                        COLLECTION CATEGORY PILL
                     ============================== */}
 
-                    <div
-                      style={{
-                        background:
-                          '#eef5ff',
-                        padding:
-                          '12px 14px',
-                        borderRadius:
-                          '10px',
-                        marginBottom:
-                          '14px'
-                      }}
-                    >
-
-                      <small
-                        style={{
-                          display:
-                            'block',
-                          marginBottom:
-                            '4px'
-                        }}
-                      >
-                        {t(
-                          'collectionCategory',
-                          'Collection Category'
-                        ).toUpperCase()}
-                      </small>
-
-                      <strong>
+                    <div className="flex items-center gap-space-xs px-space-md py-space-xs bg-surface-container-low rounded-full mx-space-md" style={{ width: 'fit-content', paddingLeft: '1rem', paddingRight: '1rem' }}>
+                      <span className="material-symbols-outlined text-primary" style={{ fontSize: '14px' }}>group</span>
+                      <span className="font-label-sm text-on-surface-variant" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        {t('collectionCategory', 'Collection')}:&nbsp;
+                      </span>
+                      <span className="font-label-lg text-on-surface">
                         {categoryName}
-                      </strong>
-
+                      </span>
                     </div>
 
                     {/* =============================
-                        VALUES
+                        VALUES TABLE
                     ============================== */}
 
-                    <div
-                      style={{
-                        background:
-                          '#f6f8fb',
-                        padding:
-                          '14px',
-                        borderRadius:
-                          '10px'
-                      }}
-                    >
+                    <div className="flex flex-col gap-space-xs bg-surface-container-low rounded-DEFAULT mx-space-md p-space-md">
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent:
-                            'space-between',
-                          marginBottom:
-                            '8px'
-                        }}
-                      >
-                        <span>
-                          {t(
-                            'principal',
-                            'Principal'
-                          )}
+                      <div className="flex items-center justify-between gap-space-sm">
+                        <span className="font-body-md text-on-surface-variant">
+                          {t('principal', 'Principal')}
                         </span>
-
-                        <strong>
-                          ₹{formatMoney(
-                            record.original_principal ||
-                            record.principal_amount
-                          )}
-                        </strong>
+                        <span className="font-label-lg text-on-surface">
+                          ₹{formatMoney(record.original_principal || record.principal_amount)}
+                        </span>
                       </div>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent:
-                            'space-between',
-                          marginBottom:
-                            '8px'
-                        }}
-                      >
-                        <span>
-                          {t(
-                            'interest',
-                            'Interest'
-                          )}
+                      <div className="flex items-center justify-between gap-space-sm">
+                        <span className="font-body-md text-on-surface-variant">
+                          {t('interest', 'Interest')}
                         </span>
-
-                        <strong>
-                          ₹{formatMoney(
-                            record.interest_accrual
-                          )}
-                        </strong>
+                        <span className="font-label-lg text-on-surface">
+                          ₹{formatMoney(record.interest_accrual)}
+                        </span>
                       </div>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent:
-                            'space-between',
-                          marginBottom:
-                            '8px'
-                        }}
-                      >
-                        <span>
-                          {t(
-                            'totalAmount',
-                            'Total Amount'
-                          )}
+                      <div className="flex items-center justify-between gap-space-sm" style={{ borderTop: '1px solid var(--color-outline-variant)', paddingTop: '0.5rem', marginTop: '0.25rem' }}>
+                        <span className="font-label-lg text-on-surface-variant">
+                          {t('totalAmount', 'Total Amount')}
                         </span>
-
-                        <strong>
-                          ₹{formatMoney(
-                            record.amount
-                          )}
-                        </strong>
+                        <span className="font-label-lg text-on-surface">
+                          ₹{formatMoney(record.amount)}
+                        </span>
                       </div>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent:
-                            'space-between',
-                          marginBottom:
-                            '8px'
-                        }}
-                      >
-                        <span>
-                          {t(
-                            'paid',
-                            'Paid'
-                          )}
+                      <div className="flex items-center justify-between gap-space-sm">
+                        <span className="font-body-md text-on-surface-variant">
+                          {t('paid', 'Paid')}
                         </span>
-
-                        <strong>
-                          ₹{formatMoney(
-                            record.paid
-                          )}
-                        </strong>
+                        <span className="font-label-lg text-primary">
+                          ₹{formatMoney(record.paid)}
+                        </span>
                       </div>
 
-                      <div
-                        style={{
-                          display: 'flex',
-                          justifyContent:
-                            'space-between'
-                        }}
-                      >
-                        <span>
-                          {t(
-                            'pending',
-                            'Pending'
-                          )}
+                      <div className="flex items-center justify-between gap-space-sm">
+                        <span className="font-body-md text-on-surface-variant">
+                          {t('pending', 'Pending')}
                         </span>
-
-                        <strong>
-                          ₹{formatMoney(
-                            record.pending
-                          )}
-                        </strong>
+                        <span
+                          className="font-label-lg"
+                          style={{ color: Number(record.pending || 0) > 0 ? 'var(--color-error)' : 'var(--color-primary)' }}
+                        >
+                          ₹{formatMoney(record.pending)}
+                        </span>
                       </div>
 
                     </div>
@@ -947,23 +778,17 @@ function CustomerProfile() {
                         MANAGE FINANCE BUTTON
                     ============================== */}
 
-                    <button
-                      className="record-payment-button"
-                      style={{
-                        width: '100%',
-                        marginTop: '15px'
-                      }}
-                      onClick={() =>
-                        manageFinance(
-                          record
-                        )
-                      }
-                    >
-                      {t(
-                        'manageFinance',
-                        'Manage Finance'
-                      )}
-                    </button>
+                    <div className="p-space-lg" style={{ paddingTop: 0 }}>
+                      <button
+                        className="flex items-center justify-center gap-space-xs w-full py-space-sm bg-primary text-on-primary rounded-DEFAULT font-label-lg"
+                        onClick={() =>
+                          manageFinance(record)
+                        }
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: '18px' }}>open_in_new</span>
+                        {t('manageFinance', 'Manage Finance')}
+                      </button>
+                    </div>
 
                   </div>
                 )

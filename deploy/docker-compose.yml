@@ -1,0 +1,167 @@
+# ============================================================================
+# Finance Suite — multi-server web tier
+# ----------------------------------------------------------------------------
+# Run from the repository root:
+#   docker compose -f deploy/docker-compose.yml up -d --build
+#
+# Topology:
+#   HAProxy (sticky web, round-robin /api)
+#     ->  web1 / web2 (static SPA + nginx)
+#     ->  api1 / api2 (stateless JWT + offline-sync API)
+#   Redis                      ->  shared cache / rate-limit store
+#   PgBouncer                  ->  external Postgres / Supabase pooler
+#
+# The database itself is an external managed Postgres (Supabase or equivalent).
+# Apply supabase/migrations before starting more than one app replica.
+# ============================================================================
+
+name: finance-suite
+
+x-web-build: &web-build
+  context: ../frontend
+  dockerfile: Dockerfile
+
+x-web-env: &web-env
+  NODE_ENV: production
+
+x-api-env: &api-env
+  NODE_ENV: production
+  PORT: 4000
+  TRUST_PROXY: 1
+  CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8080}
+  SUPABASE_URL: ${VITE_SUPABASE_URL}
+  SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET}
+  JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET}
+  JWT_ISSUER: ${JWT_ISSUER:-finance-suite}
+  JWT_AUDIENCE: ${JWT_AUDIENCE:-finance-suite-web}
+  JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15m}
+  JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-30d}
+  SYNC_MAX_BATCH: ${SYNC_MAX_BATCH:-100}
+
+services:
+  web1:
+    build:
+      <<: *web-build
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        VITE_ADMIN_EMAILS: ${VITE_ADMIN_EMAILS:-}
+        VITE_AGENT_EMAILS: ${VITE_AGENT_EMAILS:-}
+        VITE_ADMIN_EMAIL_DOMAINS: ${VITE_ADMIN_EMAIL_DOMAINS:-}
+        VITE_RBAC_STRICT: ${VITE_RBAC_STRICT:-false}
+    environment: *web-env
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1/healthz']
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  web2:
+    build:
+      <<: *web-build
+      args:
+        VITE_SUPABASE_URL: ${VITE_SUPABASE_URL}
+        VITE_SUPABASE_ANON_KEY: ${VITE_SUPABASE_ANON_KEY}
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
+        VITE_ADMIN_EMAILS: ${VITE_ADMIN_EMAILS:-}
+        VITE_AGENT_EMAILS: ${VITE_AGENT_EMAILS:-}
+        VITE_ADMIN_EMAIL_DOMAINS: ${VITE_ADMIN_EMAIL_DOMAINS:-}
+        VITE_RBAC_STRICT: ${VITE_RBAC_STRICT:-false}
+    environment: *web-env
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1/healthz']
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  api1:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment: *api-env
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:4000/healthz']
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  api2:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment: *api-env
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:4000/healthz']
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  gateway:
+    image: haproxy:2.9-alpine
+    depends_on:
+      web1:
+        condition: service_healthy
+      web2:
+        condition: service_healthy
+      api1:
+        condition: service_healthy
+      api2:
+        condition: service_healthy
+    ports:
+      - '8080:80'
+      - '8404:8404'
+    volumes:
+      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'haproxy', '-c', '-f', '/usr/local/etc/haproxy/haproxy.cfg']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    command:
+      - sh
+      - -c
+      - redis-server /usr/local/etc/redis/redis.conf --requirepass "$${REDIS_PASSWORD}"
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-change-me-in-production}
+    volumes:
+      - ./redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$${REDIS_PASSWORD}" ping | grep PONG']
+      interval: 15s
+      timeout: 3s
+      retries: 5
+
+  pgbouncer:
+    image: edoburu/pgbouncer:latest
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT:-5432}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: '2000'
+      DEFAULT_POOL_SIZE: '50'
+      RESERVE_POOL_SIZE: '10'
+      SERVER_ROUND_ROBIN: '1'
+    ports:
+      - '6432:5432'
+    restart: unless-stopped
+
+volumes:
+  redis-data:

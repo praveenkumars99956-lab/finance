@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -21,7 +23,7 @@ function AgentPending() {
   // LOAD PENDING COLLECTIONS
   // =========================================
 
-  const loadPendingCollections = async () => {
+  async function loadPendingCollections() {
     setLoading(true)
 
     try {
@@ -38,7 +40,7 @@ function AgentPending() {
         sessionError ||
         !sessionData?.session?.user
       ) {
-        alert(t('pleaseLoginAgain'))
+        notify(t('pleaseLoginAgain'))
         navigate('/')
         return
       }
@@ -65,7 +67,7 @@ function AgentPending() {
           profileError
         )
 
-        alert(
+        notify(
           t('unableVerifyAgentLogin')
         )
 
@@ -124,7 +126,7 @@ function AgentPending() {
           agentError
         )
 
-        alert(
+        notify(
           t('unableLoadAgentAccount')
         )
 
@@ -132,7 +134,7 @@ function AgentPending() {
       }
 
       if (!agentData) {
-        alert(
+        notify(
           t('agentAccountNotFound')
         )
 
@@ -144,7 +146,7 @@ function AgentPending() {
           .trim()
           .toLowerCase() !== 'active'
       ) {
-        alert(
+        notify(
           t('agentAccountInactive')
         )
 
@@ -186,7 +188,7 @@ function AgentPending() {
           assignmentError
         )
 
-        alert(
+        notify(
           t('unableLoadAssignments', { message: assignmentError.message })
         )
 
@@ -256,7 +258,7 @@ function AgentPending() {
           financeError
         )
 
-        alert(
+        notify(
           t('unableLoadPendingCollections', { message: financeError.message })
         )
 
@@ -270,7 +272,7 @@ function AgentPending() {
         error
       )
 
-      alert(
+      notify(
         error instanceof Error
           ? t('unableLoadPendingCollections', { message: error.message })
           : t('unableLoadPendingCollectionsFallback')
@@ -284,17 +286,7 @@ function AgentPending() {
   // MONEY
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // DATE

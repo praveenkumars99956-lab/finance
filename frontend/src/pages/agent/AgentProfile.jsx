@@ -1,3 +1,4 @@
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -8,13 +9,14 @@ function AgentProfile() {
   const { t, i18n } = useTranslation()
 
   const [agent, setAgent] = useState(null)
+  const [loginEmail, setLoginEmail] = useState('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadAgentProfile()
   }, [])
 
-  const loadAgentProfile = async () => {
+  async function loadAgentProfile() {
     try {
       setLoading(true)
 
@@ -24,10 +26,14 @@ function AgentProfile() {
       } = await supabase.auth.getUser()
 
       if (userError || !user) {
-        alert(t('pleaseLoginAgain'))
+        notify(t('pleaseLoginAgain'))
         navigate('/')
         return
       }
+
+      // The auth email is the tenant-specific alias the agent must use to
+      // sign in. It is not the same as agents.email (the contact email).
+      setLoginEmail(user.email || '')
 
       const {
         data: profile,
@@ -40,7 +46,7 @@ function AgentProfile() {
 
       if (profileError) {
         console.error('Profile error:', profileError)
-        alert(t('unableVerifyAgentLogin'))
+        notify(t('unableVerifyAgentLogin'))
         return
       }
 
@@ -82,19 +88,19 @@ function AgentProfile() {
 
       if (agentError) {
         console.error('Agent error:', agentError)
-        alert(t('unableLoadAgentProfile'))
+        notify(t('unableLoadAgentProfile'))
         return
       }
 
       if (!agentData) {
-        alert(t('agentAccountNotFound'))
+        notify(t('agentAccountNotFound'))
         return
       }
 
       setAgent(agentData)
     } catch (error) {
       console.error('Agent profile error:', error)
-      alert(error?.message || t('unableLoadAgentProfile'))
+      notify(error?.message || t('unableLoadAgentProfile'))
     } finally {
       setLoading(false)
     }
@@ -284,6 +290,11 @@ function AgentProfile() {
             </div>
 
             <div style={detailStyle}>
+              <span style={labelStyle}>{t('loginEmail')}</span>
+              <strong>{loginEmail || '-'}</strong>
+            </div>
+
+            <div style={detailStyle}>
               <span style={labelStyle}>{t('status')}</span>
               <strong>{['active', 'inactive', 'closed'].includes(String(agent?.status).toLowerCase())
                 ? t(String(agent.status).toLowerCase())
@@ -335,6 +346,17 @@ function AgentProfile() {
             <strong>
               {agent?.auth_user_id ? t('enabled') : t('notEnabled')}
             </strong>
+          </p>
+
+          <p>
+            {t('loginEmail')}:{' '}
+            <strong>{loginEmail || '-'}</strong>
+          </p>
+
+          <p>
+            <small style={{ color: '#64748b' }}>
+              {t('loginEmailHint')}
+            </small>
           </p>
         </div>
 

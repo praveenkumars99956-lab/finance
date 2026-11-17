@@ -1,8 +1,10 @@
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
+import CustomSelect from '../../components/CustomSelect'
 
 function Agents() {
   const navigate = useNavigate()
@@ -13,6 +15,7 @@ function Agents() {
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [loginEmails, setLoginEmails] = useState({})
 
   const [form, setForm] = useState({
     agent_id: '',
@@ -32,7 +35,7 @@ function Agents() {
   // LOAD AGENTS
   // =========================================
 
-  const loadAgents = async () => {
+  async function loadAgents() {
     setLoading(true)
 
     const { data, error } = await supabase
@@ -45,7 +48,7 @@ function Agents() {
     if (error) {
       console.error('LOAD AGENTS ERROR:', error)
 
-      alert(
+      notify(
         t('agentsLoadFailed', { message: error.message })
       )
 
@@ -54,6 +57,26 @@ function Agents() {
     }
 
     setAgents(data || [])
+
+    // Resolve the real Supabase Auth login email for each agent. This is
+    // additive: if the helper migration has not been applied yet, fall back
+    // to the existing contact-email display instead of failing the page.
+    const { data: loginRows, error: loginError } = await supabase
+      .rpc('finance_agent_login_emails')
+
+    if (loginError) {
+      console.warn('AGENT LOGIN EMAIL LOOKUP:', loginError.message)
+      setLoginEmails({})
+    } else {
+      const byAgentId = {}
+
+      for (const row of loginRows || []) {
+        byAgentId[row.agent_row_id] = row
+      }
+
+      setLoginEmails(byAgentId)
+    }
+
     setLoading(false)
   }
 
@@ -122,7 +145,7 @@ function Agents() {
     // -----------------------------------------
 
     if (!form.full_name.trim()) {
-      alert(t('enterAgentName'))
+      notify(t('enterAgentName'))
       return
     }
 
@@ -136,7 +159,7 @@ function Agents() {
         form.phone.trim()
       )
     ) {
-      alert(
+      notify(
         t('agentPhoneMustBeTenDigits')
       )
 
@@ -148,7 +171,7 @@ function Agents() {
     // -----------------------------------------
 
     if (!form.email.trim()) {
-      alert(t('enterAgentEmail'))
+      notify(t('enterAgentEmail'))
       return
     }
 
@@ -161,7 +184,7 @@ function Agents() {
       !editingId &&
       form.password.length < 6
     ) {
-      alert(
+      notify(
         t('temporaryPasswordMinimumLength')
       )
 
@@ -179,7 +202,7 @@ function Agents() {
         await getCurrentSession()
 
       if (!session) {
-        alert(
+        notify(
           t('adminLoginSessionNotFound')
         )
 
@@ -194,7 +217,7 @@ function Agents() {
         session.access_token
 
       if (!accessToken) {
-        alert(
+        notify(
           t('loginTokenNotFound')
         )
 
@@ -251,7 +274,7 @@ function Agents() {
           )
         }
 
-        alert(
+        notify(
           t('agentUpdatedSuccessfully')
         )
       }
@@ -377,10 +400,15 @@ function Agents() {
         const createdAgent =
           data.agent
 
-        alert(
+        if (!data.login_email) {
+          throw new Error(t('tenantLoginAliasUnavailable'))
+        }
+
+        notify(
           t('agentCreatedWithLogin', {
             agentId: createdAgent?.agent_id || '-',
-            email: createdAgent?.email || form.email.trim().toLowerCase()
+            email: createdAgent?.email || form.email.trim().toLowerCase(),
+            loginEmail: data.login_email || ''
           })
         )
       }
@@ -398,7 +426,7 @@ function Agents() {
         error
       )
 
-      alert(
+      notify(
         error?.message || t('agentSaveFailed')
       )
     } finally {
@@ -487,7 +515,7 @@ function Agents() {
           error
         )
 
-        alert(
+        notify(
           t('agentDeactivateFailed', { message: error.message })
         )
 
@@ -502,7 +530,7 @@ function Agents() {
 
       await loadAgents()
 
-      alert(
+      notify(
         t('agentDeactivatedSuccessfully')
       )
       await writeAuditLog({
@@ -544,7 +572,7 @@ function Agents() {
         error
       )
 
-      alert(
+      notify(
         t('agentDeleteFailed', { message: error.message })
       )
 
@@ -559,7 +587,7 @@ function Agents() {
 
     await loadAgents()
 
-    alert(
+    notify(
       t('agentDeletedSuccessfully')
     )
   }
@@ -809,6 +837,18 @@ function Agents() {
               required
             />
 
+            <small
+              style={{
+                display: 'block',
+                marginTop: '6px',
+                color: '#64748b'
+              }}
+            >
+              {editingId
+                ? t('agentEmailChangeLoginNotice')
+                : t('agentContactEmailHint')}
+            </small>
+
           </div>
 
           {/* TEMPORARY PASSWORD */}
@@ -880,25 +920,20 @@ function Agents() {
               {t('status')}
             </label>
 
-            <select
-              name="status"
-              value={
-                form.status
+            <CustomSelect
+              value={form.status}
+              onChange={(value) =>
+                setForm((previous) => ({
+                  ...previous,
+                  status: value
+                }))
               }
-              onChange={
-                handleChange
-              }
-            >
-
-              <option value="active">
-                {t('active')}
-              </option>
-
-              <option value="inactive">
-                {t('inactive')}
-              </option>
-
-            </select>
+              ariaLabel={t('status')}
+              options={[
+                { value: 'active', label: t('active') },
+                { value: 'inactive', label: t('inactive') }
+              ]}
+            />
 
           </div>
 
@@ -1093,10 +1128,65 @@ function Agents() {
                         </td>
 
                         <td>
-                          {
-                            agent.email ||
-                            '-'
-                          }
+                          <div>
+                            {
+                              agent.email ||
+                              '-'
+                            }
+                          </div>
+
+                          {/* REAL AUTH LOGIN EMAIL */}
+
+                          {loginEmails[agent.id]?.login_email && (
+                            <small
+                              style={{
+                                display: 'block',
+                                marginTop: '4px',
+                                color: '#475569'
+                              }}
+                            >
+                              {t('loginEmail')}:{' '}
+                              <strong>
+                                {loginEmails[agent.id].login_email}
+                              </strong>
+                            </small>
+                          )}
+
+                          {/* ROLE / ACCOUNT MISMATCH */}
+
+                          {agent.auth_user_id &&
+                            loginEmails[agent.id] &&
+                            !loginEmails[agent.id].login_email && (
+                              <small
+                                style={{
+                                  display: 'block',
+                                  marginTop: '4px',
+                                  color: '#b42318'
+                                }}
+                              >
+                                {t('agentLoginAccountMissing')}
+                              </small>
+                            )}
+
+                          {agent.auth_user_id &&
+                            loginEmails[agent.id]?.login_email &&
+                            String(
+                              loginEmails[agent.id].login_role || ''
+                            ).trim().toLowerCase() !== 'agent' && (
+                              <small
+                                style={{
+                                  display: 'block',
+                                  marginTop: '4px',
+                                  color: '#b42318'
+                                }}
+                              >
+                                {t('agentLoginRoleMismatch', {
+                                  role:
+                                    loginEmails[agent.id].login_role ||
+                                    t('notAssigned')
+                                })}
+                              </small>
+                            )}
                         </td>
 
                         <td>

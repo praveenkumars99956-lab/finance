@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="900" viewBox="0 0 900 900" role="img" aria-label="Abstract finance background">
+  <defs>
+    <pattern id="grid" width="45" height="45" patternUnits="userSpaceOnUse">
+      <path d="M 45 0 L 0 0 0 45" fill="none" stroke="#351078" stroke-width="0.7" stroke-opacity="0.05"/>
+    </pattern>
+    <pattern id="dots" width="30" height="30" patternUnits="userSpaceOnUse">
+      <circle cx="15" cy="15" r="1.2" fill="#351078" fill-opacity="0.05"/>
+    </pattern>
+    <linearGradient id="wave" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#351078" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#7C4DBC" stop-opacity="0.02"/>
+    </linearGradient>
+    <linearGradient id="area" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#351078" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#351078" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="coin" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#7C4DBC" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#351078" stop-opacity="0.05"/>
+    </linearGradient>
+  </defs>
+
+  <!-- base wash -->
+  <rect width="900" height="900" fill="none"/>
+  <rect width="900" height="900" fill="url(#grid)"/>
+  <rect width="900" height="900" fill="url(#dots)"/>
+
+  <!-- soft ambient blooms -->
+  <circle cx="120" cy="120" r="220" fill="#C8AEF5" fill-opacity="0.10"/>
+  <circle cx="790" cy="760" r="260" fill="#7C4DBC" fill-opacity="0.07"/>
+
+  <!-- market line chart -->
+  <g transform="translate(70 470)">
+    <path d="M0 190 L110 140 L210 168 L320 96 L430 128 L540 58 L650 88 L760 20"
+          fill="none" stroke="#351078" stroke-opacity="0.22" stroke-width="2.4"
+          stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M0 190 L110 140 L210 168 L320 96 L430 128 L540 58 L650 88 L760 20 L760 250 L0 250 Z"
+          fill="url(#area)"/>
+    <g fill="#351078" fill-opacity="0.28">
+      <circle cx="110" cy="140" r="3.5"/>
+      <circle cx="320" cy="96" r="3.5"/>
+      <circle cx="540" cy="58" r="3.5"/>
+      <circle cx="760" cy="20" r="3.5"/>
+    </g>
+  </g>
+
+  <!-- rising bars -->
+  <g fill="url(#wave)">
+    <rect x="660" y="560" width="26" height="90" rx="8"/>
+    <rect x="700" y="520" width="26" height="130" rx="8"/>
+    <rect x="740" y="480" width="26" height="170" rx="8"/>
+    <rect x="780" y="430" width="26" height="220" rx="8"/>
+  </g>
+
+  <!-- coins -->
+  <g fill="url(#coin)" stroke="#351078" stroke-opacity="0.10" stroke-width="1">
+    <circle cx="150" cy="720" r="46"/>
+    <circle cx="150" cy="720" r="34" fill="none" stroke-opacity="0.08"/>
+    <circle cx="520" cy="740" r="30"/>
+    <circle cx="520" cy="740" r="20" fill="none" stroke-opacity="0.08"/>
+  </g>
+
+  <!-- currency glyphs -->
+  <g fill="#351078" fill-opacity="0.055" font-family="Georgia, 'Times New Roman', serif" font-weight="700">
+    <text x="128" y="740" font-size="46" text-anchor="middle">₹</text>
+    <text x="520" y="754" font-size="30" text-anchor="middle">₹</text>
+    <text x="272" y="256" font-size="58" transform="rotate(-14 272 256)">₹</text>
+    <text x="610" y="300" font-size="34" transform="rotate(10 610 300)">%</text>
+  </g>
+
+  <!-- ledger lines -->
+  <g stroke="#351078" stroke-opacity="0.06" stroke-width="1.4" stroke-linecap="round">
+    <line x1="90" y1="300" x2="250" y2="300"/>
+    <line x1="90" y1="326" x2="330" y2="326"/>
+    <line x1="90" y1="352" x2="210" y2="352"/>
+  </g>
+
+  <!-- subtle arcs -->
+  <g fill="none" stroke="#351078" stroke-opacity="0.07">
+    <circle cx="760" cy="130" r="120"/>
+    <circle cx="760" cy="130" r="90"/>
+    <path d="M40 820 C 220 740, 360 880, 560 806" stroke-width="2"/>
+  </g>
+</svg>

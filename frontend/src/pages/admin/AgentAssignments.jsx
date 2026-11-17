@@ -1,8 +1,10 @@
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
+import SelectMenu from '../../components/SelectMenu'
 import {
   ensureInterestOnlyLoanCategory,
   ensureMonthlyLoanCategory,
@@ -39,7 +41,7 @@ function AgentAssignments() {
   // LOAD PAGE
   // =========================================
 
-  const loadPage = async () => {
+  async function loadPage() {
     setLoading(true)
 
     await Promise.all([
@@ -67,7 +69,7 @@ function AgentAssignments() {
       }
 
       if (!user) {
-        alert(t('pleaseLoginAgain'))
+        notify(t('pleaseLoginAgain'))
         navigate('/')
         return
       }
@@ -91,7 +93,7 @@ function AgentAssignments() {
       setCategories(data || [])
     } catch (error) {
       console.error(error)
-      alert(
+      notify(
         t('categoriesLoadFailed', {
           message: error.message
         })
@@ -111,7 +113,7 @@ function AgentAssignments() {
 
     if (error) {
       console.error(error)
-      alert(t('agentsLoadFailed', { message: error.message }))
+      notify(t('agentsLoadFailed', { message: error.message }))
       return
     }
 
@@ -149,7 +151,7 @@ function AgentAssignments() {
 
     if (error) {
       console.error(error)
-      alert(t('unableLoadAssignments', { message: error.message }))
+      notify(t('unableLoadAssignments', { message: error.message }))
       return
     }
 
@@ -179,17 +181,17 @@ function AgentAssignments() {
     e.preventDefault()
 
     if (!categoryId) {
-      alert(t('selectCollectionCategory'))
+      notify(t('selectCollectionCategory'))
       return
     }
 
     if (!['all', 'daily', 'weekly', 'monthly', 'interest_only'].includes(collectionType)) {
-      alert(t('selectValidCollectionType'))
+      notify(t('selectValidCollectionType'))
       return
     }
 
     if (!agentId) {
-      alert(t('selectAgent'))
+      notify(t('selectAgent'))
       return
     }
 
@@ -198,22 +200,22 @@ function AgentAssignments() {
     )
 
     if (!selectedAgent) {
-      alert(t('selectAgent'))
+      notify(t('selectAgent'))
       return
     }
 
     if (!selectedAgent.auth_user_id && (!editingId || status === 'active')) {
-      alert(t('agentAssignmentLoginRequired'))
+      notify(t('agentAssignmentLoginRequired'))
       return
     }
 
     if (selectedAgent.status !== 'active' && status === 'active') {
-      alert(t('agentAssignmentActiveRequired'))
+      notify(t('agentAssignmentActiveRequired'))
       return
     }
 
     if (!assignedDate) {
-      alert(t('selectAssignedDate'))
+      notify(t('selectAssignedDate'))
       return
     }
 
@@ -227,7 +229,7 @@ function AgentAssignments() {
 
     if (categoryLoansError) {
       console.error(categoryLoansError)
-      alert(
+      notify(
         t('assignmentCategoryLoansCheckFailed', {
           message: categoryLoansError.message
         })
@@ -280,7 +282,7 @@ function AgentAssignments() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      alert(t('pleaseLoginAgain'))
+      notify(t('pleaseLoginAgain'))
       navigate('/')
       return
     }
@@ -308,11 +310,11 @@ function AgentAssignments() {
         console.error(error)
 
         if (error.code === '23505') {
-          alert(
+          notify(
             t('categoryAlreadyAssignedToAgent')
           )
         } else {
-          alert(
+          notify(
             t('assignmentUpdateFailed', { message: error.message })
           )
         }
@@ -321,7 +323,7 @@ function AgentAssignments() {
         return
       }
 
-      alert(t('assignmentUpdatedSuccessfully'))
+      notify(t('assignmentUpdatedSuccessfully'))
       await writeAuditLog({
         action: 'assignment.updated',
         entityType: 'category_agent_assignment',
@@ -354,7 +356,7 @@ function AgentAssignments() {
 
       if (lookupError) {
         console.error(lookupError)
-        alert(t('assignmentLookupFailed', { message: lookupError.message }))
+        notify(t('assignmentLookupFailed', { message: lookupError.message }))
         setSaving(false)
         return
       }
@@ -376,9 +378,9 @@ function AgentAssignments() {
         console.error(error)
 
         if (error.code === '23505') {
-          alert(t('collectionTypeAlreadyAssigned'))
+          notify(t('collectionTypeAlreadyAssigned'))
         } else {
-          alert(
+          notify(
             t('assignmentCreateFailed', { message: error.message })
           )
         }
@@ -387,7 +389,7 @@ function AgentAssignments() {
         return
       }
 
-      alert(existing?.length
+      notify(existing?.length
         ? t('assignmentRefreshedSuccessfully')
         : t('agentAssignedSuccessfully'))
       await writeAuditLog({
@@ -463,7 +465,7 @@ function AgentAssignments() {
     if (error) {
       console.error(error)
 
-      alert(
+      notify(
         t('assignmentDeleteFailed', { message: error.message })
       )
 
@@ -481,7 +483,7 @@ function AgentAssignments() {
       entityId: assignment.id,
       details: { categoryId: assignment.category_id, agentId: assignment.agent_id }
     })
-    alert(t('assignmentRemovedSuccessfully'))
+    notify(t('assignmentRemovedSuccessfully'))
   }
 
   // =========================================
@@ -669,31 +671,16 @@ function AgentAssignments() {
               {t('collectionCategory')} *
             </label>
 
-            <select
+            <SelectMenu
               value={categoryId}
-              onChange={(e) =>
-                setCategoryId(
-                  e.target.value
-                )
-              }
-              required
-            >
-              <option value="">
-                {t('selectCategory')}
-              </option>
-
-              {activeCategories.map(
-                (category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                  >
-                    {category.category_name}
-                  </option>
-                )
-              )}
-
-            </select>
+              onChange={setCategoryId}
+              ariaLabel={t('collectionCategory')}
+              placeholder={t('selectCategory')}
+              options={activeCategories.map((category) => ({
+                value: String(category.id),
+                label: category.category_name
+              }))}
+            />
           </div>
 
           <div>
@@ -701,17 +688,18 @@ function AgentAssignments() {
               {t('collectionType')} *
             </label>
 
-            <select
+            <SelectMenu
               value={collectionType}
-              onChange={(e) => setCollectionType(e.target.value)}
-              required
-            >
-              <option value="daily">{t('dailyLoan')}</option>
-              <option value="weekly">{t('weeklyLoan')}</option>
-              <option value="monthly">{t('monthlyLoan')}</option>
-              <option value="interest_only">{t('interestOnlyLoan')}</option>
-              <option value="all">{t('allLoanTypesLegacy')}</option>
-            </select>
+              onChange={setCollectionType}
+              ariaLabel={t('collectionType')}
+              options={[
+                { value: 'daily', label: t('dailyLoan') },
+                { value: 'weekly', label: t('weeklyLoan') },
+                { value: 'monthly', label: t('monthlyLoan') },
+                { value: 'interest_only', label: t('interestOnlyLoan') },
+                { value: 'all', label: t('allLoanTypesLegacy') }
+              ]}
+            />
           </div>
 
           <div>
@@ -719,44 +707,31 @@ function AgentAssignments() {
               {t('agent')} *
             </label>
 
-            <select
+            <SelectMenu
               value={agentId}
-              onChange={(e) =>
-                setAgentId(
-                  e.target.value
-                )
-              }
-              required
-            >
-              <option value="">
-                {t('selectAgent')}
-              </option>
-
-              {activeAgents.map(
-                (agent) => (
-                  <option
-                    key={agent.id}
-                    value={agent.id}
-                  >
-                    {agent.agent_id}
-                    {' - '}
-                    {agent.full_name}
-                  </option>
-                )
-              )}
-
-              {currentAssignmentAgent &&
-                !activeAgents.includes(currentAssignmentAgent) && (
-                  <option value={currentAssignmentAgent.id}>
-                    {currentAssignmentAgent.agent_id} - {currentAssignmentAgent.full_name} (
-                    {currentAssignmentAgent.auth_user_id
-                      ? t('agentAccountInactive')
-                      : t('agentAssignmentLoginRequired')}
-                    )
-                  </option>
-                )}
-
-            </select>
+              onChange={setAgentId}
+              ariaLabel={t('agent')}
+              placeholder={t('selectAgent')}
+              options={[
+                ...activeAgents.map((agent) => ({
+                  value: String(agent.id),
+                  label: `${agent.agent_id} - ${agent.full_name}`
+                })),
+                ...(currentAssignmentAgent &&
+                !activeAgents.includes(currentAssignmentAgent)
+                  ? [
+                      {
+                        value: String(currentAssignmentAgent.id),
+                        label: `${currentAssignmentAgent.agent_id} - ${currentAssignmentAgent.full_name} (${
+                          currentAssignmentAgent.auth_user_id
+                            ? t('agentAccountInactive')
+                            : t('agentAssignmentLoginRequired')
+                        })`
+                      }
+                    ]
+                  : [])
+              ]}
+            />
           </div>
 
           <div>
@@ -781,22 +756,15 @@ function AgentAssignments() {
               Status
             </label>
 
-            <select
+            <SelectMenu
               value={status}
-              onChange={(e) =>
-                setStatus(
-                  e.target.value
-                )
-              }
-            >
-              <option value="active">
-                {t('active')}
-              </option>
-
-              <option value="inactive">
-                {t('inactive')}
-              </option>
-            </select>
+              onChange={setStatus}
+              ariaLabel={t('status')}
+              options={[
+                { value: 'active', label: t('active') },
+                { value: 'inactive', label: t('inactive') }
+              ]}
+            />
           </div>
 
           <button

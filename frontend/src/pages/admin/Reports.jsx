@@ -1,3 +1,6 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { normalizeFinanceType } from '../../utils/financeType'
+import { notify } from '../../utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -16,7 +19,7 @@ function Reports() {
     loadRecords()
   }, [])
 
-  const loadRecords = async () => {
+  async function loadRecords() {
     setLoading(true)
 
     const { data, error } = await supabase
@@ -38,7 +41,7 @@ function Reports() {
 
     if (error) {
       console.error('Reports error:', error)
-      alert(t('reportsLoadFailed', { message: error.message }))
+      notify(t('reportsLoadFailed', { message: error.message }))
       setLoading(false)
       return
     }
@@ -67,33 +70,17 @@ function Reports() {
   }
 
   const getLoanName = (type) => {
-    if (type === 'daily') return t('dailyLoan')
-    if (type === 'weekly') return t('weeklyLoan')
-    if (type === 'monthly') return t('monthlyLoan')
+    const normalizedType = normalizeFinanceType(type)
 
-    if (
-      type === 'interest_only' ||
-      type === 'interest-only'
-    ) {
-      return t('interestOnlyLoan')
-    }
+    if (normalizedType === 'daily') return t('dailyLoan')
+    if (normalizedType === 'weekly') return t('weeklyLoan')
+    if (normalizedType === 'monthly') return t('monthlyLoan')
+    if (normalizedType === 'interest_only') return t('interestOnlyLoan')
 
     return type || '-'
   }
 
-  const formatMoney = (value) => {
-    const locale = {
-      en: 'en-IN',
-      ta: 'ta-IN',
-      hi: 'hi-IN',
-      ml: 'ml-IN'
-    }[i18n.resolvedLanguage] || 'en-IN'
-
-    return Number(value || 0).toLocaleString(locale, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   const formatDate = (date) => {
     if (!date) return '-'
@@ -150,28 +137,24 @@ function Reports() {
 
     return records.filter((record) => {
       const pending = Number(record.pending || 0)
+      const recordType = normalizeFinanceType(record.finance_type)
 
       let matchesFilter = true
 
       if (filter === 'daily') {
-        matchesFilter =
-          record.finance_type === 'daily'
+        matchesFilter = recordType === 'daily'
       }
 
       if (filter === 'weekly') {
-        matchesFilter =
-          record.finance_type === 'weekly'
+        matchesFilter = recordType === 'weekly'
       }
 
       if (filter === 'monthly') {
-        matchesFilter =
-          record.finance_type === 'monthly'
+        matchesFilter = recordType === 'monthly'
       }
 
       if (filter === 'interest_only') {
-        matchesFilter =
-          record.finance_type === 'interest_only' ||
-          record.finance_type === 'interest-only'
+        matchesFilter = recordType === 'interest_only'
       }
 
       if (filter === 'pending') {
@@ -304,7 +287,7 @@ function Reports() {
 
   const downloadExcel = async () => {
     if (filteredRecords.length === 0) {
-      alert(t('noRecordsToDownload'))
+      notify(t('noRecordsToDownload'))
       return
     }
 
@@ -375,7 +358,7 @@ function Reports() {
 
   const downloadPDF = async () => {
     if (filteredRecords.length === 0) {
-      alert(t('noRecordsToDownload'))
+      notify(t('noRecordsToDownload'))
       return
     }
 
@@ -468,65 +451,73 @@ function Reports() {
 
       <button
         onClick={() => navigate('/admin')}
-        style={{ marginBottom: '20px' }}
+        style={{
+          marginBottom: '20px',
+          background: '#ffffff',
+          color: '#351078',
+          border: '1px solid #c4b5fd',
+          borderRadius: '10px',
+          padding: '0.55rem 0.9rem',
+          fontWeight: 600,
+          cursor: 'pointer'
+        }}
       >
         ← {t('adminDashboard')}
       </button>
 
-      <div className="weekly-summary">
+      <div className="weekly-summary finance-reports-card">
         <h2>{t('financeReports')}</h2>
 
-        <div className="report-filters">
-          <button onClick={() => setFilter('all')}>
-            {t('all')}
-          </button>
-
-          <button onClick={() => setFilter('daily')}>
-            {t('dailyLoan')}
-          </button>
-
-          <button onClick={() => setFilter('weekly')}>
-            {t('weeklyLoan')}
-          </button>
-
-          <button onClick={() => setFilter('monthly')}>
-            {t('monthlyLoan')}
-          </button>
-
-          <button
-            onClick={() =>
-              setFilter('interest_only')
-            }
-          >
-            {t('interestOnlyLoan')}
-          </button>
-
-          <button
-            onClick={() => setFilter('pending')}
-          >
-            {t('pending')}
-          </button>
-
-          <button
-            onClick={() => setFilter('overdue')}
-          >
-            {t('overdue')}
-          </button>
-
-          <button onClick={() => setFilter('paid')}>
-            {t('paid')}
-          </button>
+        <div className="report-filters" style={{ background: 'var(--primary-50, #F5F3FF)' }}>
+          {[
+            { key: 'all', label: t('all') },
+            { key: 'daily', label: t('dailyLoan') },
+            { key: 'weekly', label: t('weeklyLoan') },
+            { key: 'monthly', label: t('monthlyLoan') },
+            { key: 'interest_only', label: t('interestOnlyLoan') },
+            { key: 'pending', label: t('pending') },
+            { key: 'overdue', label: t('overdue') },
+            { key: 'paid', label: t('paid') }
+          ].map(({ key, label }) => {
+            const active = filter === key
+            return (
+              <button
+                key={key}
+                type="button"
+                onClick={() => setFilter(key)}
+                style={{
+                  background: active ? 'var(--primary-800, #3B1A82)' : '#ffffff',
+                  color: active ? '#ffffff' : 'var(--primary-800, #3B1A82)',
+                  border: `1px solid ${active ? 'var(--primary-800, #3B1A82)' : 'var(--primary-100, #EDE9FE)'}`,
+                  borderRadius: '10px',
+                  padding: '0.5rem 0.85rem',
+                  fontWeight: 600,
+                  cursor: 'pointer'
+                }}
+              >
+                {label}
+              </button>
+            )
+          })}
 
           <button
-            onClick={() =>
-              navigate('/reports/collections')
-            }
+            type="button"
+            onClick={() => navigate('/reports/collections')}
+            style={{
+              background: 'var(--primary-100, #EDE9FE)',
+              color: 'var(--primary-800, #3B1A82)',
+              border: '1px solid var(--primary-100, #EDE9FE)',
+              borderRadius: '10px',
+              padding: '0.5rem 0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
           >
             {t('collectionReport')}
           </button>
         </div>
 
-        <div style={{ marginTop: '18px' }}>
+        <div className="finance-reports-search" style={{ marginTop: '18px' }}>
           <input
             type="text"
             placeholder={t('searchCustomerOrCategory')}
@@ -534,6 +525,11 @@ function Reports() {
             onChange={(e) =>
               setSearch(e.target.value)
             }
+            style={{
+              background: 'rgba(255,255,255,0.92)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              color: '#1f2937'
+            }}
           />
         </div>
       </div>
@@ -544,7 +540,7 @@ function Reports() {
         <>
           <h2>{getReportName()}</h2>
 
-          <div className="weekly-summary">
+          <div className="weekly-summary finance-reports-stats">
             <div
               style={{
                 display: 'flex',
@@ -580,7 +576,7 @@ function Reports() {
 
               <div className="summary-card">
                 <p>{t('overdueAccounts')}</p>
-                <h3>{overdueCount}</h3>
+                <h3 style={{ color: '#FCA5A5' }}>{overdueCount}</h3>
               </div>
             </div>
           </div>
@@ -592,11 +588,35 @@ function Reports() {
               marginBottom: '20px'
             }}
           >
-            <button onClick={downloadExcel}>
+            <button
+              type="button"
+              onClick={downloadExcel}
+              style={{
+                background: '#351078',
+                color: '#ffffff',
+                border: '1px solid #351078',
+                borderRadius: '10px',
+                padding: '0.55rem 0.95rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
               📗 {t('downloadExcel')}
             </button>
 
-            <button onClick={downloadPDF}>
+            <button
+              type="button"
+              onClick={downloadPDF}
+              style={{
+                background: '#dc2626',
+                color: '#ffffff',
+                border: '1px solid #dc2626',
+                borderRadius: '10px',
+                padding: '0.55rem 0.95rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
               📄 {t('downloadPdf')}
             </button>
           </div>
@@ -612,78 +632,75 @@ function Reports() {
               <table
                 style={{
                   width: '100%',
-                  borderCollapse: 'collapse'
+                  borderCollapse: 'collapse',
+                  background: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '12px',
+                  overflow: 'hidden'
                 }}
               >
                 <thead>
-                  <tr>
-                    <th>{t('customer')}</th>
-                    <th>{t('collectionCategory')}</th>
-                    <th>{t('loanType')}</th>
-                    <th>{t('total')}</th>
-                    <th>{t('paid')}</th>
-                    <th>{t('pending')}</th>
-                    <th>{t('nextDueDate')}</th>
-                    <th>{t('status')}</th>
+                  <tr style={{ background: '#f5f3ff' }}>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('customer')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('collectionCategory')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('loanType')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('total')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('paid')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('pending')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('nextDueDate')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('status')}</th>
                   </tr>
                 </thead>
 
                 <tbody>
                   {filteredRecords.map((record) => (
-                    <tr key={record.id}>
-                      <td>
+                    <tr key={record.id} style={{ borderTop: '1px solid #e5e7eb' }}>
+                      <td style={{ padding: '12px', verticalAlign: 'top' }}>
                         <strong>
                           {getCustomerName(record)}
                         </strong>
 
                         <br />
 
-                        <small>
+                        <small style={{ color: '#6b7280' }}>
                           {getCustomerId(record)}
                         </small>
                       </td>
 
-                      <td>
+                      <td style={{ padding: '12px', verticalAlign: 'top' }}>
                         {getCategoryName(record)}
                       </td>
 
-                      <td>
+                      <td style={{ padding: '12px', verticalAlign: 'top' }}>
                         {getLoanName(
                           record.finance_type
                         )}
                       </td>
 
-                      <td>
+                      <td style={{ padding: '12px', verticalAlign: 'top' }}>
                         ₹{formatMoney(record.amount)}
                       </td>
 
-                      <td>
+                      <td style={{ padding: '12px', verticalAlign: 'top', color: '#351078', fontWeight: 600 }}>
                         ₹{formatMoney(record.paid)}
                       </td>
 
-                      <td>
-                        <strong>
+                      <td style={{ padding: '12px', verticalAlign: 'top' }}>
+                        <strong style={{ color: Number(record.pending || 0) > 0 ? '#b45309' : '#351078' }}>
                           ₹{formatMoney(
                             record.pending
                           )}
                         </strong>
                       </td>
 
-                      <td>
+                      <td style={{ padding: '12px', verticalAlign: 'top' }}>
                         {formatDate(
                           record.next_due_date
                         )}
                       </td>
 
-                      <td>
-                        {getStatus(record) ===
-                        'overdue'
-                          ? '🔴 '
-                          : getStatus(record) ===
-                            'paid'
-                          ? '🟢 '
-                          : '🟡 '}
-
+                      <td style={{ padding: '12px', verticalAlign: 'top' }}>
+                        {getStatus(record) === 'overdue' ? '🔴 ' : getStatus(record) === 'paid' ? '🟢 ' : '🟡 '}
                         <strong>
                           {t(getStatus(record))}
                         </strong>

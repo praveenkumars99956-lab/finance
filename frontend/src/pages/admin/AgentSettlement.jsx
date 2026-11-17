@@ -1,8 +1,11 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { filterAssignedFinance } from '../../services/agentAssignments'
+import SelectMenu from '../../components/SelectMenu'
 
 function AgentSettlement() {
   const navigate = useNavigate()
@@ -37,7 +40,7 @@ function AgentSettlement() {
   // LOAD PAGE
   // =========================================
 
-  const loadPage = async () => {
+  async function loadPage() {
     setLoading(true)
 
     const {
@@ -49,7 +52,7 @@ function AgentSettlement() {
       sessionError ||
       !sessionData?.session
     ) {
-      alert(
+      notify(
         t('agentLoginSessionEnded')
       )
 
@@ -85,7 +88,7 @@ function AgentSettlement() {
         error
       )
 
-      alert(
+      notify(
         t('agentsLoadFailed', { message: error.message })
       )
 
@@ -132,7 +135,7 @@ function AgentSettlement() {
         error
       )
 
-      alert(
+      notify(
         t('settlementsLoadFailed', { message: error.message })
       )
 
@@ -146,17 +149,7 @@ function AgentSettlement() {
   // FORMAT MONEY
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // FORMAT DATE
@@ -365,6 +358,11 @@ function AgentSettlement() {
 
       const settled =
         (previousData || [])
+          .filter(
+            (settlement) =>
+              settlement.status === 'settled' ||
+              settlement.status === 'partial'
+          )
           .reduce(
             (total, settlement) =>
               total +
@@ -387,7 +385,7 @@ function AgentSettlement() {
 
       resetAgentTotals()
 
-      alert(
+      notify(
         t('agentSettlementTotalsFailed', { message: error.message })
       )
     }
@@ -399,10 +397,7 @@ function AgentSettlement() {
   // AGENT CHANGE
   // =========================================
 
-  const handleAgentChange = async (e) => {
-    const value =
-      e.target.value
-
+  const handleAgentChange = async (value) => {
     setSelectedAgent(
       value
     )
@@ -502,14 +497,14 @@ function AgentSettlement() {
     e.preventDefault()
 
     if (!selectedAgent) {
-      alert(
+      notify(
         t('selectAgent')
       )
       return
     }
 
     if (!settlementDate) {
-      alert(
+      notify(
         t('selectSettlementDate')
       )
       return
@@ -518,7 +513,7 @@ function AgentSettlement() {
     if (
       availableForSettlement <= 0
     ) {
-      alert(
+      notify(
         t('noAvailableCollectionToSettle')
       )
       return
@@ -538,7 +533,7 @@ function AgentSettlement() {
       remitted < 0 ||
       returned < 0
     ) {
-      alert(
+      notify(
         t('settlementAmountsCannotBeNegative')
       )
       return
@@ -548,7 +543,7 @@ function AgentSettlement() {
       remitted === 0 &&
       returned === 0
     ) {
-      alert(
+      notify(
         t('enterRemittedOrReturnedAmount')
       )
       return
@@ -558,7 +553,7 @@ function AgentSettlement() {
       remitted + returned >
       availableForSettlement
     ) {
-      alert(
+      notify(
         t('settlementExceedsAvailable', {
           amount: formatMoney(availableForSettlement)
         })
@@ -576,7 +571,7 @@ function AgentSettlement() {
       sessionError ||
       !sessionData?.session?.user
     ) {
-      alert(
+      notify(
         t('agentLoginSessionEnded')
       )
 
@@ -657,7 +652,7 @@ function AgentSettlement() {
         error
       )
 
-      alert(
+      notify(
         t('settlementSaveFailed', { message: error.message })
       )
 
@@ -665,7 +660,7 @@ function AgentSettlement() {
       return
     }
 
-    alert(
+    notify(
       t('agentSettlementSavedSuccessfully')
     )
 
@@ -757,40 +752,16 @@ function AgentSettlement() {
                 {t('agent')} *
               </label>
 
-              <select
-                value={
-                  selectedAgent
-                }
-                onChange={
-                  handleAgentChange
-                }
-                required
-              >
-
-                <option value="">
-                  {t('selectAgent')}
-                </option>
-
-                {agents.map(
-                  (agent) => (
-
-                    <option
-                      key={
-                        agent.id
-                      }
-                      value={
-                        agent.id
-                      }
-                    >
-                      {agent.full_name}
-                      {' - '}
-                      {agent.agent_id}
-                    </option>
-
-                  )
-                )}
-
-              </select>
+              <SelectMenu
+                value={selectedAgent}
+                onChange={handleAgentChange}
+                ariaLabel={t('agent')}
+                placeholder={t('selectAgent')}
+                options={agents.map((agent) => ({
+                  value: String(agent.id),
+                  label: `${agent.full_name} - ${agent.agent_id}`
+                }))}
+              />
 
             </div>
 

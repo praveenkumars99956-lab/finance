@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -165,7 +167,7 @@ function InterestOnly() {
     }
 
     loadInterestOnlyCategory()
-  }, [])
+  }, [t])
 
   // =========================================
   // AUTOMATIC INTEREST CALCULATION
@@ -207,17 +209,7 @@ function InterestOnly() {
   // MONEY FORMAT
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value)
 
   // =========================================
   // ADD 30 DAYS
@@ -287,7 +279,7 @@ function InterestOnly() {
     // =====================================
 
     if (!customerId && !newCustomerName.trim()) {
-      alert(
+      notify(
         t(
           'dailyCustomerNameRequired',
           'Enter the customer name to create an Interest-Only Finance account.'
@@ -305,7 +297,7 @@ function InterestOnly() {
       categoryLoading ||
       !collectionCategoryId
     ) {
-      alert(
+      notify(
         categoryError ||
           t('interestOnlyCategoryLoading')
       )
@@ -321,7 +313,7 @@ function InterestOnly() {
       !Number.isFinite(p) ||
       p <= 0
     ) {
-      alert(
+      notify(
         t('enterValidPrincipal')
       )
 
@@ -336,7 +328,7 @@ function InterestOnly() {
       !Number.isFinite(rate) ||
       rate < 0
     ) {
-      alert(
+      notify(
         t('enterValidInterestRate')
       )
 
@@ -351,7 +343,7 @@ function InterestOnly() {
       !Number.isFinite(interest) ||
       interest < 0
     ) {
-      alert(
+      notify(
         t('enterValidInterestAmount')
       )
 
@@ -363,7 +355,7 @@ function InterestOnly() {
     // =====================================
 
     if (!startDate) {
-      alert(
+      notify(
         t('selectStartDate')
       )
 
@@ -378,7 +370,7 @@ function InterestOnly() {
       add30Days(startDate)
 
     if (!nextDueDate) {
-      alert(
+      notify(
         t('invalidStartDate')
       )
 
@@ -401,7 +393,7 @@ function InterestOnly() {
       userError ||
       !user
     ) {
-      alert(
+      notify(
         t('pleaseLoginAgain')
       )
 
@@ -605,14 +597,14 @@ function InterestOnly() {
           error
         )
 
-        alert(
+        notify(
           t('unableCreateInterestOnlyFinance', { message: error.message })
         )
 
         return
       }
 
-      alert(
+      notify(
         t('interestOnlyFinanceCreatedSuccessfully')
       )
 
@@ -625,7 +617,7 @@ function InterestOnly() {
         error
       )
 
-      alert(
+      notify(
         error?.message || t('unableCreateInterestOnlyFinanceFallback')
       )
     } finally {

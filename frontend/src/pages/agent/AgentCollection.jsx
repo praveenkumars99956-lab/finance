@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -239,11 +241,11 @@ function AgentCollection() {
     setPayments([])
     setCurrentAgent(null)
     console.error('COLLECTION ACCESS ERROR:', error)
-    alert(error?.message || t('unableVerifyCollectionAccess'))
+    notify(error?.message || t('unableVerifyCollectionAccess'))
     navigate('/agent', { replace: true })
   }
 
-  const loadCollection = async () => {
+  async function loadCollection() {
     const version = ++loadVersion.current
     setLoading(true)
     setFinance(null)
@@ -276,17 +278,7 @@ function AgentCollection() {
   // FORMAT MONEY
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // FORMAT DATE
@@ -377,7 +369,7 @@ function AgentCollection() {
 
   const captureGps = () => {
     if (!navigator.geolocation) {
-      alert(
+      notify(
         t('gpsUnsupported')
       )
       return
@@ -401,7 +393,7 @@ function AgentCollection() {
 
         setGpsLoading(false)
 
-        alert(
+        notify(
           t('gpsCapturedSuccessfully')
         )
       },
@@ -415,19 +407,19 @@ function AgentCollection() {
         setGpsLoading(false)
 
         if (error.code === 1) {
-          alert(
+          notify(
             t('gpsPermissionDenied')
           )
         } else if (error.code === 2) {
-          alert(
+          notify(
             t('gpsLocationUnavailable')
           )
         } else if (error.code === 3) {
-          alert(
+          notify(
             t('gpsRequestTimedOut')
           )
         } else {
-          alert(
+          notify(
             t('gpsCaptureFailed')
           )
         }
@@ -456,7 +448,7 @@ function AgentCollection() {
     }
 
     if (!file.type.startsWith('image/')) {
-      alert(
+      notify(
         t('selectImageFile')
       )
 
@@ -468,7 +460,7 @@ function AgentCollection() {
       5 * 1024 * 1024
 
     if (file.size > maxSize) {
-      alert(
+      notify(
         t('proofImageMaxSize')
       )
 
@@ -501,7 +493,7 @@ function AgentCollection() {
 
     const selectedDate = paymentDate
     if (collectionDateUnavailable) {
-      alert(
+      notify(
         t(
           'collectionNotAvailableUntil',
           'Collections cannot be recorded until {{date}}.',
@@ -512,7 +504,7 @@ function AgentCollection() {
     }
 
     if (!selectedDate) {
-      alert(t('selectCollectionDate'))
+      notify(t('selectCollectionDate'))
       return
     }
 
@@ -534,14 +526,14 @@ function AgentCollection() {
       !Number.isFinite(amount) ||
       amount <= 0
     ) {
-      alert(
+      notify(
         t('enterValidCollectionAmount')
       )
       return
     }
 
     if (amount > paymentLimit) {
-      alert(
+      notify(
         t('collectionExceedsInterestDue', {
           amount: formatMoney(paymentLimit)
         })
@@ -553,7 +545,7 @@ function AgentCollection() {
       getPaymentRpc()
 
     if (!rpcName) {
-      alert(
+      notify(
         t('financeTypeNotSupported')
       )
       return
@@ -568,7 +560,7 @@ function AgentCollection() {
         longitude === null
       )
     ) {
-      alert(
+      notify(
         t('collectionGpsRequired')
       )
       return
@@ -580,7 +572,7 @@ function AgentCollection() {
       requireCollectionProof &&
       !proofFile
     ) {
-      alert(
+      notify(
         t('collectionProofRequired')
       )
       return
@@ -622,7 +614,7 @@ function AgentCollection() {
       const verifiedPaymentLimit = getPaymentLimitForDate(access.record, submittedPaymentDate)
       if (access.record.finance_type !== finance.finance_type ||
           amount > verifiedPaymentLimit) {
-        alert(t('collectionFinanceChanged'))
+        notify(t('collectionFinanceChanged'))
         await loadCollection()
         return
       }
@@ -656,9 +648,9 @@ function AgentCollection() {
         if (/finance record not found/i.test(error.message || '')) {
           try {
             await verifyCollectionAccess(financeId)
-            alert(t('unableRecordCollection', { message: error.message }))
+            notify(t('unableRecordCollection', { message: error.message }))
           } catch (accessError) {
-            alert(
+            notify(
               t('collectionNoLongerAssigned', {
                 loanType: getLoanName(finance?.finance_type)
               })
@@ -670,7 +662,7 @@ function AgentCollection() {
           return
         }
 
-        alert(
+        notify(
           t('unableRecordCollection', { message: error.message })
         )
 
@@ -760,7 +752,7 @@ function AgentCollection() {
             uploadError
           )
 
-          alert(
+          notify(
             t('collectionRecordedProofUploadFailed', {
               message: uploadError.message
             })
@@ -819,7 +811,7 @@ function AgentCollection() {
             evidenceError
           )
 
-          alert(
+          notify(
             t('collectionRecordedEvidenceSaveFailed', {
               message: evidenceError.message
             })
@@ -831,7 +823,7 @@ function AgentCollection() {
       // SUCCESS
       // =========================================
 
-      alert(
+      notify(
         t('collectionRecordedSuccessfully')
       )
 
@@ -855,7 +847,7 @@ function AgentCollection() {
 
     } catch (error) {
       console.error('COLLECTION ERROR:', error)
-      alert(paymentRecorded
+      notify(paymentRecorded
         ? t('collectionRecordedEvidenceRefreshFailed')
         : (error?.message || t('unableRecordCollectionCheckHistory')))
       if (paymentRecorded) await loadCollection()
@@ -947,10 +939,9 @@ function AgentCollection() {
         </div>
 
         <button
-          className="back-button"
-          onClick={() =>
-            navigate('/agent')
-          }
+          type="button"
+          onClick={() => navigate('/agent')}
+          style={{ background: '#ffffff', color: '#351078', border: '1px solid #c4b5fd', borderRadius: 10, padding: '0.5rem 0.9rem', fontWeight: 600, cursor: 'pointer' }}
         >
           ← {t('agentDashboard')}
         </button>
@@ -1177,347 +1168,181 @@ function AgentCollection() {
 
       <div className="daily-manage-section">
 
-        <h2>
-          {t('recordCollection')}
-        </h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', alignItems: 'center', marginBottom: '1rem' }}>
+          <div>
+            <h2 style={{ margin: 0 }}>{t('recordCollection')}</h2>
+            <p style={{ margin: '0.25rem 0 0', color: '#5b4b75' }}>
+              {String(finance.finance_type || '').toLowerCase() === 'interest_only'
+                ? t('interestOnlyCollectionHint', 'Easy steps: choose date, enter interest amount, add GPS/photo if required, then record.')
+                : t('collectionEasyHint', 'Easy steps: choose date, enter amount, add GPS/photo if required, then record.')}
+            </p>
+          </div>
+          <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 12, padding: '0.6rem 0.9rem', minWidth: 180 }}>
+            <div style={{ fontSize: '0.8rem', color: '#6d28d9', fontWeight: 600 }}>{t('currentPending')}</div>
+            <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>₹{formatMoney(pendingForDate)}</div>
+          </div>
+        </div>
 
         {pendingForDate > 0 ? (
 
-          <form
-            onSubmit={
-              recordCollection
-            }
-            noValidate
-          >
-
-            <div className="daily-info-grid">
-
-              <div>
-
-                <label>
-                  {t('collectionDate')} *
-                </label>
-
+          <form onSubmit={recordCollection} noValidate>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <label style={{ display: 'block', fontWeight: 700, color: '#351078' }}>{t('collectionDate')} *</label>
+                  {!collectionDateUnavailable && (
+                    <span style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                      {t('tapToSelectDate', 'Tap a day to select')}
+                    </span>
+                  )}
+                </div>
                 {collectionDateUnavailable ? (
-                  <p role="alert">
-                    {t(
-                      'collectionNotAvailableUntil',
-                      'Collections cannot be recorded until {{date}}.',
-                      { date: minimumPaymentDate }
-                    )}
+                  <p role="alert" style={{ margin: 0, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '0.75rem' }}>
+                    {t('collectionNotAvailableUntil', 'Collections cannot be recorded until {{date}}.', { date: minimumPaymentDate })}
                   </p>
                 ) : (
-                  <CalendarDatePicker
-                    label={t('collectionDate')}
-                    min={minimumPaymentDate}
-                    max={getLocalDate()}
-                    value={getValidPaymentDate(paymentDate, finance)}
-                    onChange={(date) =>
-                      setPaymentDate(
-                        getValidPaymentDate(date, finance)
-                      )
-                    }
-                  />
+                  <>
+                    <CalendarDatePicker
+                      label={t('collectionDate')}
+                      min={minimumPaymentDate}
+                      max={getLocalDate()}
+                      value={getValidPaymentDate(paymentDate, finance)}
+                      onChange={(date) => setPaymentDate(getValidPaymentDate(date, finance))}
+                    />
+                    <p style={{ margin: '0.5rem 0 0', fontSize: '0.8rem', color: '#5b6472' }}>
+                      {t('collectionDateHelp', 'You can record collections only within the allowed date range.')}
+                    </p>
+                  </>
                 )}
-
               </div>
 
-              <div>
-
-                <label>
+              <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem' }}>
+                <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem' }}>
                   {String(finance.finance_type || '').toLowerCase() === 'interest_only'
                     ? `${t('interestPaymentAmount')} *`
                     : `${t('collectionAmount')} *`}
                 </label>
-
                 <input
                   type="number"
                   min="0.01"
                   step="0.01"
                   max={paymentLimitForDate}
                   placeholder={t('enterAmount')}
-                  value={
-                    paymentAmount
-                  }
-                  onChange={(e) =>
-                    setPaymentAmount(
-                      e.target.value
-                    )
-                  }
+                  value={paymentAmount}
+                  onChange={(e) => setPaymentAmount(e.target.value)}
                   required
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.7rem 0.8rem', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: '1rem' }}
                 />
-
+                <small style={{ display: 'block', marginTop: '0.35rem', color: '#6b7280' }}>
+                  {String(finance.finance_type || '').toLowerCase() === 'interest_only'
+                    ? `${t('maxAmount', 'Max')}: ₹${formatMoney(paymentLimitForDate)}`
+                    : `${t('pending', 'Pending')}: ₹${formatMoney(pendingForDate)}`}
+                </small>
               </div>
 
-              {String(finance.finance_type || '').toLowerCase() === 'interest_only' && (
-                <div className="payment-preview">
-                  <span>{t('interestDueOnCollectionDate')}</span>
-                  <strong>₹{formatMoney(paymentLimitForDate)}</strong>
+              {String(finance.finance_type || '').toLowerCase() === 'interest_only' ? (
+                <div style={{ background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: 12, padding: '0.9rem' }}>
+                  <span style={{ display: 'block', color: '#155e75', fontWeight: 600 }}>{t('interestDueOnCollectionDate')}</span>
+                  <strong style={{ fontSize: '1.25rem', color: '#0f172a' }}>₹{formatMoney(paymentLimitForDate)}</strong>
+                </div>
+              ) : (
+                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '0.9rem' }}>
+                  <span style={{ display: 'block', color: '#166534', fontWeight: 600 }}>{t('status')}</span>
+                  <strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>{t(status)}</strong>
                 </div>
               )}
-
             </div>
 
-            {/* COLLECTION EVIDENCE */}
-
-            <div
-              style={{
-                marginTop: '24px',
-                padding: '18px',
-                border:
-                  '1px solid #e5e7eb',
-                borderRadius: '12px'
-              }}
-            >
-
-              <h3>
-                {t('collectionEvidence')}
-              </h3>
-
+            <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: 12, background: '#fcfcff' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '0.35rem' }}>{t('collectionEvidence')}</h3>
               {settingsLoading ? (
-                <p>
-                  {t('loadingCollectionRequirements')}
-                </p>
+                <p style={{ margin: '0 0 0.75rem' }}>{t('loadingCollectionRequirements')}</p>
               ) : (
-                <p>
-                  {t('gps')}:{' '}
-                  <strong>
-                    {
-                      requireGps
-                        ? t('required')
-                        : t('optional')
-                    }
-                  </strong>
-
-                  {' • '}
-
-                  {t('proof')}:{' '}
-                  <strong>
-                    {
-                      requireCollectionProof
-                        ? t('required')
-                        : t('optional')
-                    }
-                  </strong>
+                <p style={{ margin: '0 0 0.75rem' }}>
+                  <span style={{ display: 'inline-block', marginRight: '0.5rem', background: requireGps ? '#fee2e2' : '#e0f2fe', color: requireGps ? '#991b1b' : '#075985', borderRadius: 999, padding: '0.15rem 0.55rem', fontWeight: 600 }}>
+                    {t('gps')}: {requireGps ? t('required') : t('optional')}
+                  </span>
+                  <span style={{ display: 'inline-block', background: requireCollectionProof ? '#fee2e2' : '#e0f2fe', color: requireCollectionProof ? '#991b1b' : '#075985', borderRadius: 999, padding: '0.15rem 0.55rem', fontWeight: 600 }}>
+                    {t('proof')}: {requireCollectionProof ? t('required') : t('optional')}
+                  </span>
                 </p>
               )}
-              {settingsLoadError && (
-                <p role="alert">
-                  {settingsLoadError}
-                </p>
-              )}
+              {settingsLoadError && <p role="alert">{settingsLoadError}</p>}
 
-              {/* GPS */}
-
-              <div
-                style={{
-                  marginTop: '16px'
-                }}
-              >
-
-                <button
-                  type="button"
-                  onClick={
-                    captureGps
-                  }
-                  disabled={
-                    gpsLoading ||
-                    saving
-                  }
-                >
-                  {
-                    gpsLoading
-                      ? t('capturingGps')
-                      : requireGps
-                        ? `📍 ${t('captureGps')} *`
-                        : `📍 ${t('captureGps')} (${t('optional')})`
-                  }
-                </button>
-
-                {latitude !== null &&
-                  longitude !== null && (
-
-                  <div
-                    style={{
-                      marginTop: '12px',
-                      padding: '12px',
-                      background:
-                        '#eaf8ef',
-                      borderRadius:
-                        '10px'
-                    }}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem' }}>
+                  <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{t('gps')}</div>
+                  <button
+                    type="button"
+                    onClick={captureGps}
+                    disabled={gpsLoading || saving}
+                    style={{ background: '#2563eb', color: '#fff', border: '1px solid #2563eb', borderRadius: 10, padding: '0.55rem 0.85rem', fontWeight: 600, cursor: gpsLoading || saving ? 'not-allowed' : 'pointer', opacity: gpsLoading || saving ? 0.7 : 1 }}
                   >
+                    {gpsLoading ? t('capturingGps') : requireGps ? `📍 ${t('captureGps')} *` : `📍 ${t('captureGps')} (${t('optional')})`}
+                  </button>
 
-                    <strong>
-                      ✅ {t('gpsCaptured')}
-                    </strong>
+                  {latitude !== null && longitude !== null && (
+                    <div style={{ marginTop: '12px', padding: '12px', background: '#ecfdf5', borderRadius: 10, border: '1px solid #bbf7d0' }}>
+                      <strong>✅ {t('gpsCaptured')}</strong>
+                      <p style={{ margin: '0.35rem 0 0' }}>{t('latitude')}: {Number(latitude).toFixed(6)}</p>
+                      <p style={{ margin: '0.2rem 0 0' }}>{t('longitude')}: {Number(longitude).toFixed(6)}</p>
+                      <p style={{ margin: '0.2rem 0 0' }}>{t('accuracy')}: {gpsAccuracy ? `${Math.round(gpsAccuracy)} ${t('meters')}` : '-'}</p>
+                    </div>
+                  )}
+                </div>
 
-                    <p>
-                      {t('latitude')}:{' '}
-                      {
-                        Number(
-                          latitude
-                        ).toFixed(6)
-                      }
-                    </p>
-
-                    <p>
-                      {t('longitude')}:{' '}
-                      {
-                        Number(
-                          longitude
-                        ).toFixed(6)
-                      }
-                    </p>
-
-                    <p>
-                      {t('accuracy')}:{' '}
-                      {
-                        gpsAccuracy
-                          ? `${Math.round(
-                              gpsAccuracy
-                              )} {t('meters')}`
-                          : '-'
-                      }
-                    </p>
-
-                  </div>
-
-                )}
-
-              </div>
-
-              {/* PROOF IMAGE */}
-
-              <div
-                style={{
-                  marginTop: '20px'
-                }}
-              >
-
-                <label>
-                  {t('collectionProofPhoto')}{' '}
-                  {
-                    requireCollectionProof
-                      ? '*'
-                      : `(${t('optional')})`
-                  }
-                </label>
-
-                <br />
-
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={
-                    handleProofFile
-                  }
-                  disabled={saving}
-                  style={{
-                    marginTop: '8px'
-                  }}
-                />
-
-                {proofFile && (
-
-                  <div
-                    style={{
-                      marginTop: '12px'
-                    }}
-                  >
-
-                    <strong>
-                      ✅ {t('proofSelected')}
-                    </strong>
-
-                    <p>
-                      {proofFile.name}
-                    </p>
-
-                  </div>
-
-                )}
-
-                {proofPreview && (
-
-                  <img
-                    src={
-                      proofPreview
-                    }
-                    alt={t('collectionProofPreview')}
-                    style={{
-                      display: 'block',
-                      marginTop: '12px',
-                      width: '100%',
-                      maxWidth: '320px',
-                      maxHeight: '260px',
-                      objectFit: 'cover',
-                      borderRadius:
-                        '12px',
-                      border:
-                        '1px solid #e5e7eb'
-                    }}
+                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem' }}>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>
+                    {t('collectionProofPhoto')} {requireCollectionProof ? '*' : `(${t('optional')})`}
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleProofFile}
+                    disabled={saving}
+                    style={{ marginTop: '4px' }}
                   />
 
-                )}
+                  {proofFile && (
+                    <div style={{ marginTop: '12px', padding: '10px', background: '#eff6ff', borderRadius: 10, border: '1px solid #bfdbfe' }}>
+                      <strong>✅ {t('proofSelected')}</strong>
+                      <p style={{ margin: '0.25rem 0 0', wordBreak: 'break-word' }}>{proofFile.name}</p>
+                    </div>
+                  )}
 
+                  {proofPreview && (
+                    <img
+                      src={proofPreview}
+                      alt={t('collectionProofPreview')}
+                      style={{ display: 'block', marginTop: '12px', width: '100%', maxWidth: '320px', maxHeight: '260px', objectFit: 'cover', borderRadius: 12, border: '1px solid #e5e7eb' }}
+                    />
+                  )}
+                </div>
               </div>
-
             </div>
 
-            {/* CURRENT PENDING */}
-
-            <div
-              style={{
-                marginTop: '18px'
-              }}
-            >
-
-              <p>
-                {t('currentPending')}
-              </p>
-
-              <h2>
-                ₹{formatMoney(
-                  pendingForDate
-                )}
-              </h2>
-
+            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem 1rem' }}>
+              <div>
+                <div style={{ color: '#475569', fontSize: '0.9rem' }}>{t('readyToRecord', 'Ready to record')}</div>
+                <div style={{ fontWeight: 700, color: '#1f2937' }}>
+                  {String(finance.finance_type || '').toLowerCase() === 'interest_only' ? t('interestPaymentAmount', 'Interest payment amount') : t('collectionAmount', 'Collection amount')} : ₹{formatMoney(Number(paymentAmount || 0))}
+                </div>
+              </div>
               <button
                 type="submit"
-                className="record-payment-button"
-                disabled={
-                  saving
-                }
+                disabled={saving}
+                style={{ background: saving ? '#86efac' : '#16a34a', color: '#fff', border: '1px solid #16a34a', borderRadius: 12, padding: '0.75rem 1.2rem', fontWeight: 700, fontSize: '1rem', cursor: saving ? 'not-allowed' : 'pointer', minWidth: 220 }}
               >
-                {
-                  saving
-                    ? t('recording')
-                    : t('recordCollection')
-                }
+                {saving ? t('recording') : t('recordCollection')}
               </button>
-
             </div>
-
           </form>
 
         ) : (
-
-          <div
-            style={{
-              padding: '16px',
-              background: '#eaf8ef',
-              borderRadius: '10px'
-            }}
-          >
-
-            <strong>
-              {t('collectionCompleted')}
-            </strong>
-
+          <div style={{ padding: '16px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 12 }}>
+            <strong style={{ color: '#166534' }}>✅ {t('collectionCompleted')}</strong>
           </div>
-
         )}
 
       </div>

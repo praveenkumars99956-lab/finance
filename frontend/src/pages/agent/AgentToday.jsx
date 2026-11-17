@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -21,7 +23,7 @@ function AgentToday() {
   // LOAD TODAY'S COLLECTIONS
   // =========================================
 
-  const loadTodayCollections = async () => {
+  async function loadTodayCollections() {
     setLoading(true)
 
     try {
@@ -38,7 +40,7 @@ function AgentToday() {
         sessionError ||
         !sessionData?.session?.user
       ) {
-        alert(t('pleaseLoginAgain'))
+        notify(t('pleaseLoginAgain'))
         navigate('/')
         return
       }
@@ -65,7 +67,7 @@ function AgentToday() {
           profileError
         )
 
-        alert(
+        notify(
           t('unableVerifyAgentLogin')
         )
 
@@ -124,7 +126,7 @@ function AgentToday() {
           agentError
         )
 
-        alert(
+        notify(
           t('unableLoadAgentAccount')
         )
 
@@ -132,7 +134,7 @@ function AgentToday() {
       }
 
       if (!agentData) {
-        alert(
+        notify(
           t('agentAccountNotFound')
         )
 
@@ -144,7 +146,7 @@ function AgentToday() {
           .trim()
           .toLowerCase() !== 'active'
       ) {
-        alert(
+        notify(
           t('agentAccountInactive')
         )
 
@@ -186,7 +188,7 @@ function AgentToday() {
           assignmentError
         )
 
-        alert(
+        notify(
           t('unableLoadAssignments', { message: assignmentError.message })
         )
 
@@ -270,7 +272,7 @@ function AgentToday() {
           financeError
         )
 
-        alert(
+        notify(
           t('unableLoadTodaysCollections', { message: financeError.message })
         )
 
@@ -311,7 +313,7 @@ function AgentToday() {
         error
       )
 
-      alert(
+      notify(
         error instanceof Error
           ? t('unableLoadTodaysCollections', { message: error.message })
           : t('unableLoadTodaysCollectionsFallback')
@@ -325,17 +327,7 @@ function AgentToday() {
   // MONEY FORMAT
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // DATE FORMAT

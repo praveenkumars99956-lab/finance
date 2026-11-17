@@ -1,0 +1,210 @@
+/* Styled dropdown (SelectMenu) ------------------------------------------- */
+.select-menu {
+  position: relative;
+  width: 100%;
+}
+
+/* The `.select-menu` parent class + child combinator give the trigger higher
+   specificity than broad page-level `... button` rules (e.g.
+   `.weekly-page button`, `.customer-profile-page button`), which would
+   otherwise repaint it as a filled primary button. */
+.select-menu > .select-menu__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--fs-line, color-mix(in srgb, var(--color-outline-variant, #c8bbdf) 55%, transparent));
+  border-radius: 12px;
+  background: var(--color-surface-container-lowest, #ffffff);
+  color: var(--color-on-surface, #1a0a3b);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.select-menu > .select-menu__trigger:hover {
+  border-color: color-mix(in srgb, var(--color-outline, #7b6ba0) 60%, transparent);
+}
+
+.select-menu > .select-menu__trigger:focus-visible {
+  outline: none;
+  border-color: var(--color-primary, #351078);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #351078) 22%, transparent);
+}
+
+.select-menu > .select-menu__trigger:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.select-menu__leading {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  color: var(--color-outline, #7b6ba0);
+}
+
+.select-menu__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-menu__chevron {
+  flex: none;
+  color: var(--color-outline, #7b6ba0);
+  transition: transform 160ms ease;
+}
+
+.select-menu.is-open .select-menu__chevron {
+  transform: rotate(180deg);
+}
+
+.select-menu.is-open > .select-menu__trigger {
+  border-color: var(--color-primary, #351078);
+}
+
+.select-menu__list {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 40;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  max-height: 280px;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--color-outline-variant, #c8bbdf) 45%, transparent);
+  border-radius: 12px;
+  background: var(--color-surface-container-lowest, #ffffff);
+  box-shadow: 0 14px 34px rgba(53, 16, 120, 0.18);
+  animation: select-menu-in 120ms ease-out;
+}
+
+@keyframes select-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.select-menu__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 9px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--color-on-surface, #1a0a3b);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.select-menu__option.is-active {
+  background: color-mix(in srgb, var(--color-primary, #351078) 10%, transparent);
+}
+
+.select-menu__option.is-selected {
+  color: var(--color-primary, #351078);
+  font-weight: 600;
+}
+
+.select-menu__option.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.select-menu__option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.select-menu__check {
+  flex: none;
+  color: var(--color-primary, #351078);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .select-menu__list {
+    animation: none;
+  }
+
+  .select-menu__chevron {
+    transition: none;
+  }
+}
+
+:root[data-theme='dark'] .select-menu__list {
+  box-shadow: 0 14px 34px rgba(0, 0, 0, 0.5);
+}
+
+/* Compact variant: small in-page selects (calendar toolbar, dense forms) ---- */
+.select-menu--compact {
+  width: auto;
+}
+
+.select-menu--compact .select-menu__trigger {
+  min-height: 38px;
+  padding: 0 0.5rem 0 0.7rem;
+  font-size: 13px;
+}
+
+.select-menu--compact .select-menu__chevron {
+  width: 16px;
+  height: 16px;
+}
+
+/* Pill variant: compact header selectors (language) ----------------------- */
+.select-menu--pill {
+  display: inline-flex;
+  width: auto;
+}
+
+.select-menu--pill .select-menu__trigger {
+  width: auto;
+  min-height: 0;
+  gap: 0.4rem;
+  padding: 0.28rem 0.55rem 0.28rem 0.7rem;
+  border-radius: 9999px;
+  border: 1px solid rgba(53, 16, 120, 0.12);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--fs-royal, #351078);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.select-menu--pill .select-menu__trigger:hover {
+  background: #ffffff;
+  border-color: rgba(124, 77, 188, 0.4);
+}
+
+.select-menu--pill .select-menu__leading,
+.select-menu--pill .select-menu__chevron {
+  color: var(--fs-purple, #5b2d8e);
+}
+
+.select-menu--pill .select-menu__list {
+  left: auto;
+  right: 0;
+  min-width: 11rem;
+}
+
+:root[data-theme='dark'] .select-menu--pill .select-menu__trigger {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(201, 182, 255, 0.18);
+  color: #c9b6ff;
+}

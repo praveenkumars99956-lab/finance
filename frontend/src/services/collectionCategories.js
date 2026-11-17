@@ -1,10 +1,6 @@
 import { supabase } from './supabase'
 
-async function ensureLoanCategory(createdBy, loanName, reactivateInactive = false) {
-  if (!createdBy) {
-    throw new Error(`A signed-in admin is required to create the ${loanName} category.`)
-  }
-
+async function loadCollectionCategories() {
   const { data, error } = await supabase
     .from('collection_categories')
     .select('id, category_name, status')
@@ -14,7 +10,15 @@ async function ensureLoanCategory(createdBy, loanName, reactivateInactive = fals
     throw error
   }
 
-  const categories = data || []
+  return data || []
+}
+
+async function ensureLoanCategory(createdBy, loanName, reactivateInactive = false) {
+  if (!createdBy) {
+    throw new Error(`A signed-in admin is required to create the ${loanName} category.`)
+  }
+
+  const categories = await loadCollectionCategories()
   const loanCategory = categories.find(
     (category) =>
       String(category.category_name || '').trim().toLowerCase() === loanName.toLowerCase()
@@ -85,6 +89,29 @@ async function ensureLoanCategory(createdBy, loanName, reactivateInactive = fals
     .single()
 
   if (createError) {
+    if (createError.code === '23505') {
+      const currentCategories = await loadCollectionCategories()
+      const existingCategory = currentCategories.find(
+        (category) =>
+          String(category.category_name || '').trim().toLowerCase() === loanName.toLowerCase()
+      )
+
+      if (existingCategory?.status === 'active') {
+        return {
+          categories: currentCategories.filter(
+            (category) => category.status === 'active'
+          ),
+          loanCategory: existingCategory
+        }
+      }
+
+      if (existingCategory && !reactivateInactive) {
+        throw new Error(
+          `A ${loanName} collection category already exists but is inactive. Reactivate it in Collection Categories to continue.`
+        )
+      }
+    }
+
     throw createError
   }
 

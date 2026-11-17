@@ -1,3 +1,4 @@
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import {
   useLocation,
@@ -34,7 +35,7 @@ function CustomerFinance() {
       }
 
       if (!customerId) {
-        alert(
+        notify(
           t(
             'customerDatabaseIdMissing',
             'Customer database ID is missing.'
@@ -63,7 +64,7 @@ function CustomerFinance() {
             error
           )
 
-          alert(
+          notify(
             `${t(
               'unableToLoadCustomer',
               'Unable to load customer'
@@ -74,7 +75,7 @@ function CustomerFinance() {
         }
 
         if (!data) {
-          alert(
+          notify(
             t(
               'customerNotFound',
               'Customer not found.'
@@ -91,7 +92,7 @@ function CustomerFinance() {
           error
         )
 
-        alert(
+        notify(
           error?.message ||
             t(
               'unableToLoadCustomer',
@@ -121,7 +122,7 @@ function CustomerFinance() {
       customerId
 
     if (!dbCustomerId) {
-      alert(
+      notify(
         t(
           'customerDatabaseIdMissing',
           'Customer database ID is missing.'
@@ -132,7 +133,7 @@ function CustomerFinance() {
     }
 
     if (!customer) {
-      alert(
+      notify(
         t(
           'customerInformationMissing',
           'Customer information is missing.'
@@ -158,25 +159,6 @@ function CustomerFinance() {
       from:
         'customer-finance'
     }
-
-    console.log(
-      'OPENING FINANCE'
-    )
-
-    console.log(
-      'CUSTOMER:',
-      customer
-    )
-
-    console.log(
-      'CUSTOMER DB ID:',
-      dbCustomerId
-    )
-
-    console.log(
-      'NAVIGATION STATE:',
-      state
-    )
 
     // =====================================
     // DAILY

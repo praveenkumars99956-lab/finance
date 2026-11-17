@@ -1,6 +1,23 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import {
+  ArrowLeft,
+  Percent,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  WalletCards,
+  TrendingUp,
+  Receipt,
+  Calendar,
+  Check,
+  Sparkles,
+  MapPin,
+  Camera
+} from 'lucide-react'
 
 import { supabase } from '../../services/supabase'
 
@@ -23,17 +40,9 @@ import {
 
 const getLocalDate = () => {
   const date = new Date()
-
-  date.setMinutes(
-    date.getMinutes() - date.getTimezoneOffset()
-  )
-
+  date.setMinutes(date.getMinutes() - date.getTimezoneOffset())
   return date.toISOString().slice(0, 10)
 }
-
-// ======================================================
-// INTEREST ONLY MANAGE
-// ======================================================
 
 function InterestOnlyManage() {
   const navigate = useNavigate()
@@ -48,42 +57,22 @@ function InterestOnlyManage() {
   const [payments, setPayments] = useState([])
   const [adjustments, setAdjustments] = useState([])
 
-  // IMPORTANT:
-  // Calendar controls this value directly.
-  const [paymentDate, setPaymentDate] = useState(
-    getLocalDate()
-  )
-
+  const [paymentDate, setPaymentDate] = useState(getLocalDate())
   const [paymentAmount, setPaymentAmount] = useState('')
   const [paymentMode, setPaymentMode] = useState('manual')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
-  // ======================================================
-  // LOAD
-  // ======================================================
-
   useEffect(() => {
     loadEverything()
   }, [financeId])
 
-  // ======================================================
-  // LOAD EVERYTHING
-  // ======================================================
-
-  const loadEverything = async () => {
+  async function loadEverything() {
     try {
       setLoading(true)
 
-      // ------------------------------------------
-      // FINANCE RECORD
-      // ------------------------------------------
-
-      const {
-        data: financeData,
-        error: financeError
-      } = await supabase
+      const { data: financeData, error: financeError } = await supabase
         .from('finance_records')
         .select('*')
         .eq('id', financeId)
@@ -91,1185 +80,577 @@ function InterestOnlyManage() {
         .single()
 
       if (financeError) {
-        console.error(
-          'Finance load error:',
-          financeError
-        )
-
-        alert(t('financeLoadFailed', { message: financeError.message }))
-
+        console.error('Finance load error:', financeError)
+        notify(t('financeLoadFailed', { message: financeError.message }))
         setLoading(false)
         return
       }
 
       setFinance(financeData)
 
-      // ------------------------------------------
-      // CUSTOMER
-      // ------------------------------------------
-
       if (financeData?.customer_id) {
-        const {
-          data: customerData,
-          error: customerError
-        } = await supabase
+        const { data: customerData, error: customerError } = await supabase
           .from('customers')
           .select('*')
           .eq('id', financeData.customer_id)
           .single()
 
-        if (customerError) {
-          console.error(
-            'Customer load error:',
-            customerError
-          )
-        } else {
+        if (!customerError) {
           setCustomer(customerData)
         }
       }
 
-      // ------------------------------------------
-      // PAYMENT HISTORY
-      // ------------------------------------------
-
-      const {
-        data: paymentData,
-        error: paymentError
-      } = await supabase
+      const { data: paymentData, error: paymentError } = await supabase
         .from('finance_payments')
         .select('*')
         .eq('finance_record_id', financeId)
-        .order('payment_date', {
-          ascending: false
-        })
-        .order('created_at', {
-          ascending: false
-        })
+        .order('payment_date', { ascending: false })
+        .order('created_at', { ascending: false })
 
       if (paymentError) {
-        console.error(
-          'Payment history error:',
-          paymentError
-        )
+        console.error('Payment load error:', paymentError)
       }
 
       setPayments(paymentData || [])
 
-      // ------------------------------------------
-      // PRINCIPAL ADJUSTMENTS
-      // ------------------------------------------
-
-      const {
-        data: adjustmentData,
-        error: adjustmentError
-      } = await supabase
+      const { data: adjustmentData, error: adjustmentError } = await supabase
         .from('finance_principal_adjustments')
         .select('*')
         .eq('finance_record_id', financeId)
-        .order('adjustment_date', {
-          ascending: false
-        })
-        .order('created_at', {
-          ascending: false
-        })
+        .order('adjustment_date', { ascending: true })
+        .order('created_at', { ascending: true })
 
       if (adjustmentError) {
-        console.error(
-          'Adjustment load error:',
-          adjustmentError
-        )
+        console.error('Adjustment load error:', adjustmentError)
       }
 
       setAdjustments(adjustmentData || [])
-    } catch (error) {
-      console.error(
-        'Interest only load error:',
-        error
-      )
-
-      alert(
-        error?.message ||
-          t('unableLoadInterestOnlyFinance')
-      )
-    } finally {
+      setLoading(false)
+    } catch (err) {
+      console.error('Failed to load interest-only finance:', err)
       setLoading(false)
     }
   }
 
-  // ======================================================
-  // MONEY FORMAT
-  // ======================================================
-
-  const formatMoney = (value) => {
-    return Number(value || 0).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
-
-  // ======================================================
-  // DATE FORMAT
-  // ======================================================
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   const formatDate = (value) => {
-    if (!value) {
-      return '-'
-    }
-
-    const date = new Date(
-      `${value}T00:00:00`
-    )
-
+    if (!value) return '-'
+    const date = new Date(`${value}T00:00:00`)
     return date.toLocaleDateString(
       { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        day: '2-digit',
-        month: '2-digit',
-        year: 'numeric'
-      }
+      { day: '2-digit', month: '2-digit', year: 'numeric' }
     )
   }
 
-  // ======================================================
-  // CALENDAR DATE CHANGE
-  // ======================================================
-
   const handlePaymentDateChange = (date) => {
-    if (!date) {
-      return
-    }
-
-    console.log(
-      'Payment date selected:',
-      date
-    )
-
-    // IMPORTANT:
-    // Do NOT run this through getValidPaymentDate().
-    // Keep exactly what the calendar selected.
+    if (!date) return
     setPaymentDate(date)
   }
 
-  // ======================================================
-  // RECORD PAYMENT
-  // ======================================================
-
   const recordPayment = async (e) => {
     e.preventDefault()
-
-    if (saving) {
-      return
-    }
-
-    if (!finance) {
-      return
-    }
-
-    // ------------------------------------------
-    // PAYMENT DATE
-    // ------------------------------------------
+    if (saving || !finance) return
 
     const submittedPaymentDate = paymentDate
-
     if (!submittedPaymentDate) {
-      alert(t('selectPaymentDate'))
+      notify(t('selectPaymentDate'))
       return
     }
-
-    // ------------------------------------------
-    // PAYMENT AMOUNT
-    // ------------------------------------------
 
     const amount = Number(paymentAmount)
-
-    if (
-      !Number.isFinite(amount) ||
-      amount <= 0
-    ) {
-      alert(
-        t('enterValidPaymentAmount')
-      )
-
+    if (!Number.isFinite(amount) || amount <= 0) {
+      notify(t('enterValidPaymentAmount'))
       return
     }
 
-    // ------------------------------------------
-    // INTEREST DUE
-    // ------------------------------------------
+    const calculatedInterestDue = getInterestOnlyInterestDue(
+      finance,
+      submittedPaymentDate,
+      payments,
+      adjustments
+    )
 
-    const interestDue =
-      getInterestOnlyInterestDue(
-        finance,
-        submittedPaymentDate,
-        payments,
-        adjustments
-      )
-
-    if (amount > interestDue) {
-      alert(
+    if (amount > calculatedInterestDue) {
+      notify(
         t('interestPaymentCannotExceedDue', {
-          amount: formatMoney(interestDue)
+          amount: formatMoney(calculatedInterestDue)
         })
       )
-
       return
     }
-
-    // ------------------------------------------
-    // CURRENT USER
-    // ------------------------------------------
 
     const {
       data: { user }
     } = await supabase.auth.getUser()
 
     if (!user) {
-      alert(t('pleaseLoginAgain'))
-
+      notify(t('pleaseLoginAgain'))
       navigate('/')
-
-      return
-    }
-
-    // ------------------------------------------
-    // MANUAL CONFIRMATION
-    // ------------------------------------------
-
-    if (
-      paymentMode === 'manual' &&
-      !window.confirm(
-        t('confirmManualInterestPayment', {
-          amount: formatMoney(amount),
-          date: formatDate(submittedPaymentDate)
-        })
-      )
-    ) {
       return
     }
 
     setSaving(true)
 
     try {
+      const rpcPayload = {
+        p_finance_record_id: Number(finance.id),
+        p_payment_amount: amount,
+        p_payment_date: submittedPaymentDate
+      }
+
       let error = null
       let warning = null
 
-      const paymentParams = {
-        p_finance_record_id:
-          Number(finance.id),
-
-        p_payment_amount:
-          amount,
-
-        p_payment_date:
-          submittedPaymentDate
-      }
-
-      // ------------------------------------------
-      // MANUAL PAYMENT
-      // ------------------------------------------
-
-      if (paymentMode === 'manual') {
-        const result =
-          await supabase.rpc(
-            'record_interest_only_payment',
-            paymentParams
-          )
-
-        error = result.error
-      }
-
-      // ------------------------------------------
-      // GPS + PHOTO PAYMENT
-      // ------------------------------------------
-
-      else {
-        const result =
-          await evidence.recordPayment(
-            'record_interest_only_payment',
-            paymentParams
-          )
-
+      if (paymentMode === 'evidence') {
+        const result = await evidence.recordPayment(
+          'record_interest_only_payment',
+          rpcPayload
+        )
         error = result.error
         warning = result.warning
+      } else {
+        const rpcResult = await supabase.rpc(
+          'record_interest_only_payment',
+          rpcPayload
+        )
+        error = rpcResult.error
       }
 
-      if (warning) {
-        alert(warning)
-      }
+      if (warning) notify(warning)
 
       if (error) {
-        console.error(
-          'Payment error:',
-          error
-        )
-
-        if (
-          paymentMode === 'evidence' &&
-          /Capture GPS|proof photo is required|Wait for GPS capture/i.test(
-            error.message
-          )
-        ) {
-          return
-        }
-
-        alert(
-          t('unableToRecordPayment', { message: error.message })
-        )
-
+        console.error('Interest-only payment error:', error)
+        setSaving(false)
+        notify(t('unableToRecordPayment', { message: error.message }))
         return
       }
 
-      // ------------------------------------------
-      // SUCCESS
-      // ------------------------------------------
-
       setPaymentAmount('')
-
-      // Reset only AFTER successful save.
-      setPaymentDate(getLocalDate())
-
       await loadEverything()
-
-      alert(
-        t('interestOnlyPaymentSuccess')
-      )
-    } catch (error) {
-      console.error(
-        'Record payment error:',
-        error
-      )
-
-      alert(
-        t('unableToRecordPayment', {
-          message: error?.message || t('unknownError')
-        })
-      )
-    } finally {
       setSaving(false)
+
+      const remainingInterest = calculatedInterestDue - amount
+      if (remainingInterest <= 0) {
+        notify(t('interestPaymentClearedSuccess'))
+      } else {
+        notify(t('interestPaymentSuccess'))
+      }
+    } catch (err) {
+      console.error('Failed to submit interest-only payment:', err)
+      setSaving(false)
+      notify(t('unexpectedErrorOccurred'))
     }
   }
 
-  // ======================================================
-  // LOADING
-  // ======================================================
-
   if (loading) {
     return (
-      <div className="daily-manage-page">
-        <p>
-          {t('loadingInterestOnlyFinance')}
-        </p>
+      <div className="modern-loan-manage">
+        <div className="modern-card p-12 text-center text-secondary">
+          <Clock className="animate-spin mx-auto mb-3 text-primary" size={28} />
+          <p>{t('loadingInterestOnlyFinance')}</p>
+        </div>
       </div>
     )
   }
-
-  // ======================================================
-  // NOT FOUND
-  // ======================================================
 
   if (!finance) {
     return (
-      <div className="daily-manage-page">
-
-        <h2>
-          {t('interestOnlyFinanceNotFound')}
-        </h2>
-
-        <button
-          type="button"
-          onClick={() =>
-            navigate('/customers')
-          }
-        >
-          {t('customers')}
-        </button>
-
+      <div className="modern-loan-manage">
+        <div className="modern-card p-12 text-center">
+          <AlertCircle size={36} className="mx-auto mb-3 text-danger" />
+          <h2 className="text-xl font-bold mb-3">{t('financeNotFound')}</h2>
+          <button className="modern-btn-primary" onClick={() => navigate('/customers')}>
+            {t('customers')}
+          </button>
+        </div>
       </div>
     )
   }
 
-  // ======================================================
-  // VALUES
-  // ======================================================
+  const principal = Number(
+    finance.principal_outstanding ??
+    finance.original_principal ??
+    finance.principal_amount ??
+    0
+  )
 
-  const principal =
-    Number(
-      finance.original_principal ||
-      finance.principal_amount ||
-      0
-    )
+  const originalInterest = Number(finance.interest_accrual || 0)
+  const totalPaid = Number(finance.paid || 0)
+  const todayString = getLocalDate()
 
-  const originalInterest =
-    Number(
-      finance.interest_accrual ||
-      0
-    )
+  const pending = getInterestOnlyBalance(
+    finance,
+    todayString,
+    payments,
+    adjustments
+  )
 
-  const totalPaid =
-    Number(
-      finance.paid ||
-      0
-    )
+  const interestPaid = Number(finance.interest_paid || 0)
+  const interestDueToday = getInterestOnlyInterestDue(
+    finance,
+    todayString,
+    payments,
+    adjustments
+  )
 
-  const todayString =
-    getLocalDate()
-
-  const pending =
-    getInterestOnlyBalance(
-      finance,
-      todayString,
-      payments,
-      adjustments
-    )
-
-  const interestPaid =
-    Number(
-      finance.interest_paid ||
-      0
-    )
-
-  const interestDueToday =
-    getInterestOnlyInterestDue(
-      finance,
-      todayString,
-      payments,
-      adjustments
-    )
-
-  const principalPaid =
-    Number(
-      finance.principal_paid ||
-      0
-    )
-
-  const principalOutstanding =
-    Number(
-      finance.principal_outstanding ||
-      0
-    )
+  const principalPaid = Number(finance.principal_paid || 0)
+  const principalOutstanding = Number(finance.principal_outstanding || 0)
 
   const monthlyInterestAmount =
     Math.round(
       principalOutstanding *
-        Number(
-          finance.interest_rate ||
-          0
-        ) /
-        100 *
-        100
+      Number(finance.interest_rate || 0) /
+      100 *
+      100
     ) / 100
 
   const weeklyInterestAmount =
     Math.round(
       monthlyInterestAmount *
-        7 /
-        30 *
-        100
+      7 /
+      30 *
+      100
     ) / 100
 
-  const selectedInterestDue =
-    getInterestOnlyInterestDue(
-      finance,
-      paymentDate,
-      payments,
-      adjustments
-    )
+  const selectedInterestDue = getInterestOnlyInterestDue(
+    finance,
+    paymentDate,
+    payments,
+    adjustments
+  )
 
-  const selectedBalance =
-    getInterestOnlyBalance(
-      finance,
-      paymentDate,
-      payments,
-      adjustments
-    )
+  const selectedBalance = getInterestOnlyBalance(
+    finance,
+    paymentDate,
+    payments,
+    adjustments
+  )
 
-  const isClosed =
-    finance.loan_status === 'closed' ||
-    pending <= 0
-
-  // ======================================================
-  // UI
-  // ======================================================
+  const isClosed = finance.loan_status === 'closed' || pending <= 0
 
   return (
-    <div className="daily-manage-page">
-
-      {/* ================================================= */}
-      {/* BACK */}
-      {/* ================================================= */}
-
+    <div className="modern-loan-manage">
+      {/* BACK BUTTON */}
       <button
-        type="button"
-        className="back-button"
+        className="modern-back-link"
         onClick={() => {
           if (finance.customer_id) {
-            navigate(
-              `/customers/${finance.customer_id}`
-            )
+            navigate(`/customers/${finance.customer_id}`)
           } else {
             navigate('/customers')
           }
         }}
       >
-        ← {t('customerProfile')}
+        <ArrowLeft size={16} />
+        <span>{t('customerProfile')}</span>
       </button>
 
-      {/* ================================================= */}
-      {/* HEADER */}
-      {/* ================================================= */}
-
-      <div className="daily-manage-header">
-
-        <div>
-
-          <p>
+      {/* HEADER HERO */}
+      <div className="modern-manage-hero">
+        <div className="modern-manage-title-wrap">
+          <span className="modern-loan-category-tag">
+            <Percent size={14} />
             {t('interestOnlyFinance')}
-          </p>
-
-          <h1>
-            {t('manageInterestOnlyLoan')}
-          </h1>
-
-          <span>
-            {t('customer')}:{' '}
-
-            <strong>
-              {customer?.full_name ||
-                finance.name ||
-                '-'}
+          </span>
+          <h1 className="modern-manage-heading">{t('manageInterestOnlyLoan')}</h1>
+          <div className="modern-customer-meta">
+            <span>{t('customer')}:</span>
+            <strong className="modern-customer-pill">
+              {customer?.full_name || finance.name || '-'}
             </strong>
-
-            {customer?.customer_id
-              ? ` • ${customer.customer_id}`
-              : ''}
-          </span>
-
-        </div>
-
-        <span
-          className={
-            isClosed
-              ? 'loan-big-status closed'
-              : 'loan-big-status active'
-          }
-        >
-          {isClosed
-            ? t('closedUpper')
-            : t('activeUpper')}
-        </span>
-
-      </div>
-
-      {/* ================================================= */}
-      {/* MAIN SUMMARY */}
-      {/* ================================================= */}
-
-      <div className="daily-manage-summary">
-
-        <div>
-          <span>
-            {t('principal')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(principal)}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            {t('interest')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(
-              originalInterest
+            {customer?.customer_id && (
+              <span className="text-muted">({customer.customer_id})</span>
             )}
-          </strong>
+          </div>
         </div>
 
-        <div>
-          <span>
-            {t('totalPaid')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(totalPaid)}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            {t('totalPending')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(pending)}
-          </strong>
-        </div>
-
+        <span className={`modern-status-badge ${isClosed ? 'closed' : 'active'}`}>
+          <span className="w-2 h-2 rounded-full bg-current" />
+          {isClosed ? t('closedUpper') : t('activeUpper')}
+        </span>
       </div>
 
-      {/* ================================================= */}
-      {/* LOAN INFORMATION */}
-      {/* ================================================= */}
-
-      <div className="daily-manage-section">
-
-        <h2>
-          {t('interestOnlyLoanInformation')}
-        </h2>
-
-        <div className="daily-info-grid">
-
-          <div>
-            <span>
-              {t('principalAmount')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(principal)}
-            </strong>
+      {/* 4-CARD SUMMARY METRICS */}
+      <div className="modern-summary-grid">
+        <div className="modern-summary-card">
+          <div className="modern-summary-top">
+            <span className="modern-summary-label">{t('principal')}</span>
+            <WalletCards size={18} className="text-primary" />
           </div>
-
-          <div>
-            <span>
-              {t('monthlyRateOfInterest')}
-            </span>
-
-            <strong>
-              {Number(
-                finance.interest_rate ||
-                0
-              )}%
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('totalInterestAccrued')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(
-                originalInterest
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('originalPrincipal')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(principal)}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('startDate')}
-            </span>
-
-            <strong>
-              {formatDate(
-                finance.entry_date
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('nextScheduledDueDate')}
-            </span>
-
-            <strong>
-              {formatDate(
-                finance.next_due_date
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('status')}
-            </span>
-
-            <strong>
-              {isClosed
-                ? t('closed')
-                : t('active')}
-            </strong>
-          </div>
-
+          <div className="modern-summary-val">₹{formatMoney(principal)}</div>
         </div>
 
-      </div>
-
-      {/* ================================================= */}
-      {/* BALANCE BREAKDOWN */}
-      {/* ================================================= */}
-
-      <div className="daily-manage-section">
-
-        <h2>
-          {t('currentBalanceBreakdown')}
-        </h2>
-
-        <div className="daily-manage-summary">
-
-          <div>
-            <span>
-              {t('interestPaid')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(
-                interestPaid
-              )}
-            </strong>
+        <div className="modern-summary-card">
+          <div className="modern-summary-top">
+            <span className="modern-summary-label">{t('interest')}</span>
+            <Percent size={18} className="text-primary" />
           </div>
-
-          <div>
-            <span>
-              {t('interestDue')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(
-                interestDueToday
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('principalPaid')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(
-                principalPaid
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('principalOutstanding')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(
-                principalOutstanding
-              )}
-            </strong>
-          </div>
-
+          <div className="modern-summary-val">₹{formatMoney(originalInterest)}</div>
         </div>
 
+        <div className="modern-summary-card">
+          <div className="modern-summary-top">
+            <span className="modern-summary-label">{t('totalPaid')}</span>
+            <CheckCircle2 size={18} className="text-emerald" />
+          </div>
+          <div className="modern-summary-val emerald">₹{formatMoney(totalPaid)}</div>
+        </div>
+
+        <div className="modern-summary-card">
+          <div className="modern-summary-top">
+            <span className="modern-summary-label">{t('totalPending')}</span>
+            <AlertCircle size={18} className="text-amber" />
+          </div>
+          <div className="modern-summary-val amber">₹{formatMoney(pending)}</div>
+        </div>
       </div>
 
-      {/* ================================================= */}
-      {/* RECORD PAYMENT */}
-      {/* ================================================= */}
+      {/* BALANCE BREAKDOWN CARD */}
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div className="modern-card-title">
+            <TrendingUp size={18} className="text-primary" />
+            <span>{t('currentBalanceBreakdown')}</span>
+          </div>
+        </div>
 
-      <div className="daily-manage-section">
+        <div className="modern-info-grid">
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('interestPaid')}</span>
+            <span className="modern-info-val text-emerald">₹{formatMoney(interestPaid)}</span>
+          </div>
 
-        <h2>
-          {t('recordPayment')}
-        </h2>
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('interestDue')}</span>
+            <span className="modern-info-val text-amber">₹{formatMoney(interestDueToday)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('principalPaid')}</span>
+            <span className="modern-info-val">₹{formatMoney(principalPaid)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('principalOutstanding')}</span>
+            <span className="modern-info-val font-bold">₹{formatMoney(principalOutstanding)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* LOAN SPECIFICATIONS */}
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div className="modern-card-title">
+            <Calendar size={18} className="text-primary" />
+            <span>{t('interestOnlyLoanInformation')}</span>
+          </div>
+        </div>
+
+        <div className="modern-info-grid">
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('monthlyRateOfInterest')}</span>
+            <span className="modern-info-val">{Number(finance.interest_rate || 0)}%</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('totalInterestAccrued')}</span>
+            <span className="modern-info-val">₹{formatMoney(originalInterest)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('startDate')}</span>
+            <span className="modern-info-val">{formatDate(finance.entry_date)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('nextScheduledDueDate')}</span>
+            <span className="modern-info-val">{formatDate(finance.next_due_date)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('status')}</span>
+            <span className="modern-info-val">{isClosed ? t('closed') : t('active')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* RECORD PAYMENT SECTION */}
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div className="modern-card-title">
+            <Receipt size={18} className="text-primary" />
+            <span>{t('recordPayment')}</span>
+          </div>
+        </div>
 
         {isClosed ? (
-
-          <div className="loan-completed-message">
-
-            <h3>
-              ✓ {t('interestOnlyLoanCompleted')}
-            </h3>
-
-            <p>
-              {t('principalAndInterestFullyPaid')}
-            </p>
-
+          <div className="p-6 rounded-xl bg-surface-hover border border-border text-center">
+            <CheckCircle2 size={32} className="text-emerald mx-auto mb-2" />
+            <h3 className="text-base font-bold text-primary mb-1">{t('interestOnlyLoanCompleted')}</h3>
+            <p className="text-sm text-secondary">{t('principalAndInterestFullyPaid')}</p>
           </div>
-
         ) : (
-
-          <form
-            className="daily-payment-form"
-            onSubmit={recordPayment}
-            noValidate
-          >
-
-            {/* PAYMENT METHOD */}
-
-            <fieldset className="payment-entry-mode">
-
-              <legend>
-                {t('paymentEntryMethod')}
-              </legend>
-
-              <label>
-
+          <form className="modern-payment-form" onSubmit={recordPayment} noValidate>
+            {/* Method Toggle */}
+            <div className="flex items-center gap-4 p-3 rounded-lg bg-bg border border-border-light">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
                 <input
                   type="radio"
                   name="interest-only-payment-mode"
                   value="manual"
-                  checked={
-                    paymentMode ===
-                    'manual'
-                  }
-                  onChange={() =>
-                    setPaymentMode(
-                      'manual'
-                    )
-                  }
+                  checked={paymentMode === 'manual'}
+                  onChange={() => setPaymentMode('manual')}
+                  className="accent-blue-600"
                 />
-
-                {t('manualEntry')}
-
+                <span>{t('manualEntry')}</span>
               </label>
 
-              <label>
-
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium">
                 <input
                   type="radio"
                   name="interest-only-payment-mode"
                   value="evidence"
-                  checked={
-                    paymentMode ===
-                    'evidence'
-                  }
-                  onChange={() =>
-                    setPaymentMode(
-                      'evidence'
-                    )
-                  }
+                  checked={paymentMode === 'evidence'}
+                  onChange={() => setPaymentMode('evidence')}
+                  className="accent-blue-600"
                 />
-
-                {t('gpsAndPhoto')}
-
+                <span>{t('gpsAndPhoto')}</span>
               </label>
+            </div>
 
-            </fieldset>
-
-            {/* ============================================= */}
-            {/* PAYMENT DATE - FIXED */}
-            {/* ============================================= */}
-
-            <div>
-
-              <label>
-                {t('paymentDate')} *
-              </label>
-
+            {/* Date Selection */}
+            <div className="modern-field">
+              <label>{t('paymentDate')} *</label>
               <CalendarDatePicker
                 label={t('paymentDate')}
                 value={paymentDate}
-                onChange={
-                  handlePaymentDateChange
-                }
+                onChange={handlePaymentDateChange}
               />
-
-              <div
-                style={{
-                  marginTop: '10px',
-                  padding: '10px',
-                  background: '#f5f7fb',
-                  borderRadius: '8px'
-                }}
-              >
-                <span>
-                  {t('selectedPaymentDate')}
-                </span>
-
-                <br />
-
-                <strong>
-                  {paymentDate
-                    ? formatDate(
-                        paymentDate
-                      )
-                    : t('noDateSelected')}
-                </strong>
+              <div className="text-xs text-muted mt-1">
+                {t('selectedPaymentDate')}: <strong>{paymentDate ? formatDate(paymentDate) : t('noDateSelected')}</strong>
               </div>
-
             </div>
 
-            {/* ============================================= */}
-            {/* PAYMENT AMOUNT */}
-            {/* ============================================= */}
-
-            <div>
-
-              <label>
-                {t('paymentAmount')} ₹ *
-              </label>
-
+            {/* Amount */}
+            <div className="modern-field">
+              <label htmlFor="interestPaymentAmount">{t('paymentAmount')} ₹ *</label>
               <input
+                id="interestPaymentAmount"
                 type="number"
                 min="0.01"
                 step="0.01"
-                max={
-                  selectedInterestDue
-                }
+                max={selectedInterestDue}
                 value={paymentAmount}
-                onChange={(e) =>
-                  setPaymentAmount(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => setPaymentAmount(e.target.value)}
                 placeholder={t('enterPaymentAmount')}
                 required
               />
-
+              {selectedInterestDue > 0 && (
+                <button
+                  type="button"
+                  className="modern-quick-amount-chip"
+                  onClick={() => setPaymentAmount(String(selectedInterestDue))}
+                >
+                  <Sparkles size={12} />
+                  Fill Interest Due: ₹{formatMoney(selectedInterestDue)}
+                </button>
+              )}
             </div>
 
-            {/* ============================================= */}
-            {/* INTEREST DUE */}
-            {/* ============================================= */}
+            {/* Calculation Previews */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="modern-live-calc-box">
+                <span className="text-xs">{t('interestDueOnPaymentDate')}:</span>
+                <strong>₹{formatMoney(selectedInterestDue)}</strong>
+              </div>
 
-            <div className="payment-preview">
+              <div className="modern-live-calc-box">
+                <span className="text-xs">{t('estimatedWeeklyInterest')}:</span>
+                <strong>₹{formatMoney(weeklyInterestAmount)}</strong>
+              </div>
 
-              <span>
-                {t('interestDueOnPaymentDate')}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  selectedInterestDue
-                )}
-              </strong>
-
+              <div className="modern-live-calc-box">
+                <span className="text-xs">{t('estimatedMonthlyInterest')}:</span>
+                <strong>₹{formatMoney(monthlyInterestAmount)}</strong>
+              </div>
             </div>
 
-            {/* ============================================= */}
-            {/* WEEKLY INTEREST */}
-            {/* ============================================= */}
-
-            <div className="payment-preview">
-
-              <span>
-                {t('estimatedWeeklyInterest')}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  weeklyInterestAmount
-                )}
-              </strong>
-
-            </div>
-
-            {/* ============================================= */}
-            {/* MONTHLY INTEREST */}
-            {/* ============================================= */}
-
-            <div className="payment-preview">
-
-              <span>
-                {t('estimatedMonthlyInterest')}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  monthlyInterestAmount
-                )}
-              </strong>
-
-            </div>
-
-            {/* ============================================= */}
-            {/* BALANCE */}
-            {/* ============================================= */}
-
-            <div className="payment-preview">
-
-              <span>
-                {t('balanceDueOnPaymentDate')}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  selectedBalance
-                )}
-              </strong>
-
-            </div>
-
-            {/* ============================================= */}
-            {/* EVIDENCE */}
-            {/* ============================================= */}
-
-            {paymentMode ===
-            'manual' ? (
-
-              <p className="payment-entry-note">
+            {paymentMode === 'evidence' ? (
+              <EvidenceCapture evidence={evidence} disabled={saving} />
+            ) : (
+              <p className="text-xs text-muted">
                 {t('manualInterestPaymentNote')}
               </p>
-
-            ) : (
-
-              <EvidenceCapture
-                evidence={evidence}
-                disabled={saving}
-              />
-
             )}
 
-            {/* ============================================= */}
-            {/* SAVE */}
-            {/* ============================================= */}
-
-            <button
-              type="submit"
-              className="record-payment-button"
-              disabled={saving}
-            >
-              {saving
-                ? t('recording')
-                : t('recordPayment')}
-            </button>
-
+            <div>
+              <button
+                type="submit"
+                className="modern-btn-primary"
+                disabled={saving}
+              >
+                <Check size={16} />
+                <span>{saving ? t('recording') : t('recordPayment')}</span>
+              </button>
+            </div>
           </form>
-
         )}
-
       </div>
 
-      {/* ================================================= */}
-      {/* EVIDENCE HISTORY */}
-      {/* ================================================= */}
+      <EvidenceHistory financeId={finance?.id} payments={payments} />
 
-      <EvidenceHistory
-        financeId={finance?.id}
-        payments={payments}
-      />
-
-      {/* ================================================= */}
-      {/* PAYMENT HISTORY */}
-      {/* ================================================= */}
-
-      <div className="daily-manage-section">
-
-        <div className="payment-history-heading">
-
+      {/* PAYMENT HISTORY TABLE */}
+      <div className="modern-card">
+        <div className="modern-card-header">
           <div>
-
-            <h2>
-              {t('paymentHistory')}
-            </h2>
-
-            <p>
+            <div className="modern-card-title">
+              <Receipt size={18} className="text-primary" />
+              <span>{t('paymentHistory')}</span>
+            </div>
+            <p className="modern-card-subtitle">
               {t('paymentsRecorded', { count: payments.length })}
             </p>
-
           </div>
-
         </div>
 
         {payments.length === 0 ? (
-
-          <div className="no-payment-history">
+          <div className="p-8 text-center text-muted">
             {t('noInterestOnlyPaymentsRecorded')}
           </div>
-
         ) : (
-
-          <div className="payment-table-wrapper">
-
-            <table className="payment-history-table">
-
-              <thead>
-
-                <tr>
-                  <th>#</th>
-                  <th>{t('date')}</th>
-                  <th>{t('payment')}</th>
-                  <th>{t('interest')}</th>
-                  <th>{t('principal')}</th>
-                  <th>
-                    {t('balanceBefore')}
-                  </th>
-                  <th>
-                    {t('balanceAfter')}
-                  </th>
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {payments.map(
-                  (payment, index) => (
-
-                    <tr
-                      key={
-                        payment.id
-                      }
-                    >
-
-                      <td>
-                        {payments.length -
-                          index}
-                      </td>
-
-                      <td>
-                        {formatDate(
-                          payment.payment_date
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          payment.payment_amount
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          payment.interest_payment
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          payment.principal_payment
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          payment.balance_before
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          payment.balance_after
-                        )}
-                      </td>
-
+          <div className="modern-table-card">
+            <div className="modern-table-wrap">
+              <table className="modern-data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{t('date')}</th>
+                    <th>{t('payment')}</th>
+                    <th>{t('interest')}</th>
+                    <th>{t('principal')}</th>
+                    <th>{t('balanceBefore')}</th>
+                    <th>{t('balanceAfter')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment, index) => (
+                    <tr key={payment.id}>
+                      <td>{payments.length - index}</td>
+                      <td>{formatDate(payment.payment_date)}</td>
+                      <td className="font-semibold">₹{formatMoney(payment.payment_amount)}</td>
+                      <td>₹{formatMoney(payment.interest_payment)}</td>
+                      <td>₹{formatMoney(payment.principal_payment)}</td>
+                      <td>₹{formatMoney(payment.balance_before)}</td>
+                      <td>₹{formatMoney(payment.balance_after)}</td>
                     </tr>
-
-                  )
-                )}
-
-              </tbody>
-
-            </table>
-
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
-
         )}
-
       </div>
-
     </div>
   )
 }

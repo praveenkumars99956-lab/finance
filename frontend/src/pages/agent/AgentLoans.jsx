@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -62,7 +64,7 @@ function AgentLoans() {
     loadAgentLoans()
   }, [type])
 
-  const loadAgentLoans = async () => {
+  async function loadAgentLoans() {
     setLoading(true)
     setRecords([])
     setAssignedCategories([])
@@ -73,7 +75,7 @@ function AgentLoans() {
       // =========================================
 
       if (!allowedTypes.includes(financeType)) {
-        alert(t('invalidLoanType'))
+        notify(t('invalidLoanType'))
         navigate('/agent')
         return
       }
@@ -91,7 +93,7 @@ function AgentLoans() {
         sessionError ||
         !sessionData?.session?.user
       ) {
-        alert(
+        notify(
           t('agentLoginSessionEnded')
         )
 
@@ -121,7 +123,7 @@ function AgentLoans() {
           profileError
         )
 
-        alert(
+        notify(
           t('unableVerifyAgentLogin')
         )
 
@@ -179,7 +181,7 @@ function AgentLoans() {
           agentError
         )
 
-        alert(
+        notify(
           t('unableLoadAgentAccount')
         )
 
@@ -187,7 +189,7 @@ function AgentLoans() {
       }
 
       if (!agentData) {
-        alert(
+        notify(
           t('agentAccountNotFound')
         )
 
@@ -199,7 +201,7 @@ function AgentLoans() {
           .trim()
           .toLowerCase() !== 'active'
       ) {
-        alert(
+        notify(
           t('agentAccountInactive')
         )
 
@@ -244,20 +246,17 @@ function AgentLoans() {
           assignmentError
         )
 
-        alert(
+        notify(
           t('unableLoadAssignments', { message: assignmentError.message })
         )
 
         return
       }
 
-      const eligibleAssignments = (
-        assignmentData || []
-        .filter((assignment) => {
-          const assignedType = String(assignment.collection_type || '').trim().toLowerCase()
-          return !assignedType || assignedType === 'all' || assignedType === financeType
-        })
-      )
+      const eligibleAssignments = (assignmentData || []).filter((assignment) => {
+        const assignedType = String(assignment.collection_type || '').trim().toLowerCase()
+        return !assignedType || assignedType === 'all' || assignedType === financeType
+      })
 
       const categoriesById = new Map()
       eligibleAssignments.forEach((assignment) => {
@@ -326,7 +325,7 @@ function AgentLoans() {
           financeError
         )
 
-        alert(
+        notify(
           t('unableLoadLoanTypeCollections', {
             loanType: getTitle(),
             message: financeError.message
@@ -348,7 +347,7 @@ function AgentLoans() {
         error
       )
 
-      alert(
+      notify(
         error instanceof Error
           ? t('unableLoadCollections', { message: error.message })
           : t('unableLoadCollectionsFallback')
@@ -362,17 +361,7 @@ function AgentLoans() {
   // MONEY FORMAT
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // TOTALS
@@ -444,11 +433,9 @@ function AgentLoans() {
         </div>
 
         <button
-          className="back-button"
           type="button"
-          onClick={() =>
-            navigate('/agent')
-          }
+          onClick={() => navigate('/agent')}
+          style={{ background: '#ffffff', color: '#351078', border: '1px solid #c4b5fd', borderRadius: 10, padding: '0.5rem 0.9rem', fontWeight: 600, cursor: 'pointer' }}
         >
           ← {t('back')}
         </button>
@@ -507,11 +494,11 @@ function AgentLoans() {
           </div>
           <button
             type="button"
-            className="back-button"
             onClick={loadAgentLoans}
             disabled={loading}
+            style={{ background: '#351078', color: '#fff', border: '1px solid #351078', borderRadius: 10, padding: '0.5rem 0.9rem', fontWeight: 600, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}
           >
-            {loading ? t('loadingAgentCollections', { loanType: getTitle() }) : t('refreshAssignments')}
+            {loading ? t('loadingAgentCollections', { loanType: getTitle() }) : t('refreshAssignments', 'Refresh')}
           </button>
         </div>
       </div>
@@ -544,7 +531,7 @@ function AgentLoans() {
 
         <div>
           <span>
-            Total Pending
+            {t('totalPending')}
           </span>
 
           <strong>
@@ -566,6 +553,7 @@ function AgentLoans() {
 
         <p>
           {t('onlyYourAssignedCollections', { loanType: getTitle() })}
+          {financeType === 'interest_only' ? ` ${t('interestOnlyFriendlyHint', 'Collect interest easily from the list below.')}` : ''}
         </p>
 
         {
@@ -601,26 +589,31 @@ function AgentLoans() {
                           ?.category_name ||
                         'Not Assigned'
 
+                      const pendingAmount = Number(record.pending || 0)
+                      const isInterestOnly = String(record.finance_type || '').toLowerCase() === 'interest_only'
+
                       return (
                         <div
                           key={record.id}
                           style={{
-                            border:
-                              '1px solid #d7e0ec',
-                            borderRadius:
-                              '14px',
-                            padding:
-                              '18px',
-                            background:
-                              '#ffffff'
+                            border: '1px solid #d7e0ec',
+                            borderRadius: '14px',
+                            padding: '18px',
+                            background: 'linear-gradient(180deg, #ffffff 0%, #fbfaff 100%)',
+                            boxShadow: '0 2px 8px rgba(53,16,120,0.06)'
                           }}
                         >
 
-                          <small>
-                            {t('customer').toUpperCase()}
-                          </small>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', marginBottom: '0.25rem' }}>
+                            <small style={{ color: '#6b7280', fontWeight: 600 }}>{t('customer').toUpperCase()}</small>
+                            {isInterestOnly && (
+                              <span style={{ background: '#ccfbf1', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: 999, padding: '0.15rem 0.5rem', fontSize: '0.75rem', fontWeight: 700 }}>
+                                {t('interestOnlyLoan', 'Interest-Only Loan')}
+                              </span>
+                            )}
+                          </div>
 
-                          <h3>
+                          <h3 style={{ marginTop: '0.25rem', marginBottom: '0.25rem' }}>
                             {
                               customer?.full_name ||
                               record.name ||
@@ -640,107 +633,52 @@ function AgentLoans() {
 
                           <div
                             style={{
-                              background:
-                                '#eef5ff',
-                              padding:
-                                '10px',
-                              borderRadius:
-                                '8px',
-                              marginBottom:
-                                '12px'
+                              background: '#eef2ff',
+                              padding: '10px',
+                              borderRadius: '10px',
+                              marginBottom: '12px',
+                              border: '1px solid #c7d2fe'
                             }}
                           >
-
-                            <small>
+                            <small style={{ color: '#4338ca', fontWeight: 700 }}>
                               {t('collectionCategory').toUpperCase()}
                             </small>
-
                             <div>
-                              <strong>
-                                {category}
-                              </strong>
+                              <strong>{category}</strong>
                             </div>
-
                           </div>
 
                           <div
                             style={{
-                              background:
-                                '#f6f8fb',
-                              padding:
-                                '12px',
-                              borderRadius:
-                                '8px'
+                              background: '#f8fafc',
+                              padding: '12px',
+                              borderRadius: '10px',
+                              border: '1px solid #e5e7eb'
                             }}
                           >
-
-                            <p>
-                              <strong>
-                                {t('phone')}:
-                              </strong>{' '}
-
-                              {
-                                customer?.phone ||
-                                '-'
-                              }
-                            </p>
-
-                            <p>
-                              <strong>
-                                {t('amount')}:
-                              </strong>{' '}
-
-                              ₹{formatMoney(
-                                record.amount
-                              )}
-                            </p>
-
-                            <p>
-                              <strong>
-                                {t('collected')}:
-                              </strong>{' '}
-
-                              ₹{formatMoney(
-                                record.paid
-                              )}
-                            </p>
-
-                            <p>
-                              <strong>
-                                {t('pending')}:
-                              </strong>{' '}
-
-                              ₹{formatMoney(
-                                record.pending
-                              )}
-                            </p>
-
-                            <p>
-                              <strong>
-                                {t('nextDue')}:
-                              </strong>{' '}
-
-                              {
-                                record.next_due_date ||
-                                '-'
-                              }
-                            </p>
-
+                            <p style={{ margin: '0 0 6px' }}><strong>{t('phone')}:</strong> {customer?.phone || '-'}</p>
+                            <p style={{ margin: '0 0 6px' }}><strong>{t('amount')}:</strong> ₹{formatMoney(record.amount)}</p>
+                            <p style={{ margin: '0 0 6px' }}><strong>{t('collected')}:</strong> <span style={{ color: '#15803d', fontWeight: 700 }}>₹{formatMoney(record.paid)}</span></p>
+                            <p style={{ margin: '0 0 6px' }}><strong>{t('pending')}:</strong> <span style={{ color: pendingAmount > 0 ? '#b45309' : '#15803d', fontWeight: 700 }}>₹{formatMoney(record.pending)}</span></p>
+                            <p style={{ margin: 0 }}><strong>{t('nextDue')}:</strong> {record.next_due_date || '-'}</p>
                           </div>
 
                           <button
-                            className="record-payment-button"
+                            type="button"
                             style={{
                               width: '100%',
-                              marginTop: '12px'
+                              marginTop: '12px',
+                              background: isInterestOnly ? '#0f766e' : '#16a34a',
+                              color: '#fff',
+                              border: `1px solid ${isInterestOnly ? '#0f766e' : '#16a34a'}`,
+                              borderRadius: 10,
+                              padding: '0.65rem 0.9rem',
+                              fontWeight: 700,
+                              cursor: 'pointer'
                             }}
-                            onClick={() =>
-                              openCollection(
-                                record
-                              )
-                            }
+                            onClick={() => openCollection(record)}
                           >
-                            {t('viewOrCollect')}
+                            {isInterestOnly ? t('viewOrCollectInterest', 'View / Collect Interest') : t('viewOrCollect')}
                           </button>
 
                         </div>

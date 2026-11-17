@@ -4,6 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 // @ts-ignore Deno resolves this npm package at runtime, but some TypeScript
 // language servers do not resolve npm: specifiers used by Supabase Functions.
 import { withSupabase } from "npm:@supabase/server@^1";
+import { createTenantAuthEmail } from "../_shared/tenantAuthEmail.ts";
 
 const LEGACY_WORKSPACE_ID =
   "00000000-0000-4000-8000-000000000001";
@@ -392,13 +393,17 @@ export default {
         // CREATE AUTH USER
         // =========================================
 
+        const loginEmail =
+          createTenantAuthEmail(email, workspaceId);
+
         const {
           data: authData,
           error: authError,
         } =
           await ctx.supabaseAdmin
             .auth.admin.createUser({
-              email,
+              email: loginEmail,
+
               password,
 
               email_confirm: true,
@@ -409,6 +414,9 @@ export default {
 
                 role:
                   "agent",
+
+                contact_email:
+                  email,
 
                 workspace_id:
                   workspaceId,
@@ -607,6 +615,9 @@ export default {
 
             message:
               "Agent created successfully.",
+
+            login_email:
+              loginEmail,
 
             agent: {
               id:

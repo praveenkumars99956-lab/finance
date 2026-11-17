@@ -14,6 +14,7 @@ function AdminCreate() {
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [created, setCreated] = useState(false)
+  const [loginEmail, setLoginEmail] = useState('')
 
   const handleCreate = async (event) => {
     event.preventDefault()
@@ -68,6 +69,11 @@ function AdminCreate() {
         throw new Error(data?.message || t('adminWorkspaceCreateFailed'))
       }
 
+      if (!data.login_email) {
+        throw new Error(t('tenantLoginAliasUnavailable'))
+      }
+
+      setLoginEmail(data.login_email)
       setCreated(true)
       setPassword('')
     } catch (error) {
@@ -102,7 +108,9 @@ function AdminCreate() {
                 color: '#067647'
               }}
             >
-              {t('adminWorkspaceCreated')}
+              <p>{t('adminWorkspaceCreated')}</p>
+              <strong>{t('tenantLoginEmail', { email: loginEmail })}</strong>
+              <p>{t('tenantLoginEmailHelp')}</p>
             </div>
             <button
               type="button"

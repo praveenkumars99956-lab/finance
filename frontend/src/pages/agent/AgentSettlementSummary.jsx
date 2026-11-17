@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -20,7 +22,7 @@ function AgentSettlementSummary() {
   // LOAD SETTLEMENT SUMMARY
   // =========================================
 
-  const loadSettlementSummary = async () => {
+  async function loadSettlementSummary() {
     setLoading(true)
 
     try {
@@ -37,7 +39,7 @@ function AgentSettlementSummary() {
         sessionError ||
         !sessionData?.session?.user
       ) {
-        alert(t('pleaseLoginAgain'))
+        notify(t('pleaseLoginAgain'))
         navigate('/')
         return
       }
@@ -64,7 +66,7 @@ function AgentSettlementSummary() {
           profileError
         )
 
-        alert(
+        notify(
           t('unableVerifyAgentLogin')
         )
 
@@ -123,7 +125,7 @@ function AgentSettlementSummary() {
           agentError
         )
 
-        alert(
+        notify(
           t('unableLoadAgentAccount')
         )
 
@@ -131,7 +133,7 @@ function AgentSettlementSummary() {
       }
 
       if (!agentData) {
-        alert(
+        notify(
           t('agentAccountNotFound')
         )
 
@@ -143,7 +145,7 @@ function AgentSettlementSummary() {
           .trim()
           .toLowerCase() !== 'active'
       ) {
-        alert(
+        notify(
           t('agentAccountInactive')
         )
 
@@ -179,7 +181,7 @@ function AgentSettlementSummary() {
           assignmentError
         )
 
-        alert(
+        notify(
           t('unableLoadAssignments', { message: assignmentError.message })
         )
 
@@ -234,7 +236,7 @@ function AgentSettlementSummary() {
           financeError
         )
 
-        alert(
+        notify(
           t('agentUnableLoadFinanceAccounts', { message: financeError.message })
         )
 
@@ -289,7 +291,7 @@ function AgentSettlementSummary() {
           paymentError
         )
 
-        alert(
+        notify(
           t('unableLoadSettlementSummary', { message: paymentError.message })
         )
 
@@ -335,7 +337,7 @@ function AgentSettlementSummary() {
         error
       )
 
-      alert(
+      notify(
         error instanceof Error
           ? t('unableLoadSettlementSummary', { message: error.message })
           : t('unableLoadSettlementSummaryFallback')
@@ -349,17 +351,7 @@ function AgentSettlementSummary() {
   // MONEY
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // DATE

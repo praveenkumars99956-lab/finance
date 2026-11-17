@@ -1,8 +1,11 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { ensureMonthlyLoanCategory } from '../../services/collectionCategories'
+import SelectMenu from '../../components/SelectMenu'
 
 // =========================================
 // MONTHS
@@ -31,11 +34,19 @@ function Monthly() {
   const navigate = useNavigate()
   const location = useLocation()
 
-  const customer = location.state?.customer
+  const providedCustomer = location.state?.customer || null
 
-  const customerId =
+  const providedCustomerId =
     location.state?.customerId ||
-    customer?.id
+    providedCustomer?.id ||
+    null
+
+  const [customer, setCustomer] = useState(providedCustomer)
+  const [customerOptions, setCustomerOptions] = useState([])
+  const [customerLoading, setCustomerLoading] = useState(!providedCustomerId)
+  const [customerError, setCustomerError] = useState(false)
+
+  const customerId = providedCustomerId || customer?.id || null
 
   // =========================================
   // FORM
@@ -189,7 +200,7 @@ function Monthly() {
         setCategoryError(false)
       } catch (error) {
         console.error('Collection category loading error:', error)
-        alert(
+        notify(
           `${t(
             'unableToLoadCollectionCategories',
             'Unable to load Collection Categories'
@@ -202,6 +213,78 @@ function Monthly() {
 
     loadCategories()
   }, [t])
+
+  // =========================================
+  // LOAD CUSTOMERS (when opened without one)
+  // =========================================
+
+  useEffect(() => {
+    if (providedCustomerId) {
+      return undefined
+    }
+
+    let active = true
+
+    const loadCustomers = async () => {
+      try {
+        setCustomerLoading(true)
+
+        const { data, error } = await supabase
+          .from('customers')
+          .select('id, customer_id, full_name, phone, status')
+          .order('full_name')
+
+        if (error) {
+          console.error('Unable to load customers:', error)
+          notify(
+            `${t('unableToLoadCustomers', 'Unable to load customers')}: ${error.message}`
+          )
+          return
+        }
+
+        // Older customer rows may have a null/missing status, so do not
+        // filter with .eq('status', 'active') in the query. Only skip
+        // customers that are explicitly marked inactive.
+        const selectableCustomers = (data || []).filter((option) => {
+          const status = String(option.status ?? 'active')
+            .trim()
+            .toLowerCase()
+
+          return status !== 'inactive'
+        })
+
+        if (active) {
+          setCustomerOptions(selectableCustomers)
+        }
+      } catch (error) {
+        console.error('Customer loading error:', error)
+      } finally {
+        if (active) {
+          setCustomerLoading(false)
+        }
+      }
+    }
+
+    loadCustomers()
+
+    return () => {
+      active = false
+    }
+  }, [providedCustomerId, t])
+
+  // =========================================
+  // CUSTOMER SELECTION
+  // =========================================
+
+  const handleCustomerChange = (value) => {
+    const selectedCustomer =
+      customerOptions.find(
+        (option) => String(option.id) === value
+      ) || null
+
+    setCustomer(selectedCustomer)
+    setCustomerError(false)
+  }
 
   // =========================================
   // AUTO SELECT COLLECTION MONTH
@@ -405,26 +488,7 @@ function Monthly() {
   // FORMAT MONEY
   // =========================================
 
-  const formatMoney = (
-    value
-  ) => {
-    const locale = {
-      en: 'en-IN',
-      ta: 'ta-IN',
-      hi: 'hi-IN',
-      ml: 'ml-IN'
-    }[i18n.resolvedLanguage] || 'en-IN'
-
-    return Number(
-      value || 0
-    ).toLocaleString(
-      locale,
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // TRANSLATED MONTH NAME
@@ -482,10 +546,11 @@ function Monthly() {
       // =========================================
 
       if (!customerId) {
-        alert(
+        setCustomerError(true)
+        notify(
           t(
-            'monthlyCustomerMissing',
-            'Customer information is missing. Please open Monthly Loan from Customer Profile.'
+            'selectCustomerRequired',
+            'Please select a customer before creating this loan.'
           )
         )
 
@@ -503,7 +568,7 @@ function Monthly() {
       }
 
       if (!collectionMonth) {
-        alert(
+        notify(
           t(
             'selectCollectionMonth',
             'Select Collection Month'
@@ -517,7 +582,7 @@ function Monthly() {
         !p ||
         p <= 0
       ) {
-        alert(
+        notify(
           t(
             'enterValidPrincipal',
             'Enter a valid Principal Amount'
@@ -531,7 +596,7 @@ function Monthly() {
         !Number.isFinite(rate) ||
         rate < 0
       ) {
-        alert(
+        notify(
           t(
             'enterValidInterestRate',
             'Enter a valid Rate of Interest'
@@ -545,7 +610,7 @@ function Monthly() {
         !Number.isFinite(paid) ||
         paid < 0
       ) {
-        alert(
+        notify(
           t(
             'alreadyPaidNegative',
             'Already Paid cannot be negative'
@@ -559,7 +624,7 @@ function Monthly() {
         !Number.isInteger(months) ||
         months <= 0
       ) {
-        alert(
+        notify(
           t(
             'enterValidNumberOfMonths',
             'Enter a valid Number of Months'
@@ -573,7 +638,7 @@ function Monthly() {
         paid >=
         totalRepayment
       ) {
-        alert(
+        notify(
           t(
             'alreadyPaidLessThanTotal',
             'Already Paid must be less than Total Repayment'
@@ -584,7 +649,7 @@ function Monthly() {
       }
 
       if (!startDate) {
-        alert(
+        notify(
           t(
             'selectStartDate',
             'Select Start Date'
@@ -612,7 +677,7 @@ function Monthly() {
         userError ||
         !user
       ) {
-        alert(
+        notify(
           t(
             'pleaseLoginAgain',
             'Please login again'
@@ -782,7 +847,7 @@ function Monthly() {
             financeError
           )
 
-          alert(
+          notify(
             `${t(
               'unableToSaveMonthlyFinance',
               'Unable to save Monthly Finance'
@@ -817,7 +882,7 @@ function Monthly() {
             scheduleError
           )
 
-          alert(
+          notify(
             `${t(
               'monthlyCreatedScheduleFailed',
               'Monthly Finance was created, but schedule generation failed'
@@ -831,7 +896,7 @@ function Monthly() {
         // SUCCESS
         // =====================================
 
-        alert(
+        notify(
           t(
             'monthlyFinanceCreatedSuccessfully',
             'Monthly Finance created successfully'
@@ -847,7 +912,7 @@ function Monthly() {
           error
         )
 
-        alert(
+        notify(
           error?.message ||
           t(
             'unableToCreateMonthlyFinance',
@@ -864,7 +929,7 @@ function Monthly() {
   // =========================================
 
   return (
-    <div className="daily-page">
+    <div className="daily-page monthly-page">
 
       {/* =====================================
           BACK
@@ -942,6 +1007,52 @@ function Monthly() {
             'Customer'
           )}
         </h2>
+
+        {!providedCustomerId && (
+          <div
+            className="daily-form-grid"
+            style={{ marginBottom: '18px' }}
+          >
+            <div style={{ gridColumn: '1 / -1' }}>
+              <label htmlFor="monthly-customer">
+                {t('customer', 'Customer')} *
+              </label>
+
+              <SelectMenu
+                id="monthly-customer"
+                value={customer ? String(customer.id) : ''}
+                onChange={handleCustomerChange}
+                disabled={customerLoading}
+                ariaLabel={t('customer', 'Customer')}
+                ariaInvalid={customerError}
+                placeholder={
+                  customerLoading
+                    ? t('loadingCustomers', 'Loading customers...')
+                    : t('selectCustomer', 'Select Customer')
+                }
+                options={customerOptions.map((option) => ({
+                  value: String(option.id),
+                  label: `${option.customer_id} - ${option.full_name}`
+                }))}
+              />
+
+              {!customerLoading && customerOptions.length === 0 && (
+                <small
+                  style={{
+                    display: 'block',
+                    marginTop: 6,
+                    color: '#b42318'
+                  }}
+                >
+                  {t(
+                    'noCustomersAvailable',
+                    'No active customers are available. Add a customer before creating this loan.'
+                  )}
+                </small>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="daily-info-grid">
 
@@ -1023,38 +1134,32 @@ function Monthly() {
                 )} *
               </label>
 
-              <select
+              <SelectMenu
                 ref={categorySelectRef}
                 id="monthly-collection-category"
                 value={collectionCategoryId}
-                onChange={(event) => {
-                  setCollectionCategoryId(event.target.value)
+                onChange={(value) => {
+                  setCollectionCategoryId(value)
                   setCategoryError(false)
                 }}
                 disabled={categoryLoading}
-                aria-required="true"
-                aria-invalid={categoryError}
-                aria-describedby={
+                ariaLabel={t('collectionCategory', 'Collection Category')}
+                ariaInvalid={categoryError}
+                ariaDescribedBy={
                   categoryError
                     ? 'monthly-collection-category-error'
                     : undefined
                 }
-              >
-                <option value="">
-                  {categoryLoading
+                placeholder={
+                  categoryLoading
                     ? t('loadingCategories', 'Loading Categories...')
-                    : t('selectCollectionCategory', 'Select Collection Category')}
-                </option>
-
-                {categories.map((category) => (
-                  <option
-                    key={category.id}
-                    value={category.id}
-                  >
-                    {category.category_name}
-                  </option>
-                ))}
-              </select>
+                    : t('selectCollectionCategory', 'Select Collection Category')
+                }
+                options={categories.map((category) => ({
+                  value: String(category.id),
+                  label: category.category_name
+                }))}
+              />
 
               {!categoryLoading && categories.length === 0 && (
                 <small
@@ -1158,46 +1263,19 @@ function Monthly() {
                 )} *
               </label>
 
-              <select
-                value={
-                  collectionMonth
-                }
-                onChange={(e) =>
-                  setCollectionMonth(
-                    e.target.value
-                  )
-                }
-                required
-              >
-
-                <option value="">
-                  {t(
-                    'selectCollectionMonth',
-                    'Select Collection Month'
-                  )}
-                </option>
-
-                {
-                  MONTHS.map(
-                    (month) => (
-                      <option
-                        key={
-                          month.value
-                        }
-                        value={
-                          month.value
-                        }
-                      >
-                        {t(
-                          month.key,
-                          month.value
-                        )}
-                      </option>
-                    )
-                  )
-                }
-
-              </select>
+              <SelectMenu
+                value={collectionMonth}
+                onChange={setCollectionMonth}
+                ariaLabel={t('collectionMonth', 'Collection Month')}
+                placeholder={t(
+                  'selectCollectionMonth',
+                  'Select Collection Month'
+                )}
+                options={MONTHS.map((month) => ({
+                  value: month.value,
+                  label: t(month.key, month.value)
+                }))}
+              />
 
             </div>
 

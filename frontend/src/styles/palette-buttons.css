@@ -1,0 +1,222 @@
+/* ==========================================================================
+   DESIGNATED PALETTE — BUTTON SYSTEM
+   --------------------------------------------------------------------------
+   Loaded after every legacy stylesheet. It normalises every button family the
+   app has accumulated onto the Lavender Mist / Royal Purple palette without
+   requiring markup changes page by page.
+   ========================================================================== */
+
+:root {
+  --btn-radius: 12px;
+  --btn-radius-sm: 9px;
+  --btn-primary-bg: linear-gradient(135deg, var(--fs-royal, #351078) 0%, var(--fs-purple, #5b2d8e) 100%);
+  --btn-primary-bg-hover: linear-gradient(135deg, var(--fs-royal-dark, #260b57) 0%, var(--fs-royal, #351078) 100%);
+  --btn-primary-text: #ffffff;
+  --btn-secondary-bg: rgba(255, 255, 255, 0.82);
+  --btn-secondary-text: var(--fs-royal, #351078);
+  --btn-secondary-border: var(--fs-line, #e0d6f7);
+  --btn-ghost-text: var(--fs-ink-soft, #4a3870);
+  --btn-ghost-hover-bg: var(--fs-royal-soft, #efe6ff);
+  --btn-danger-bg: linear-gradient(135deg, #8f1429 0%, #b31f38 100%);
+}
+
+/* Shared geometry --------------------------------------------------------- */
+.btn,
+.modern-btn-primary,
+.modern-btn-secondary,
+.daily-save-button,
+.download-buttons button,
+.record-payment-button,
+.login-button,
+.action-btn,
+.save-button,
+.cancel-button,
+.delete-button,
+.edit-button,
+.add-button,
+.add-btn,
+.refresh-button,
+.filter-button,
+.submit-button,
+.primary-button,
+.secondary-button,
+button[type='submit'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-height: 38px;
+  padding: 0.6rem 1rem;
+  border-radius: var(--btn-radius);
+  border: 1px solid transparent;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition:
+    transform 150ms ease,
+    box-shadow 150ms ease,
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease;
+}
+
+.btn .material-symbols-outlined,
+.modern-btn-primary .material-symbols-outlined,
+.modern-btn-secondary .material-symbols-outlined,
+.record-payment-button .material-symbols-outlined,
+.login-button .material-symbols-outlined {
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* Primary ---------------------------------------------------------------- */
+.btn-primary,
+.modern-btn-primary,
+.record-payment-button,
+.login-button,
+.daily-save-button,
+.submit-button,
+.primary-button,
+button[type='submit'] {
+  background: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
+  box-shadow: 0 12px 24px -15px rgba(53, 16, 120, 0.9);
+}
+
+.btn-primary:hover,
+.modern-btn-primary:hover,
+.record-payment-button:hover,
+.login-button:hover,
+.daily-save-button:hover,
+.submit-button:hover,
+.primary-button:hover,
+button[type='submit']:hover {
+  background: var(--btn-primary-bg-hover);
+  color: var(--btn-primary-text);
+  transform: translateY(-1px);
+  box-shadow: 0 16px 30px -15px rgba(53, 16, 120, 0.95);
+}
+
+/* Secondary / outline ---------------------------------------------------- */
+.btn-outline,
+.btn-secondary,
+.modern-btn-secondary,
+.secondary-button,
+.cancel-button,
+.refresh-button,
+.filter-button,
+.download-buttons button,
+.edit-button,
+.add-button,
+.add-btn {
+  background: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border-color: var(--btn-secondary-border);
+  box-shadow: var(--fs-shadow-xs, 0 1px 2px rgba(53, 16, 120, 0.06));
+}
+
+.btn-outline:hover,
+.btn-secondary:hover,
+.modern-btn-secondary:hover,
+.secondary-button:hover,
+.cancel-button:hover,
+.refresh-button:hover,
+.filter-button:hover,
+.download-buttons button:hover,
+.edit-button:hover,
+.add-button:hover,
+.add-btn:hover {
+  background: var(--fs-royal-soft, #efe6ff);
+  border-color: var(--fs-purple-bright, #7c4dbc);
+  color: var(--fs-royal, #351078);
+  box-shadow: var(--fs-ring, 0 0 0 3px rgba(124, 77, 188, 0.18));
+}
+
+/* Ghost ---------------------------------------------------------------- */
+.btn-ghost,
+.action-btn {
+  background: transparent;
+  color: var(--btn-ghost-text);
+  border-color: transparent;
+  box-shadow: none;
+}
+
+.btn-ghost:hover,
+.action-btn:hover {
+  background: var(--btn-ghost-hover-bg);
+  color: var(--fs-royal, #351078);
+}
+
+/* Destructive ----------------------------------------------------------- */
+.btn-danger,
+.delete-button {
+  background: var(--btn-danger-bg);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 12px 24px -16px rgba(143, 20, 41, 0.8);
+}
+
+.btn-danger:hover,
+.delete-button:hover {
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+/* Sizes ---------------------------------------------------------------- */
+.btn-sm {
+  min-height: 30px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  border-radius: var(--btn-radius-sm);
+}
+
+.btn-icon,
+.icon-button,
+.icon-btn {
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border-radius: 9999px;
+}
+
+/* States --------------------------------------------------------------- */
+.btn:disabled,
+.modern-btn-primary:disabled,
+.modern-btn-secondary:disabled,
+.record-payment-button:disabled,
+.login-button:disabled,
+.daily-save-button:disabled,
+button[type='submit']:disabled,
+.btn[aria-disabled='true'] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+  filter: saturate(0.75);
+}
+
+.btn:focus-visible,
+.modern-btn-primary:focus-visible,
+.modern-btn-secondary:focus-visible,
+.record-payment-button:focus-visible,
+.login-button:focus-visible,
+.daily-save-button:focus-visible,
+button[type='submit']:focus-visible,
+.voice-input-button:focus-visible {
+  outline: none;
+  box-shadow: var(--fs-ring, 0 0 0 3px rgba(124, 77, 188, 0.24));
+}
+
+/* Legacy icon-only buttons must not inherit text-button padding. */
+.app-nav-icon,
+.client-payment-card,
+.login-role-button,
+.toast-close,
+.sync-status-action {
+  padding: 0;
+}

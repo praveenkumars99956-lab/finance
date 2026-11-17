@@ -1,0 +1,177 @@
+/* ==========================================================================
+   GOOGLE STITCH THEME: INSTITUTIONAL TREASURY & LIQUIDITY MATRIX
+   Extracted directly from the Stitch design specifications.
+   ========================================================================== */
+
+:root {
+  --color-primary: #351078;
+  --color-primary-light: #6B3FA0;
+  --color-primary-container: #5B2D8E;
+  --color-on-primary: #FFFFFF;
+  --color-on-primary-container: #EAD9FF;
+  --color-secondary: #7C4DBC;
+  --color-secondary-container: #C4A0F0;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #1A0A3B;
+  --color-tertiary: #5B2D8E;
+  --color-tertiary-container: #6B3FA0;
+  --color-on-tertiary: #ffffff;
+  --color-surface: #F2ECFF;
+  --color-surface-bright: #F8F4FF;
+  --color-surface-dim: #D9CCFF;
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-low: #F8F4FF;
+  --color-surface-container: #EDE5FF;
+  --color-surface-container-high: #E4D9FF;
+  --color-surface-container-highest: #D9CCFF;
+  --color-on-surface: #1A0A3B;
+  --color-on-surface-variant: #4A3870;
+  --color-outline: #7B6BA0;
+  --color-outline-variant: #C8BBDF;
+  --color-inverse-surface: #2A1050;
+  --color-error: #B00020;
+  --color-error-container: #FFD6DE;
+  --color-on-error-container: #93000a;
+
+  --stitch-radius: 1rem;
+  --stitch-radius-lg: 1.5rem;
+  --stitch-shadow: 0 1px 8px rgba(53, 16, 120, 0.06);
+}
+
+[data-theme='dark'] {
+  --color-surface: #0F0520;
+  --color-surface-container-lowest: #160830;
+  --color-surface-container-low: #1A0C38;
+  --color-surface-container: #1E0F3A;
+  --color-surface-container-high: #261545;
+  --color-surface-container-highest: #2E1A52;
+  --color-on-surface: #EAD9FF;
+  --color-on-surface-variant: #C8BBDF;
+  --color-outline: #9B8BC0;
+  --color-outline-variant: #3D2870;
+  --color-inverse-surface: #EAD9FF;
+}
+
+/* Material Symbols icon sizing */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Stitch Color utility classes */
+.bg-primary { background-color: var(--color-primary) !important; }
+.bg-primary-container { background-color: var(--color-primary-container) !important; }
+.text-primary { color: var(--color-primary) !important; }
+.text-on-primary { color: var(--color-on-primary) !important; }
+.text-on-primary-container { color: var(--color-on-primary-container) !important; }
+
+.bg-secondary { background-color: var(--color-secondary) !important; }
+.bg-secondary-container { background-color: var(--color-secondary-container) !important; }
+.text-secondary { color: var(--color-secondary) !important; }
+.text-on-secondary { color: var(--color-on-secondary) !important; }
+.text-on-secondary-container { color: var(--color-on-secondary-container) !important; }
+
+.bg-surface { background-color: var(--color-surface) !important; }
+.bg-surface-container-lowest { background-color: var(--color-surface-container-lowest) !important; }
+.bg-surface-container-low { background-color: var(--color-surface-container-low) !important; }
+.bg-surface-container { background-color: var(--color-surface-container) !important; }
+.bg-surface-container-high { background-color: var(--color-surface-container-high) !important; }
+.bg-surface-container-highest { background-color: var(--color-surface-container-highest) !important; }
+
+.text-on-surface { color: var(--color-on-surface) !important; }
+.text-on-surface-variant { color: var(--color-on-surface-variant) !important; }
+.text-outline { color: var(--color-outline) !important; }
+.text-outline-variant { color: var(--color-outline-variant) !important; }
+
+.bg-error { background-color: var(--color-error) !important; }
+.bg-error-container { background-color: var(--color-error-container) !important; }
+.text-error { color: var(--color-error) !important; }
+.text-on-error-container { color: var(--color-on-error-container) !important; }
+.bg-inverse-surface { background-color: var(--color-inverse-surface) !important; }
+.text-primary-fixed { color: #EAD9FF !important; }
+.text-secondary-fixed { color: #C4A0F0 !important; }
+
+/* Rounded Tokens */
+.rounded-DEFAULT { border-radius: 1rem !important; }
+.rounded-lg { border-radius: 2rem !important; }
+.rounded-xl { border-radius: 3rem !important; }
+.rounded-full { border-radius: 9999px !important; }
+
+/* Typography Tokens */
+.font-headline-xl { font-size: 36px; line-height: 44px; letter-spacing: -0.02em; font-weight: 700; }
+.text-headline-xl { font-size: 36px; line-height: 44px; letter-spacing: -0.02em; }
+.font-headline-lg { font-size: 28px; line-height: 36px; letter-spacing: -0.015em; font-weight: 600; }
+.text-headline-lg { font-size: 28px; line-height: 36px; letter-spacing: -0.015em; }
+.font-headline-md { font-size: 20px; line-height: 28px; letter-spacing: -0.01em; font-weight: 600; }
+.text-headline-md { font-size: 20px; line-height: 28px; letter-spacing: -0.01em; }
+.font-headline-sm { font-size: 16px; line-height: 24px; font-weight: 600; }
+.text-headline-sm { font-size: 16px; line-height: 24px; }
+.font-data-metric { font-size: 24px; line-height: 28px; letter-spacing: -0.02em; font-weight: 700; }
+.text-data-metric { font-size: 24px; line-height: 28px; letter-spacing: -0.02em; }
+.font-body-lg { font-size: 16px; line-height: 24px; font-weight: 400; }
+.text-body-lg { font-size: 16px; line-height: 24px; }
+.font-body-md { font-size: 14px; line-height: 20px; font-weight: 400; }
+.text-body-md { font-size: 14px; line-height: 20px; }
+.font-label-lg { font-size: 14px; line-height: 20px; letter-spacing: 0.01em; font-weight: 600; }
+.text-label-lg { font-size: 14px; line-height: 20px; letter-spacing: 0.01em; }
+.font-label-md { font-size: 12px; line-height: 16px; letter-spacing: 0.02em; font-weight: 600; }
+.text-label-md { font-size: 12px; line-height: 16px; letter-spacing: 0.02em; }
+.font-label-sm { font-size: 11px; line-height: 14px; letter-spacing: 0.03em; font-weight: 500; }
+.text-label-sm { font-size: 11px; line-height: 14px; letter-spacing: 0.03em; }
+
+/* Spacing Tokens */
+.px-gutter-desktop { padding-left: 1.5rem; padding-right: 1.5rem; }
+.p-gutter-desktop { padding: 1.5rem; }
+.gap-space-xs { gap: 0.25rem; }
+.gap-space-sm { gap: 0.5rem; }
+.gap-space-md { gap: 1rem; }
+.gap-space-lg { gap: 1.5rem; }
+.gap-space-xl { gap: 2rem; }
+.px-space-sm { padding-left: 0.5rem; padding-right: 0.5rem; }
+.py-space-xs { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+.py-space-sm { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.px-space-md { padding-left: 1rem; padding-right: 1rem; }
+.py-space-md { padding-top: 1rem; padding-bottom: 1rem; }
+.p-space-md { padding: 1rem; }
+.p-space-lg { padding: 1.5rem; }
+.p-space-xl { padding: 2rem; }
+.pb-space-xl { padding-bottom: 2rem; }
+
+/* Ambient Glassmorphism & Shadow */
+.stitch-shadow {
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+}
+.shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+.shadow-md {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+}
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+/* Finance background pattern */
+.finance-bg {
+  background-color: #F2ECFF;
+  background-image: url('/src/assets/finance-bg.svg');
+  background-repeat: repeat;
+  background-size: 400px 400px;
+}
+.page-bg {
+  background: linear-gradient(135deg, #F2ECFF 0%, #EDE5FF 50%, #F2ECFF 100%);
+  background-image: url('/src/assets/finance-bg.svg');
+  background-repeat: repeat;
+  background-size: 400px 400px;
+}

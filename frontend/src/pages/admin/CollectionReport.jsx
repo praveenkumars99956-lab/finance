@@ -1,7 +1,11 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { normalizeFinanceType } from '../../utils/financeType'
+import { notify } from '../../utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import SelectMenu from '../../components/SelectMenu'
 
 function CollectionReport() {
   const navigate = useNavigate()
@@ -19,12 +23,7 @@ function CollectionReport() {
     loadCollections()
   }, [])
 
-  const formatMoney = (value) => {
-    return Number(value || 0).toLocaleString('en-IN', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2
-    })
-  }
+  const formatMoney = (value) => formatMoneyValue(value)
 
   const formatDate = (value) => {
     if (!value) return '-'
@@ -40,7 +39,7 @@ function CollectionReport() {
   }
 
   const getFinanceTypeName = (type) => {
-    switch (type) {
+    switch (normalizeFinanceType(type)) {
       case 'daily':
         return t('dailyLoan')
 
@@ -51,7 +50,6 @@ function CollectionReport() {
         return t('monthlyLoan')
 
       case 'interest_only':
-      case 'interest-only':
         return t('interestOnlyLoan')
 
       default:
@@ -63,7 +61,7 @@ function CollectionReport() {
   // LOAD COLLECTIONS
   // =========================================
 
-  const loadCollections = async () => {
+  async function loadCollections() {
     setLoading(true)
 
     const {
@@ -75,6 +73,7 @@ function CollectionReport() {
       sessionError ||
       !sessionData?.session
     ) {
+      setLoading(false)
       navigate('/')
       return
     }
@@ -126,7 +125,7 @@ function CollectionReport() {
         paymentError
       )
 
-      alert(
+      notify(
         `Unable to load collection report: ${paymentError.message}`
       )
 
@@ -309,8 +308,8 @@ function CollectionReport() {
 
           const matchesType =
             typeFilter === 'all' ||
-            record.financeType ===
-              typeFilter
+            normalizeFinanceType(record.financeType) ===
+              normalizeFinanceType(typeFilter)
 
           const matchesFrom =
             !fromDate ||
@@ -373,7 +372,7 @@ function CollectionReport() {
 
   const downloadExcel = async () => {
     if (filteredRecords.length === 0) {
-      alert(t('noCollectionRecordsAvailable'))
+      notify(t('noCollectionRecordsAvailable'))
       return
     }
 
@@ -428,7 +427,7 @@ function CollectionReport() {
     if (
       filteredRecords.length === 0
     ) {
-      alert(
+      notify(
           t('noCollectionRecordsAvailable')
       )
       return
@@ -545,10 +544,17 @@ function CollectionReport() {
         </div>
 
         <button
-          className="back-button"
-          onClick={() =>
-            navigate('/reports')
-          }
+          type="button"
+          onClick={() => navigate('/reports')}
+          style={{
+            background: '#ffffff',
+            color: '#351078',
+            border: '1px solid #c4b5fd',
+            borderRadius: '10px',
+            padding: '0.55rem 0.9rem',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
         >
           ← {t('reports')}
         </button>
@@ -582,34 +588,19 @@ function CollectionReport() {
             }
           />
 
-          <select
+          <SelectMenu
             value={typeFilter}
-            onChange={(e) =>
-              setTypeFilter(
-                e.target.value
-              )
-            }
-          >
-            <option value="all">
-              {t('allLoanTypes')}
-            </option>
-
-            <option value="daily">
-              {t('dailyLoan')}
-            </option>
-
-            <option value="weekly">
-              {t('weeklyLoan')}
-            </option>
-
-            <option value="monthly">
-              {t('monthlyLoan')}
-            </option>
-
-            <option value="interest_only">
-              {t('interestOnlyLoan')}
-            </option>
-          </select>
+            onChange={setTypeFilter}
+            ariaLabel={t('filterByLoanType', 'Filter by loan type')}
+            variant="compact"
+            options={[
+              { value: 'all', label: t('allLoanTypes') },
+              { value: 'daily', label: t('dailyLoan') },
+              { value: 'weekly', label: t('weeklyLoan') },
+              { value: 'monthly', label: t('monthlyLoan') },
+              { value: 'interest_only', label: t('interestOnlyLoan') }
+            ]}
+          />
 
           <label>
             {t('fromDate')}:{' '}
@@ -697,22 +688,41 @@ function CollectionReport() {
         style={{
           display: 'flex',
           gap: '12px',
-          margin: '20px 0'
+          margin: '20px 0',
+          flexWrap: 'wrap'
         }}
       >
-
         <button
+          type="button"
           onClick={downloadExcel}
+          style={{
+            background: '#351078',
+            color: '#ffffff',
+            border: '1px solid #351078',
+            borderRadius: '10px',
+            padding: '0.55rem 0.95rem',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
         >
           📗 {t('downloadExcel')}
         </button>
 
         <button
+          type="button"
           onClick={downloadPDF}
+          style={{
+            background: '#dc2626',
+            color: '#ffffff',
+            border: '1px solid #dc2626',
+            borderRadius: '10px',
+            padding: '0.55rem 0.95rem',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
         >
           📄 {t('downloadPdf')}
         </button>
-
       </div>
 
       {/* TABLE */}
@@ -746,48 +756,24 @@ function CollectionReport() {
             <table
               style={{
                 width: '100%',
-                borderCollapse: 'collapse'
+                borderCollapse: 'collapse',
+                background: '#ffffff',
+                border: '1px solid #e5e7eb',
+                borderRadius: '12px',
+                overflow: 'hidden'
               }}
             >
-
               <thead>
-
-                <tr>
-
-                  <th style={thStyle}>
-                    {t('date')}
-                  </th>
-
-                  <th style={thStyle}>
-                    {t('customer')}
-                  </th>
-
-                  <th style={thStyle}>
-                    {t('agent')}
-                  </th>
-
-                  <th style={thStyle}>
-                    {t('collectionCategory')}
-                  </th>
-
-                  <th style={thStyle}>
-                    {t('loanType')}
-                  </th>
-
-                  <th style={thStyle}>
-                    {t('collected')}
-                  </th>
-
-                  <th style={thStyle}>
-                    {t('balanceBefore')}
-                  </th>
-
-                  <th style={thStyle}>
-                    {t('balanceAfter')}
-                  </th>
-
+                <tr style={{ background: '#f5f3ff' }}>
+                  <th style={{ ...thStyle, color: '#351078' }}>{t('date')}</th>
+                  <th style={{ ...thStyle, color: '#351078' }}>{t('customer')}</th>
+                  <th style={{ ...thStyle, color: '#351078' }}>{t('agent')}</th>
+                  <th style={{ ...thStyle, color: '#351078' }}>{t('collectionCategory')}</th>
+                  <th style={{ ...thStyle, color: '#351078' }}>{t('loanType')}</th>
+                  <th style={{ ...thStyle, color: '#351078' }}>{t('collected')}</th>
+                  <th style={{ ...thStyle, color: '#351078' }}>{t('balanceBefore')}</th>
+                  <th style={{ ...thStyle, color: '#351078' }}>{t('balanceAfter')}</th>
                 </tr>
-
               </thead>
 
               <tbody>
@@ -849,7 +835,7 @@ function CollectionReport() {
                         )}
                       </td>
 
-                      <td style={tdStyle}>
+                      <td style={{ ...tdStyle, color: '#351078' }}>
 
                         <strong>
                           ₹{formatMoney(

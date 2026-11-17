@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -21,7 +23,7 @@ function AgentCustomers() {
   // LOAD LOGGED-IN AGENT CUSTOMERS
   // =========================================
 
-  const loadCustomers = async () => {
+  async function loadCustomers() {
     setLoading(true)
 
     try {
@@ -38,7 +40,7 @@ function AgentCustomers() {
         sessionError ||
         !sessionData?.session?.user
       ) {
-        alert(t('pleaseLoginAgain'))
+        notify(t('pleaseLoginAgain'))
         navigate('/')
         return
       }
@@ -65,7 +67,7 @@ function AgentCustomers() {
           profileError
         )
 
-        alert(
+        notify(
           t('unableVerifyAgentLogin')
         )
 
@@ -124,7 +126,7 @@ function AgentCustomers() {
           agentError
         )
 
-        alert(
+        notify(
           t('unableLoadAgentAccount')
         )
 
@@ -132,7 +134,7 @@ function AgentCustomers() {
       }
 
       if (!agentData) {
-        alert(
+        notify(
           t('agentAccountNotFound')
         )
 
@@ -144,7 +146,7 @@ function AgentCustomers() {
           .trim()
           .toLowerCase() !== 'active'
       ) {
-        alert(
+        notify(
           t('agentAccountInactive')
         )
 
@@ -186,7 +188,7 @@ function AgentCustomers() {
           assignmentError
         )
 
-        alert(
+        notify(
           t('unableLoadAssignments', { message: assignmentError.message })
         )
 
@@ -254,7 +256,7 @@ function AgentCustomers() {
           financeError
         )
 
-        alert(
+        notify(
           t('unableLoadAssignedCustomers', { message: financeError.message })
         )
 
@@ -268,7 +270,7 @@ function AgentCustomers() {
         error
       )
 
-      alert(
+      notify(
         error instanceof Error
           ? t('unableLoadAssignedCustomers', { message: error.message })
           : t('unableLoadAssignedCustomersFallback')
@@ -282,17 +284,7 @@ function AgentCustomers() {
   // MONEY FORMAT
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // LOAN TYPE NAME

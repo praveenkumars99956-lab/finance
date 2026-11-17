@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -21,7 +23,7 @@ function AgentHistory() {
   // LOAD AGENT COLLECTION HISTORY
   // =========================================
 
-  const loadHistory = async () => {
+  async function loadHistory() {
     setLoading(true)
 
     try {
@@ -38,7 +40,7 @@ function AgentHistory() {
         sessionError ||
         !sessionData?.session?.user
       ) {
-        alert(t('pleaseLoginAgain'))
+        notify(t('pleaseLoginAgain'))
         navigate('/')
         return
       }
@@ -65,7 +67,7 @@ function AgentHistory() {
           profileError
         )
 
-        alert(
+        notify(
           t('unableVerifyAgentLogin')
         )
 
@@ -124,7 +126,7 @@ function AgentHistory() {
           agentError
         )
 
-        alert(
+        notify(
           t('unableLoadAgentAccount')
         )
 
@@ -132,7 +134,7 @@ function AgentHistory() {
       }
 
       if (!agentData) {
-        alert(
+        notify(
           t('agentAccountNotFound')
         )
 
@@ -144,7 +146,7 @@ function AgentHistory() {
           .trim()
           .toLowerCase() !== 'active'
       ) {
-        alert(
+        notify(
           t('agentAccountInactive')
         )
 
@@ -183,7 +185,7 @@ function AgentHistory() {
           assignmentError
         )
 
-        alert(
+        notify(
           t('unableLoadAssignments', { message: assignmentError.message })
         )
 
@@ -239,7 +241,7 @@ function AgentHistory() {
           financeError
         )
 
-        alert(
+        notify(
           t('agentUnableLoadFinanceAccounts', { message: financeError.message })
         )
 
@@ -294,7 +296,7 @@ function AgentHistory() {
           paymentError
         )
 
-        alert(
+        notify(
           t('unableLoadCollectionHistory', { message: paymentError.message })
         )
 
@@ -345,7 +347,7 @@ function AgentHistory() {
         error
       )
 
-      alert(
+      notify(
         error instanceof Error
           ? t('unableLoadCollectionHistory', { message: error.message })
           : t('unableLoadCollectionHistoryFallback')
@@ -359,17 +361,7 @@ function AgentHistory() {
   // MONEY
   // =========================================
 
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // DATE

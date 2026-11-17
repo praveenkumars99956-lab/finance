@@ -4,6 +4,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 // @ts-ignore Deno resolves this npm package at runtime, but some TypeScript
 // language servers do not resolve npm: specifiers used by Supabase Functions.
 import { withSupabase } from "npm:@supabase/server@^1";
+import { createTenantAuthEmail } from "../_shared/tenantAuthEmail.ts";
 
 export default {
   fetch: withSupabase(
@@ -80,17 +81,22 @@ export default {
       }
 
       let authUserId: string | null = null;
-      let workspaceId: string | null = null;
+      const workspaceId = crypto.randomUUID();
+      let loginEmail: string;
 
       try {
+        loginEmail = createTenantAuthEmail(email, workspaceId);
+
         const { data: authData, error: authError } =
           await ctx.supabaseAdmin.auth.admin.createUser({
-            email,
+            email: loginEmail,
             password,
             email_confirm: true,
             user_metadata: {
               full_name: fullName,
               role: "admin",
+              contact_email: email,
+              workspace_id: workspaceId,
             },
           });
 
@@ -114,20 +120,19 @@ export default {
           await ctx.supabaseAdmin
             .from("workspaces")
             .insert({
+              id: workspaceId,
               name: workspaceName,
               owner_user_id: authUserId,
             })
             .select("id")
             .single();
 
-        if (workspaceError || !workspace?.id) {
+        if (workspaceError || workspace?.id !== workspaceId) {
           throw new Error(
             workspaceError?.message ||
               "Unable to create the admin workspace.",
           );
         }
-
-        workspaceId = workspace.id;
 
         const { error: profileError } = await ctx.supabaseAdmin
           .from("profiles")
@@ -170,6 +175,8 @@ export default {
         return respond({
           success: true,
           message: "Admin workspace created.",
+          login_email: loginEmail,
+          workspace_id: workspaceId,
         });
       } catch (error) {
         console.error("Admin workspace creation failed:", error);

@@ -1,0 +1,177 @@
+/* Reusable CustomSelect ------------------------------------------------ */
+.custom-select {
+  position: relative;
+  width: 100%;
+}
+
+/* Visually hidden native <select> kept for form submission only. */
+.custom-select__native {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Closed trigger: identical to the app's form controls. */
+.custom-select > .custom-select__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 0.85rem;
+  border: 1px solid var(--fs-line, color-mix(in srgb, var(--color-outline-variant, #c8bbdf) 55%, transparent));
+  border-radius: 12px;
+  background: var(--color-surface-container-lowest, #ffffff);
+  color: var(--color-on-surface, #1a0a3b);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background-color 150ms ease;
+}
+
+.custom-select > .custom-select__trigger:hover {
+  border-color: color-mix(in srgb, var(--color-outline, #7b6ba0) 60%, transparent);
+}
+
+.custom-select > .custom-select__trigger:focus-visible {
+  outline: none;
+  border-color: var(--color-primary, #351078);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary, #351078) 22%, transparent);
+}
+
+.custom-select > .custom-select__trigger[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.custom-select.is-open > .custom-select__trigger {
+  border-color: var(--color-primary, #351078);
+}
+
+.custom-select__value {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-select__chevron {
+  flex: none;
+  color: var(--color-outline, #7b6ba0);
+  transition: transform 160ms ease;
+}
+
+.custom-select.is-open .custom-select__chevron {
+  transform: rotate(180deg);
+}
+
+/* Opened dropdown panel (portal, fixed positioned) --------------------- */
+.custom-select__list {
+  position: fixed;
+  z-index: 1200;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--fs-line, #e0d6f7);
+  border-radius: 12px;
+  background: var(--color-surface-container-lowest, #ffffff);
+  box-shadow: 0 8px 24px rgba(76, 58, 158, 0.15);
+  animation: custom-select-in 150ms ease-out;
+}
+
+.custom-select__list.is-up {
+  animation-name: custom-select-in-up;
+}
+
+@keyframes custom-select-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes custom-select-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.custom-select__option {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--color-on-surface, #1a0a3b);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.custom-select__option.is-active {
+  background: color-mix(in srgb, var(--color-primary, #351078) 9%, transparent);
+}
+
+.custom-select__option.is-selected {
+  background: color-mix(in srgb, var(--color-primary, #351078) 10%, transparent);
+  color: var(--color-primary, #351078);
+  font-weight: 600;
+}
+
+.custom-select__option.is-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.custom-select__option-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.custom-select__check {
+  flex: none;
+  color: var(--color-primary, #351078);
+}
+
+/* Dark mode: reuse the existing card/surface tokens. */
+:root[data-theme='dark'] .custom-select__list {
+  background: var(--color-surface-container-lowest, #160830);
+  border-color: var(--fs-line, #2c1b4d);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .custom-select__list {
+    animation: none;
+  }
+
+  .custom-select__chevron {
+    transition: none;
+  }
+}

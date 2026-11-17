@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import { resolveAccess } from '../../services/rbac'
+import { bootstrapAppSession } from '../../services/jwtSession'
 
 function Login() {
   const navigate = useNavigate()
@@ -12,6 +14,7 @@ function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  const [detectedRole, setDetectedRole] = useState('')
 
   const handleLogin = async (event) => {
     event.preventDefault()
@@ -21,6 +24,7 @@ function Login() {
     }
 
     setErrorMessage('')
+    setDetectedRole('')
 
     const cleanEmail = email.trim().toLowerCase()
 
@@ -121,18 +125,46 @@ function Login() {
       // NORMALIZE ROLE
       // =========================================
 
-      const role = String(
+      const profileRole = String(
         profile.role || ''
       )
         .trim()
         .toLowerCase()
 
-      // The selector expresses login intent; the stored profile authorizes access.
-      if (role !== selectedRole) {
-        setErrorMessage('accountRoleMismatch')
+      // Email bindings (VITE_ADMIN_EMAILS / VITE_AGENT_EMAILS) override a
+      // stale profile role. A conflict is denied rather than silently merged.
+      const access = resolveAccess(user, profileRole)
+
+      if (access.conflict && access.role !== profileRole) {
+        setDetectedRole(access.role)
+        setErrorMessage('accountRoleMismatchRole')
         await supabase.auth.signOut({ scope: 'local' })
         return
       }
+
+      const role = access.role || profileRole
+
+      // The selector expresses login intent; the verified role authorizes access.
+      if (role !== selectedRole) {
+        // Tell the user what the account actually is. Without this, an agent
+        // signing in with a legacy admin/client account (same contact email,
+        // different auth user) only sees a generic mismatch.
+        setDetectedRole(role)
+        setErrorMessage(
+          ['admin', 'agent', 'client'].includes(role)
+            ? 'accountRoleMismatchRole'
+            : 'accountRoleMismatch'
+        )
+        await supabase.auth.signOut({ scope: 'local' })
+        return
+      }
+
+      // Exchange the verified Supabase session for short-lived app JWTs. The
+      // exchange is optional: a Supabase-only deployment keeps working when
+      // VITE_API_URL is empty.
+      bootstrapAppSession().catch((error) => {
+        console.warn('[auth] app token exchange unavailable:', error?.message)
+      })
 
       // =========================================
       // ADMIN LOGIN
@@ -339,6 +371,9 @@ function Login() {
               autoComplete="email"
               required
             />
+            <small className="tenant-login-hint">
+              {t('tenantLoginHint')}
+            </small>
           </div>
 
           <div className="form-group">
@@ -384,7 +419,11 @@ function Login() {
                   color: '#b42318'
                 }}
               >
-                {t(errorMessage, { defaultValue: errorMessage, role: t(selectedRole) })}
+                {t(errorMessage, {
+                  defaultValue: errorMessage,
+                  role: t(selectedRole),
+                  detectedRole: detectedRole ? t(detectedRole) : t('notAssigned')
+                })}
               </div>
             )
           }

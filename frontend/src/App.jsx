@@ -1,22 +1,21 @@
 import {
   lazy,
-  Suspense,
-  useEffect,
-  useState
+  Suspense
 } from 'react'
 
 import {
   BrowserRouter,
   Routes,
-  Route,
-  useLocation,
-  useNavigate
+  Route
 } from 'react-router-dom'
 
-import { supabase } from './services/supabase'
+import { useTranslation } from 'react-i18next'
 
+import AuthBoundary from './components/AuthBoundary'
 import Navbar from './components/Navbar'
 import AdminLayout from './components/AdminLayout'
+import AgentLayout from './components/AgentLayout'
+import FloatingVoiceButton from './components/FloatingVoiceButton'
 
 const Login = lazy(() => import('./pages/auth/Login'))
 const AdminCreate = lazy(() => import('./pages/auth/AdminCreate'))
@@ -61,260 +60,12 @@ const AgentSettlementSummary = lazy(() => import('./pages/agent/AgentSettlementS
 const AgentProfile = lazy(() => import('./pages/agent/AgentProfile.jsx'))
 
 // =========================================
-// AUTH BOUNDARY
-// =========================================
-
-function AuthBoundary({
-  children
-}) {
-  const location =
-    useLocation()
-
-  const navigate =
-    useNavigate()
-
-  const [
-    checking,
-    setChecking
-  ] = useState(
-    !['/', '/admin/create', '/forgot-password', '/reset-password'].includes(location.pathname)
-  )
-
-  useEffect(() => {
-    // =====================================
-    // LOGIN PAGE
-    // =====================================
-
-    if (['/', '/admin/create', '/forgot-password', '/reset-password'].includes(location.pathname)) {
-      setChecking(false)
-
-      return
-    }
-
-    let active = true
-
-    setChecking(true)
-
-    // =====================================
-    // GET LOGGED-IN USER
-    // =====================================
-
-    supabase.auth
-      .getUser()
-
-      .then(
-        ({
-          data,
-          error
-        }) => {
-          if (!active) {
-            return
-          }
-
-          if (
-            error ||
-            !data?.user
-          ) {
-            navigate(
-              '/',
-              {
-                replace: true
-              }
-            )
-
-            return
-          }
-
-          // =================================
-          // CURRENT PATH
-          // =================================
-
-          const path =
-            location.pathname
-
-          // =================================
-          // AGENT PATH
-          // =================================
-
-          const isAgentPath =
-            path === '/agent' ||
-            path.startsWith(
-              '/agent/'
-            )
-
-          // =================================
-          // CLIENT PATH
-          // =================================
-
-          const isClientPath =
-            path === '/client' ||
-            path === '/weekly' ||
-            path === '/monthly'
-
-          // =================================
-          // WEEKLY / MONTHLY ARE SHARED
-          // =================================
-
-          const isSharedLoanPath =
-            path === '/weekly' ||
-            path === '/monthly'
-
-          // =================================
-          // GET PROFILE ROLE
-          // =================================
-
-          const roleQuery =
-            supabase
-              .from('profiles')
-              .select('role')
-              .eq(
-                'id',
-                data.user.id
-              )
-              .maybeSingle()
-
-          roleQuery.then(
-            ({
-              data: profile,
-              error: profileError
-            }) => {
-              if (!active) {
-                return
-              }
-
-              if (
-                profileError ||
-                !profile
-              ) {
-                navigate(
-                  '/',
-                  {
-                    replace: true
-                  }
-                )
-
-                return
-              }
-
-              // =============================
-              // NORMALIZE ROLE
-              // =============================
-
-              const role =
-                String(
-                  profile.role ||
-                  ''
-                )
-                  .trim()
-                  .toLowerCase()
-
-              // =============================
-              // CHECK ACCESS
-              // =============================
-
-              const allowed =
-                (
-                  role ===
-                    'agent' &&
-                  isAgentPath
-                ) ||
-
-                (
-                  role ===
-                    'client' &&
-                  isClientPath
-                ) ||
-
-                (
-                  role ===
-                    'admin' &&
-                  !isAgentPath &&
-                  (
-                    !isClientPath ||
-                    isSharedLoanPath
-                  ) &&
-                  path !== '/'
-                )
-
-              // =============================
-              // WRONG ROLE
-              // =============================
-
-              if (!allowed) {
-                navigate(
-                  role ===
-                    'agent'
-                    ? '/agent'
-                    : role ===
-                        'client'
-                      ? '/client'
-                      : '/admin',
-
-                  {
-                    replace: true
-                  }
-                )
-
-                return
-              }
-
-              // =============================
-              // ACCESS OK
-              // =============================
-
-              setChecking(false)
-            }
-          )
-        }
-      )
-
-      .catch(() => {
-        if (active) {
-          navigate(
-            '/',
-            {
-              replace: true
-            }
-          )
-        }
-      })
-
-    // =====================================
-    // CLEANUP
-    // =====================================
-
-    return () => {
-      active = false
-    }
-  }, [
-    location.pathname,
-    navigate
-  ])
-
-  // =========================================
-  // LOADING
-  // =========================================
-
-  if (checking) {
-    return (
-      <div className="customer-profile-page">
-
-        <p>
-          Checking login...
-        </p>
-
-      </div>
-    )
-  }
-
-  return children
-}
-
-// =========================================
 // APP
 // =========================================
 
 function App() {
+  const { t } = useTranslation()
+
   return (
     <BrowserRouter>
 
@@ -330,7 +81,7 @@ function App() {
 
       <AuthBoundary>
 
-        <Suspense fallback={<div className="route-loading" role="status">Loading...</div>}>
+        <Suspense fallback={<div className="route-loading" role="status">{t('loading')}</div>}>
         <Routes>
 
           {/* =================================
@@ -647,103 +398,19 @@ function App() {
           </Route>
 
           {/* =================================
-              AGENT DASHBOARD
+              AGENT PORTAL
           ================================== */}
-
-          <Route
-            path="/agent"
-            element={
-              <AgentDashboard />
-            }
-          />
-
-          {/* =================================
-              AGENT LOANS
-          ================================== */}
-
-          <Route
-            path="/agent/loans/:type"
-            element={
-              <AgentLoans />
-            }
-          />
-
-          {/* =================================
-              AGENT CUSTOMERS
-          ================================== */}
-
-          <Route
-            path="/agent/customers"
-            element={
-              <AgentCustomers />
-            }
-          />
-
-          {/* =================================
-              AGENT TODAY
-          ================================== */}
-
-          <Route
-            path="/agent/today"
-            element={
-              <AgentToday />
-            }
-          />
-
-          {/* =================================
-              AGENT PENDING
-          ================================== */}
-
-          <Route
-            path="/agent/pending"
-            element={
-              <AgentPending />
-            }
-          />
-
-          {/* =================================
-              AGENT HISTORY
-          ================================== */}
-
-          <Route
-            path="/agent/history"
-            element={
-              <AgentHistory />
-            }
-          />
-
-          {/* =================================
-              AGENT SETTLEMENT
-          ================================== */}
-
-          <Route
-            path="/agent/settlement"
-            element={
-              <AgentSettlementSummary />
-            }
-          />
-
-          {/* =================================
-              AGENT PROFILE
-          ================================== */}
-
-          <Route
-            path="/agent/profile"
-            element={
-              <AgentProfile />
-            }
-          />
-
-          {/* =================================
-              AGENT COLLECTION
-          ================================== */}
-
-          <Route
-            path="/agent/collection/:financeId"
-            element={
-              <AgentCollection />
-            }
-          />
+          <Route element={<AgentLayout />}>
+            <Route path="/agent" element={<AgentDashboard />} />
+            <Route path="/agent/loans/:type" element={<AgentLoans />} />
+            <Route path="/agent/customers" element={<AgentCustomers />} />
+            <Route path="/agent/today" element={<AgentToday />} />
+            <Route path="/agent/pending" element={<AgentPending />} />
+            <Route path="/agent/history" element={<AgentHistory />} />
+            <Route path="/agent/settlement" element={<AgentSettlementSummary />} />
+            <Route path="/agent/profile" element={<AgentProfile />} />
+            <Route path="/agent/collection/:financeId" element={<AgentCollection />} />
+          </Route>
 
           {/* =================================
               UNKNOWN URL
@@ -760,6 +427,8 @@ function App() {
         </Suspense>
 
       </AuthBoundary>
+
+      <FloatingVoiceButton />
 
     </BrowserRouter>
   )

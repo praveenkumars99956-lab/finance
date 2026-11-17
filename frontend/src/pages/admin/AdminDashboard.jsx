@@ -3,54 +3,18 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 
-const dashboardModules = [
-  { to: '/loans', key: 'financeLoans', description: 'financeLoansDescription', group: 'moduleFinanceCore', icon: 'finance' },
-  { to: '/audit-logs', key: 'securityAuditLogs', description: 'securityAuditLogsDescription', group: 'moduleGovernance', icon: 'audit' },
-  { to: '/customers', key: 'customers', description: 'customersDescription', group: 'moduleCustomerOps', icon: 'customer' },
-  { to: '/agents', key: 'agents', description: 'agentsDescription', group: 'moduleCustomerOps', icon: 'agents' },
-  { to: '/categories', key: 'collectionCategories', description: 'collectionCategoriesDescription', group: 'moduleOperations', icon: 'categories' },
-  { to: '/assignments', key: 'agentAssignment', description: 'agentAssignmentDescription', group: 'moduleOperations', icon: 'assignment' },
-  { to: '/collections', key: 'collections', description: 'collectionsDescription', group: 'moduleOperations', icon: 'collections' },
-  { to: '/pending', key: 'pendingOverdue', description: 'pendingOverdueDescription', group: 'moduleOperations', icon: 'pending' },
-  { to: '/settlements', key: 'agentSettlement', description: 'agentSettlementDescription', group: 'moduleOperations', icon: 'settlement' },
-  { to: '/reports', key: 'reports', description: 'reportsDescription', group: 'moduleInsights', icon: 'reports' },
-  { to: '/settings', key: 'settings', description: 'settingsDescription', group: 'moduleGovernance', icon: 'settings' },
-  { to: '/payments', key: 'payments', description: 'paymentsDescription', group: 'moduleOperations', icon: 'payments' }
-]
-
-const dashboardIcons = {
-  finance: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 7h8M8 11h3M8 15h8M8 18h5" /></>,
-  audit: <><path d="M12 3 19 6v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z" /><path d="M9 12a3 3 0 1 1 5.2 2M14 12v2h2" /></>,
-  customer: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M5.5 16c.7-2 2-3 3.5-3s2.8 1 3.5 3M15 9h3M15 12h3M15 15h2" /></>,
-  agents: <><circle cx="9" cy="8" r="3" /><circle cx="17" cy="9" r="2.5" /><path d="M3.5 19c.5-3.2 2.4-5 5.5-5s5 1.8 5.5 5M15 14c2.8 0 4.5 1.5 5 4" /></>,
-  categories: <><rect x="4" y="4" width="5" height="5" rx="1" /><rect x="15" y="4" width="5" height="5" rx="1" /><rect x="9.5" y="15" width="5" height="5" rx="1" /><path d="M9 6.5h6M17.5 9v2.5l-5.5 3.5M6.5 9v2.5l5.5 3.5" /></>,
-  assignment: <><circle cx="12" cy="12" r="2" /><circle cx="5" cy="5" r="1.5" /><circle cx="19" cy="5" r="1.5" /><circle cx="5" cy="19" r="1.5" /><circle cx="19" cy="19" r="1.5" /><path d="m10.5 10.5-4-4M13.5 10.5l4-4M10.5 13.5l-4 4M13.5 13.5l4 4" /></>,
-  collections: <><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M3 10h18M7 6V4h11v2M7 15h4" /><circle cx="17" cy="15" r="1" /></>,
-  pending: <><circle cx="12" cy="13" r="7" /><path d="M12 9v4l2.5 1.5M8 3 6 5M16 3l2 2M12 2v2" /></>,
-  settlement: <><rect x="5" y="3" width="14" height="18" rx="1" /><path d="M8 7h8M8 10h8M8 13h8M8 16h5" /></>,
-  reports: <><path d="M4 19V5M4 19h17M8 15l3-4 3 2 5-7" /><path d="m15 6 4 0 0 4M8 9h1M8 6h2" /></>,
-  settings: <><path d="M4 6h16M4 12h16M4 18h16" /><circle cx="9" cy="6" r="2" /><circle cx="15" cy="12" r="2" /><circle cx="11" cy="18" r="2" /></>,
-  payments: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 9h18M7 14h4M16 14h1" /></>
-}
-
-const financeTypes = [
-  { key: 'dailyFinance', icon: 'D' },
-  { key: 'weeklyFinance', icon: 'W' },
-  { key: 'monthlyFinance', icon: 'M' },
-  { key: 'interestOnlyFinance', icon: 'I' }
-]
-
 function AdminDashboard() {
   const navigate = useNavigate()
   const { t } = useTranslation()
   const [dashboardMetrics, setDashboardMetrics] = useState(null)
+  const [activePortalFilter, setActivePortalFilter] = useState('all')
 
   useEffect(() => {
     let active = true
     const today = getLocalDateString()
 
     const loadDashboardMetrics = async () => {
-      const [financeResult, pendingResult, paymentResult] = await Promise.all([
+      const [financeResult, pendingResult, paymentResult, customersResult, agentsResult] = await Promise.all([
         supabase
           .from('finance_records')
           .select('id', { count: 'exact', head: true }),
@@ -61,7 +25,13 @@ function AdminDashboard() {
         supabase
           .from('finance_payments')
           .select('id', { count: 'exact', head: true })
-          .gte('payment_date', today)
+          .gte('payment_date', today),
+        supabase
+          .from('customers')
+          .select('id', { count: 'exact', head: true }),
+        supabase
+          .from('agents')
+          .select('id', { count: 'exact', head: true })
       ])
 
       if (!active) return
@@ -69,7 +39,9 @@ function AdminDashboard() {
       const metrics = [
         ['financeAccounts', financeResult],
         ['pendingAccounts', pendingResult],
-        ['paymentsToday', paymentResult]
+        ['paymentsToday', paymentResult],
+        ['customersCount', customersResult],
+        ['agentsCount', agentsResult]
       ]
       const nextMetrics = {}
 
@@ -92,133 +64,541 @@ function AdminDashboard() {
   }, [])
 
   return (
-    <div className="finance-admin admin-dashboard">
-      <section className="dashboard-command-bar" aria-labelledby="admin-dashboard-title">
-        <div className="dashboard-command-copy">
-          <span className="dashboard-eyebrow">
-            <span className="dashboard-eyebrow-dot" aria-hidden="true">•</span>
-            {t('adminDashboardEyebrow')}
-          </span>
-          <h1 id="admin-dashboard-title">{t('managementLiquidityTitle')}</h1>
-          <p>{t('adminDashboardSubtitle')}</p>
-        </div>
-
-        <div className="dashboard-command-actions">
-          <nav className="dashboard-portal-tabs" aria-label={t('adminPortals')}>
-            <button type="button" className="is-selected" aria-current="page" onClick={() => navigate('/admin')}>
-              {t('adminAllPortals')}
-            </button>
-            <button type="button" onClick={() => navigate('/pending')}>
-              {t('adminRecovery')}
-            </button>
-            <button type="button" onClick={() => navigate('/categories')}>
-              {t('adminTranches')}
-            </button>
-            <button type="button" onClick={() => navigate('/agents')}>
-              {t('adminNodes')}
-            </button>
-          </nav>
-          <button type="button" className="dashboard-action-secondary" onClick={() => navigate('/reports')}>
-            <span aria-hidden="true">▤</span>
-            {t('reports')}
-          </button>
-          <button type="button" className="dashboard-action-primary" onClick={() => navigate('/settlements')}>
-            <span aria-hidden="true">⇄</span>
-            {t('agentSettlement')}
-          </button>
-        </div>
-      </section>
-
-      <section className="dashboard-hero" aria-labelledby="dashboard-hero-title">
-        <div className="dashboard-hero-glow" aria-hidden="true" />
-        <div className="dashboard-hero-copy">
-          <span className="dashboard-hero-eyebrow">
-            {t('adminPanel')} <span aria-hidden="true">//</span> {t('financeLoans')}
-          </span>
-          <h2 id="dashboard-hero-title">{t('financeEngineTitle')}</h2>
-          <p>{t('financeLoansDescription')}</p>
-          <div className="dashboard-finance-types" aria-label={t('financeLoans')}>
-            {financeTypes.map(({ key, icon }, index) => (
-              <button
-                key={key}
-                type="button"
-                className={index === 0 ? 'is-selected' : ''}
-                onClick={() => navigate('/loans')}
-              >
-                <span aria-hidden="true">{icon}</span>
-                {t(key)}
-              </button>
-            ))}
+    <div className="admin-dashboard-page">
+      {/* Page Header */}
+      <div className="admin-dashboard-hero bg-gradient-to-r from-[#351078] to-[#5B2D8E] rounded-2xl text-white">
+        <div className="admin-dashboard-hero-inner">
+          <div className="flex flex-col gap-2 min-w-0">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 text-white/80 text-xs font-semibold uppercase tracking-wider w-fit">
+              <span className="material-symbols-outlined text-[14px]">admin_panel_settings</span>
+              {t('adminPanel', 'Admin Panel')}
+            </span>
+            <h1 className="text-2xl font-bold text-white leading-tight">
+              {t('managementDashboard', 'Management & Liquidity Matrix')}
+            </h1>
+            <p className="text-white/70 text-sm max-w-3xl">
+              {t('dashboardDescription', 'Real-time loan administration, recovery orchestration & automated settlements.')}
+            </p>
           </div>
-        </div>
-
-        <aside className="dashboard-hero-panel" aria-label={t('adminOperationalSummary')}>
-          <div className="dashboard-metrics">
-            {[
-              ['financeAccounts', '/loans'],
-              ['pendingAccounts', '/pending'],
-              ['paymentsToday', '/payments']
-            ].map(([key, to]) => (
-              <button
-                className="dashboard-metric"
-                key={key}
-                type="button"
-                onClick={() => navigate(to)}
-                aria-label={`${t(key)}: ${dashboardMetrics?.[key] ?? '—'}`}
-              >
-                <span>{t(key)}</span>
-                <strong>{dashboardMetrics?.[key] ?? '—'}</strong>
-              </button>
-            ))}
-          </div>
-          <button
-            type="button"
-            className="dashboard-hero-cta"
-            onClick={() => navigate('/loans')}
-          >
-            {t('manageFinance')}
-            <span aria-hidden="true">→</span>
-          </button>
-        </aside>
-      </section>
-
-      <section className="dashboard-modules" aria-label={t('management')}>
-        <div className="dashboard-module-grid">
-          {dashboardModules.map(({ to, key, description, group, icon }) => (
+          <div className="flex flex-wrap items-center gap-2.5 lg:justify-end">
             <button
-              key={to}
               type="button"
-              className="dashboard-module-card"
-              onClick={() => navigate(to)}
-              aria-label={`${t(key)}: ${t(description)}`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors text-sm font-medium border border-white/20 cursor-pointer"
+              onClick={() => navigate('/reports')}
             >
-              <span className="dashboard-module-body">
-                <span className="dashboard-module-top">
-                  <span className="dashboard-module-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      {dashboardIcons[icon]}
-                    </svg>
-                  </span>
-                  <span className="dashboard-module-badge">{t(group)}</span>
-                </span>
-                <span className="dashboard-module-copy">
-                  <strong>{t(key)}</strong>
-                  <span>{t(description)}</span>
-                </span>
-              </span>
-              <span className="dashboard-module-footer">
-                <span>{t('openModule')}</span>
-                <span className="dashboard-module-arrow" aria-hidden="true">→</span>
-              </span>
+              <span className="material-symbols-outlined text-[18px]">file_upload</span>
+              {t('exportTelemetry', 'Export Telemetry')}
             </button>
-          ))}
+            <button
+              type="button"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white text-[#351078] hover:bg-[#EDE5FF] transition-colors text-sm font-semibold cursor-pointer"
+              onClick={() => navigate('/settlements')}
+            >
+              <span className="material-symbols-outlined text-[18px]">tune</span>
+              {t('treasuryRebalance', 'Treasury Rebalance')}
+            </button>
+          </div>
         </div>
-      </section>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="admin-dashboard-filters">
+        <button
+          type="button"
+          className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors cursor-pointer border-0 ${
+            activePortalFilter === 'all'
+              ? 'bg-[#351078] text-white'
+              : 'bg-[#EDE5FF] text-[#351078] hover:bg-[#D9CCFF]'
+          }`}
+          onClick={() => setActivePortalFilter('all')}
+        >
+          {t('allPortals', 'All Portals')}
+        </button>
+        <button
+          type="button"
+          className="px-4 py-2 rounded-full text-sm font-medium bg-[#EDE5FF] text-[#351078] hover:bg-[#D9CCFF] transition-colors cursor-pointer border-0"
+          onClick={() => navigate('/pending')}
+        >
+          {t('recovery', 'Recovery')}
+        </button>
+        <button
+          type="button"
+          className="px-4 py-2 rounded-full text-sm font-medium bg-[#EDE5FF] text-[#351078] hover:bg-[#D9CCFF] transition-colors cursor-pointer border-0"
+          onClick={() => navigate('/categories')}
+        >
+          {t('tranches', 'Tranches')}
+        </button>
+        <button
+          type="button"
+          className="px-4 py-2 rounded-full text-sm font-medium bg-[#EDE5FF] text-[#351078] hover:bg-[#D9CCFF] transition-colors cursor-pointer border-0"
+          onClick={() => navigate('/agents')}
+        >
+          {t('nodes', 'Nodes')}
+        </button>
+      </div>
+
+      {/* Stats Row */}
+      <div className="admin-dashboard-stats">
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px]"
+          onClick={() => navigate('/loans')}
+        >
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#7B6BA0]">{t('financeAccounts', 'Finance Accounts')}</span>
+            <span className="text-2xl font-bold text-[#1A0A3B]">
+              {dashboardMetrics?.financeAccounts !== undefined ? dashboardMetrics.financeAccounts : '—'}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[#EDE5FF] flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[#351078] text-[20px]">payments</span>
+          </div>
+        </div>
+
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px]"
+          onClick={() => navigate('/pending')}
+        >
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#7B6BA0]">{t('pendingAccounts', 'Pending Accounts')}</span>
+            <span className="text-2xl font-bold text-amber-600">
+              {dashboardMetrics?.pendingAccounts !== undefined ? dashboardMetrics.pendingAccounts : '—'}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-amber-600 text-[20px]">warning</span>
+          </div>
+        </div>
+
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px]"
+          onClick={() => navigate('/payments')}
+        >
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#7B6BA0]">{t('paymentsToday', 'Payments Today')}</span>
+            <span className="text-2xl font-bold text-[#1A0A3B]">
+              {dashboardMetrics?.paymentsToday !== undefined ? dashboardMetrics.paymentsToday : '—'}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[#EDE5FF] flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[#351078] text-[20px]">receipt_long</span>
+          </div>
+        </div>
+
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px]"
+          onClick={() => navigate('/customers')}
+        >
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#7B6BA0]">{t('totalCustomers', 'Total Customers')}</span>
+            <span className="text-2xl font-bold text-[#1A0A3B]">
+              {dashboardMetrics?.customersCount !== undefined ? dashboardMetrics.customersCount : '—'}
+            </span>
+          </div>
+          <div className="w-10 h-10 rounded-xl bg-[#EDE5FF] flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-[#351078] text-[20px]">group</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Bento Grid of Navigation Cards */}
+      <div className="admin-dashboard-modules">
+        {/* Card 1: Finance / Loans */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/loans')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">payments</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('coreEngine', 'Core Engine')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('financeLoans', 'Finance / Loans')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('financeLoanDesc', 'Create, approve, and service Daily, Weekly, Monthly, and Prime Interest-Only loan instruments.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('activePortfolio', 'Active Portfolio')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">
+                {dashboardMetrics?.financeAccounts !== undefined ? `${dashboardMetrics.financeAccounts} ${t('accounts', 'Accounts')}` : '—'}
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2: Security Audit Logs */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/audit-logs')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">policy</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('securityHSM', 'Security HSM')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('securityAuditLogs', 'Security Audit Logs')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('auditLogDesc', 'Review immutable operator credentials, dual-key signing, and agent security activities.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('integrityStatus', 'Integrity Status')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">{t('sha256Verified', 'SHA-256 Verified')}</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Customers */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/customers')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">group</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('tier1KYC', 'Tier-1 KYC')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('customersDebtorProfiles', 'Customers & Debtor Profiles')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('customersDesc', 'Manage institutional counterparties, credit rating metrics, collateral, and KYC dossiers.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('activeCounterparties', 'Active Counterparties')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">
+                {dashboardMetrics?.customersCount !== undefined ? `${dashboardMetrics.customersCount} ${t('accounts', 'Accounts')}` : '—'}
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 4: Recovery Agents */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/agents')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">badge</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('fieldOperations', 'Field Operations')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('recoveryAgents', 'Recovery Agents')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('agentsDesc', 'Manage field recovery personnel credentials, operational status, and compliance licenses.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('operationalForce', 'Operational Force')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">
+                {dashboardMetrics?.agentsCount !== undefined ? `${dashboardMetrics.agentsCount} ${t('agentsOnline', 'Agents Online')}` : '—'}
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Collection Categories */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/categories')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">account_tree</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('trancheMatrix', 'Tranche Matrix')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('collectionCategories', 'Collection Categories')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('categoriesDesc', 'Configure dynamic recovery tranches, delinquency groupings, and automated interest tiers.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('configuredPools', 'Configured Pools')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">{t('structuredTiers', '8 Structured Tiers')}</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 6: Agent Assignment */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/assignments')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">alt_route</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('smartRouter', 'Smart Router')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('agentAssignment', 'Agent Assignment')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('assignmentDesc', 'Dynamic distribution of collection categories and high-risk debtor accounts across recovery specialists.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('queueDistribution', 'Queue Distribution')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">{t('optimal', '98.4% Optimal')}</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 7: Collections & Intake */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/payments')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">receipt_long</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('realTimeInflow', 'Real-Time Inflow')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('collectionsIntake', 'Collections & Intake')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('collectionsDesc', 'Monitor incoming cash infusions, electronic wire clearances, and automated bank reconciliation events.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('todaysInflow', "Today's Inflow")}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">
+                {dashboardMetrics?.paymentsToday !== undefined ? `${dashboardMetrics.paymentsToday} ${t('settled', 'Settled')}` : '—'}
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 8: Pending / Overdue */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/pending')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-red-100 flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-red-600 text-[20px]">warning</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-red-100 text-red-600 text-xs font-semibold">
+                {t('actionMatrix', 'Action Matrix')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('pendingOverdue', 'Pending / Overdue')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('pendingDesc', 'Surveil pending deadlines and overdue repayments with automated cure notice generation.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('immediateFocus', 'Immediate Focus')}</span>
+              <span className="text-sm font-bold text-red-600">
+                {dashboardMetrics?.pendingAccounts !== undefined ? `${dashboardMetrics.pendingAccounts} ${t('overdue', 'Overdue')}` : '—'}
+              </span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 9: Reports & Telemetry */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/reports')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">monitoring</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('executiveTelemetry', 'Executive Telemetry')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('reportsTelemetry', 'Reports & Telemetry')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('reportsDesc', 'Aggregate balance sheet health, recovery efficiency curves, and compliance reporting packs.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('auditStandard', 'Audit Standard')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">{t('boardReady', 'Q3 Board Ready')}</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 10: Settings & Governance */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/settings')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">tune</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('systemRules', 'System Rules')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('settingsGovernance', 'Settings & Governance')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('settingsDesc', 'Configure system-wide recovery thresholds, custom interest schedules, legal jurisdictions, and API keys.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('activePolicies', 'Active Policies')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">{t('engineActive', 'Engine v4.8 Active')}</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 11: Agent Settlement */}
+        <div
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/settlements')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-[#351078] flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-white text-[20px]">fact_check</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-[#EDE5FF] text-[#351078] text-xs font-semibold">
+                {t('escrowPayout', 'Escrow Payout')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('agentSettlement', 'Agent Settlement')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('settlementDesc', 'Orchestrate agent commission disbursement, recovery bonus reconciliation, and escrow remittance.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-100">
+            <div className="flex flex-col">
+              <span className="text-xs text-[#7B6BA0] uppercase tracking-wider">{t('disbursedCycle', 'Disbursed Cycle')}</span>
+              <span className="text-sm font-bold text-[#1A0A3B]">{t('authorized', '$892K Authorized')}</span>
+            </div>
+            <div className="w-8 h-8 rounded-full bg-[#EDE5FF] flex items-center justify-center text-[#351078] hover:bg-[#351078] hover:text-white transition-colors">
+              <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 12: Quantum Key Exchange */}
+        <div
+          className="bg-[#EDE5FF] rounded-2xl shadow-sm border border-purple-100 p-6 flex flex-col justify-between gap-4 hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => navigate('/audit-logs')}
+        >
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <div className="w-9 h-9 rounded-xl bg-white flex items-center justify-center shadow-sm">
+                <span className="material-symbols-outlined text-[#351078] text-[20px]">lock</span>
+              </div>
+              <span className="px-2.5 py-1 rounded-full bg-white text-[#1A0A3B] text-xs font-semibold">
+                {t('institutionalNode', 'Institutional Node')}
+              </span>
+            </div>
+            <div className="flex flex-col gap-1">
+              <h2 className="text-base font-semibold text-[#1A0A3B]">{t('quantumKeyExchange', 'Quantum Key Exchange')}</h2>
+              <p className="text-sm text-[#4A3870]">
+                {t('quantumDesc', 'Zero-knowledge cryptographic handshake running between Zurich and New York ledger vaults.')}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center justify-between pt-3 border-t border-purple-200">
+            <div className="flex items-center gap-2 text-sm text-[#1A0A3B] font-semibold">
+              <span className="w-2 h-2 rounded-full bg-[#351078] animate-pulse" />
+              {t('zeroSyncLag', 'Zero Sync Lag (0.2ms)')}
+            </div>
+            <span className="px-3 py-1 rounded-full bg-white text-[#351078] text-xs font-semibold shadow-sm">
+              {t('inspectNode', 'Inspect Node')}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
-
-export default AdminDashboard
 
 function getLocalDateString() {
   const date = new Date()
@@ -227,3 +607,5 @@ function getLocalDateString() {
   const day = String(date.getDate()).padStart(2, '0')
   return `${year}-${month}-${day}`
 }
+
+export default AdminDashboard

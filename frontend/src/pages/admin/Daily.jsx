@@ -1,3 +1,5 @@
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
 import { useEffect, useRef, useState } from 'react'
 import {
   useLocation,
@@ -6,6 +8,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { generateCustomerId } from '../../utils/customerId'
+import SelectMenu from '../../components/SelectMenu'
 
 function Daily() {
   const navigate = useNavigate()
@@ -209,7 +212,7 @@ function Daily() {
             error
           )
 
-          alert(
+          notify(
             `${t(
               'unableToLoadCollectionCategories',
               'Unable to load Collection Categories'
@@ -366,7 +369,7 @@ function Daily() {
       // =====================================
 
       if (!activeCustomer && !newCustomerName.trim()) {
-        alert(
+        notify(
           t(
             'dailyCustomerNameRequired',
             'Enter the customer name to create a Daily Finance account.'
@@ -386,7 +389,7 @@ function Daily() {
           customer
         )
 
-        alert(
+        notify(
           t(
             'customerDatabaseIdMissingFinance',
             'Customer database ID is missing. Please go back to the Customer Profile and open Add Finance again.'
@@ -440,7 +443,7 @@ function Daily() {
         !p ||
         p <= 0
       ) {
-        alert(
+        notify(
           t(
             'enterValidPrincipal',
             'Enter a valid Principal Amount'
@@ -458,7 +461,7 @@ function Daily() {
         Number.isNaN(rate) ||
         rate < 0
       ) {
-        alert(
+        notify(
           t(
             'enterValidInterestRate',
             'Enter a valid Interest Rate'
@@ -473,7 +476,7 @@ function Daily() {
       // =====================================
 
       if (!startDate) {
-        alert(
+        notify(
           t(
             'selectStartDate',
             'Select Start Date'
@@ -491,7 +494,7 @@ function Daily() {
         !Number.isInteger(days) ||
         days <= 0
       ) {
-        alert(
+        notify(
           t(
             'enterWholeNumberOfDays',
             'Enter a whole number of days'
@@ -509,7 +512,7 @@ function Daily() {
         !total ||
         total <= 0
       ) {
-        alert(
+        notify(
           t(
             'totalAmountInvalid',
             'Total amount is invalid'
@@ -535,7 +538,7 @@ function Daily() {
         userError ||
         !user
       ) {
-        alert(
+        notify(
           t(
             'loginSessionEnded',
             'Your login session has ended. Please login again.'
@@ -736,7 +739,7 @@ function Daily() {
             error
           )
 
-          alert(
+          notify(
             `${t(
               'unableToSaveDailyLoan',
               'Unable to save Daily Loan'
@@ -756,7 +759,7 @@ function Daily() {
         if (
           !financeRecord?.id
         ) {
-          alert(
+          notify(
             t(
               'dailyFinanceNotCreatedCorrectly',
               'Daily Finance was not created correctly.'
@@ -795,7 +798,7 @@ function Daily() {
             scheduleError
           )
 
-          alert(
+          notify(
             `${t(
               'dailyCreatedScheduleFailed',
               'Daily Finance was created, but repayment schedule could not be generated'
@@ -813,7 +816,7 @@ function Daily() {
         // SUCCESS
         // =====================================
 
-        alert(
+        notify(
           t(
             'dailyLoanSavedSuccessfully',
             'Daily Loan {{financeId}} saved successfully',
@@ -832,7 +835,7 @@ function Daily() {
           error
         )
 
-        alert(
+        notify(
           error?.message ||
             t(
               'unableToSaveDailyFinance',
@@ -848,24 +851,7 @@ function Daily() {
   // FORMAT MONEY
   // =========================================
 
-  const formatMoney = (value) => {
-    const localeByLanguage = {
-      en: 'en-IN',
-      ta: 'ta-IN',
-      hi: 'hi-IN',
-      ml: 'ml-IN'
-    }
-
-    return Number(
-      value || 0
-    ).toLocaleString(
-      localeByLanguage[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // SELECTED CATEGORY
@@ -1087,62 +1073,32 @@ function Daily() {
                 )} *
               </label>
 
-              <select
+              <SelectMenu
                 ref={categorySelectRef}
                 id="daily-collection-category"
-                value={
-                  collectionCategoryId
-                }
-                onChange={(e) => {
-                  setCollectionCategoryId(
-                    e.target.value
-                  )
+                value={collectionCategoryId}
+                onChange={(value) => {
+                  setCollectionCategoryId(value)
                   setCategoryError(false)
                 }}
-                aria-required="true"
-                aria-invalid={categoryError}
-                aria-describedby={
+                ariaLabel={t('collectionCategory', 'Collection Category')}
+                ariaInvalid={categoryError}
+                ariaDescribedBy={
                   categoryError
                     ? 'daily-collection-category-error'
                     : undefined
                 }
-                disabled={
+                disabled={categoryLoading}
+                placeholder={
                   categoryLoading
+                    ? t('loadingCategories', 'Loading Categories...')
+                    : t('selectCollectionCategory', 'Select Collection Category')
                 }
-              >
-
-                <option value="">
-                  {
-                    categoryLoading
-                      ? t(
-                          'loadingCategories',
-                          'Loading Categories...'
-                        )
-                      : t(
-                          'selectCollectionCategory',
-                          'Select Collection Category'
-                        )
-                  }
-                </option>
-
-                {categories.map(
-                  (category) => (
-                    <option
-                      key={
-                        category.id
-                      }
-                      value={
-                        category.id
-                      }
-                    >
-                      {
-                        category.category_name
-                      }
-                    </option>
-                  )
-                )}
-
-              </select>
+                options={categories.map((category) => ({
+                  value: String(category.id),
+                  label: category.category_name
+                }))}
+              />
 
               {!categoryLoading && categories.length === 0 && (
                 <small

@@ -76,6 +76,10 @@ function ForgotPassword() {
                 required
                 disabled={loading}
               />
+
+              <small className="tenant-login-hint">
+                {t('forgotPasswordTenantHint')}
+              </small>
             </div>
 
             {errorMessage && (

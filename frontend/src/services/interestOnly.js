@@ -2,7 +2,7 @@ function roundMoney(value) {
   return Math.round((value + Number.EPSILON) * 100) / 100
 }
 
-function getInterestOnlyStateAtDate(finance, paymentDate, payments, adjustments) {
+export function getInterestOnlyStateAtDate(finance, paymentDate, payments, adjustments) {
   const originalPrincipal = Number(
     finance?.original_principal ??
     finance?.principal_amount ??
@@ -60,8 +60,11 @@ function getInterestOnlyStateAtDate(finance, paymentDate, payments, adjustments)
     let principalPayment = Number(event.payment.principal_payment || 0)
 
     if (interestPayment + principalPayment === 0 && paymentAmount > 0) {
+      // Interest-only loans hold principal: payments may only clear interest.
+      // This mirrors apply_interest_only_payment(), which rejects paying
+      // principal and forces interest_payment = amount, principal_payment = 0.
       interestPayment = Math.min(paymentAmount, interestDue)
-      principalPayment = paymentAmount - interestPayment
+      principalPayment = 0
     }
 
     interestDue = Math.max(0, interestDue - interestPayment)

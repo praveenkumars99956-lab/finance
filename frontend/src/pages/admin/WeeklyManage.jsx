@@ -1,6 +1,23 @@
-import { useEffect, useState } from 'react'
+import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { notify } from '../../utils/notify'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
+import {
+  ArrowLeft,
+  CalendarRange,
+  CheckCircle2,
+  Clock,
+  AlertCircle,
+  WalletCards,
+  TrendingUp,
+  Receipt,
+  Calendar,
+  Percent,
+  Check,
+  ChevronRight,
+  Sparkles
+} from 'lucide-react'
 import { supabase } from '../../services/supabase'
 import { useCollectionEvidence, EvidenceCapture, EvidenceHistory } from '../../components/CollectionEvidence'
 
@@ -15,8 +32,9 @@ function WeeklyManage() {
   const [payments, setPayments] = useState([])
   const [schedule, setSchedule] = useState([])
 
-  const [paymentDate, setPaymentDate] = useState('')
+  const [paymentDate, setPaymentDate] = useState(() => getLocalDateString())
   const [paymentAmount, setPaymentAmount] = useState('')
+  const [scheduleFilter, setScheduleFilter] = useState('all')
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -29,7 +47,7 @@ function WeeklyManage() {
   // LOAD DATA
   // =========================================
 
-  const loadEverything = async () => {
+  async function loadEverything() {
     setLoading(true)
 
     // WEEKLY FINANCE
@@ -45,7 +63,7 @@ function WeeklyManage() {
 
     if (financeError) {
       console.error(financeError)
-      alert(t('financeLoadFailed', { message: financeError.message }))
+      notify(t('financeLoadFailed', { message: financeError.message }))
       setLoading(false)
       return
     }
@@ -76,12 +94,8 @@ function WeeklyManage() {
       .from('finance_payments')
       .select('*')
       .eq('finance_record_id', financeId)
-      .order('payment_date', {
-        ascending: false
-      })
-      .order('created_at', {
-        ascending: false
-      })
+      .order('payment_date', { ascending: false })
+      .order('created_at', { ascending: false })
 
     if (paymentError) {
       console.error(paymentError)
@@ -97,16 +111,13 @@ function WeeklyManage() {
       .from('repayment_schedule')
       .select('*')
       .eq('finance_record_id', financeId)
-      .order('installment_number', {
-        ascending: true
-      })
+      .order('installment_number', { ascending: true })
 
     if (scheduleError) {
       console.error(scheduleError)
     }
 
     setSchedule(scheduleData || [])
-
     setLoading(false)
   }
 
@@ -117,25 +128,23 @@ function WeeklyManage() {
   const recordPayment = async (e) => {
     e.preventDefault()
     if (saving) return
-
     if (!finance) return
 
     const amount = Number(paymentAmount)
-    const currentPending =
-      Number(finance.pending || 0)
+    const currentPending = Number(finance.pending || 0)
 
     if (!paymentDate) {
-      alert(t('selectPaymentDate'))
+      notify(t('selectPaymentDate'))
       return
     }
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      alert(t('enterValidPaymentAmount'))
+      notify(t('enterValidPaymentAmount'))
       return
     }
 
     if (amount > currentPending) {
-      alert(
+      notify(
         t('paymentCannotExceedPending', {
           amount: formatMoney(currentPending)
         })
@@ -148,58 +157,42 @@ function WeeklyManage() {
     } = await supabase.auth.getUser()
 
     if (!user) {
-      alert(t('pleaseLoginAgain'))
+      notify(t('pleaseLoginAgain'))
       navigate('/')
       return
     }
 
     setSaving(true)
 
-    // ONE SAFE DATABASE TRANSACTION
+    // SAFE DATABASE TRANSACTION
     const { error, warning } = await evidence.recordPayment(
       'record_weekly_payment',
       {
-        p_finance_record_id:
-          Number(finance.id),
-
-        p_payment_amount:
-          amount,
-
-        p_payment_date:
-          paymentDate
+        p_finance_record_id: Number(finance.id),
+        p_payment_amount: amount,
+        p_payment_date: paymentDate
       }
     )
 
-    if (warning) alert(warning)
+    if (warning) notify(warning)
 
     if (error) {
       console.error(error)
       setSaving(false)
-
-      alert(
-        t('unableToRecordPayment', { message: error.message })
-      )
+      notify(t('unableToRecordPayment', { message: error.message }))
       return
     }
 
     setPaymentAmount('')
-    setPaymentDate('')
-
+    setPaymentDate(getLocalDateString())
     await loadEverything()
-
     setSaving(false)
 
-    const remaining =
-      currentPending - amount
-
+    const remaining = currentPending - amount
     if (remaining <= 0) {
-      alert(
-        t('weeklyPaymentClosedSuccess')
-      )
+      notify(t('weeklyPaymentClosedSuccess'))
     } else {
-      alert(
-        t('weeklyPaymentSuccess')
-      )
+      notify(t('weeklyPaymentSuccess'))
     }
   }
 
@@ -208,743 +201,455 @@ function WeeklyManage() {
   // =========================================
 
   const getDisplayStatus = (item) => {
-    const due =
-      Number(item.due_amount || 0)
+    const due = Number(item.due_amount || 0)
+    const paid = Number(item.paid_amount || 0)
 
-    const paid =
-      Number(item.paid_amount || 0)
-
-    if (paid >= due) {
-      return 'paid'
-    }
-
-    if (paid > 0) {
-      return 'partiallyPaid'
-    }
+    if (paid >= due) return 'paid'
+    if (paid > 0) return 'partiallyPaid'
 
     const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const dueDate = new Date(`${item.due_date}T00:00:00`)
 
-    today.setHours(
-      0,
-      0,
-      0,
-      0
-    )
-
-    const dueDate =
-      new Date(
-        `${item.due_date}T00:00:00`
-      )
-
-    if (dueDate < today) {
-      return 'overdue'
-    }
-
+    if (dueDate < today) return 'overdue'
     return 'pending'
   }
 
-  const getStatusClass = (status) => {
-    if (status === 'paid') {
-      return 'schedule-paid'
-    }
-
-    if (status === 'overdue') {
-      return 'schedule-overdue'
-    }
-
-    if (status === 'partiallyPaid') {
-      return 'schedule-partial'
-    }
-
-    return 'schedule-pending'
-  }
-
-  // =========================================
-  // MONEY
-  // =========================================
-
-  const formatMoney = (value) => {
-    return Number(
-      value || 0
-    ).toLocaleString(
-      { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-      }
-    )
-  }
-
-  // =========================================
-  // DATE
-  // =========================================
+  const formatMoney = (value) => formatMoneyValue(value, i18n.resolvedLanguage)
 
   const formatDate = (value) => {
     if (!value) return '-'
-
-    const date =
-      new Date(
-        `${value}T00:00:00`
-      )
-
+    const date = new Date(`${value}T00:00:00`)
     return date.toLocaleDateString(
       { en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN'
     )
   }
 
-  // =========================================
-  // SCHEDULE COUNTS
-  // =========================================
+  // Counts
+  const paidInstallments = schedule.filter((i) => getDisplayStatus(i) === 'paid').length
+  const overdueInstallments = schedule.filter((i) => getDisplayStatus(i) === 'overdue').length
+  const partialInstallments = schedule.filter((i) => getDisplayStatus(i) === 'partiallyPaid').length
+  const pendingInstallments = schedule.filter((i) => getDisplayStatus(i) === 'pending').length
 
-  const paidInstallments =
-    schedule.filter(
-      (item) =>
-        getDisplayStatus(item) === 'paid'
-    ).length
-
-  const overdueInstallments =
-    schedule.filter(
-      (item) =>
-        getDisplayStatus(item) === 'overdue'
-    ).length
-
-  const partialInstallments =
-    schedule.filter(
-      (item) =>
-        getDisplayStatus(item) === 'partiallyPaid'
-    ).length
-
-  const pendingInstallments =
-    schedule.filter(
-      (item) =>
-        getDisplayStatus(item) === 'pending'
-    ).length
-
-  // =========================================
-  // LOADING
-  // =========================================
+  const filteredSchedule = useMemo(() => {
+    if (scheduleFilter === 'all') return schedule
+    return schedule.filter((item) => {
+      const status = getDisplayStatus(item)
+      if (scheduleFilter === 'pending') return status === 'pending' || status === 'partiallyPaid'
+      return status === scheduleFilter
+    })
+  }, [schedule, scheduleFilter])
 
   if (loading) {
     return (
-      <div className="daily-manage-page">
-        <p>
-          {t('loadingWeeklyFinance')}
-        </p>
+      <div className="modern-loan-manage">
+        <div className="modern-card p-12 text-center text-secondary">
+          <Clock className="animate-spin mx-auto mb-3 text-primary" size={28} />
+          <p>{t('loadingWeeklyFinance')}</p>
+        </div>
       </div>
     )
   }
 
   if (!finance) {
     return (
-      <div className="daily-manage-page">
-
-        <h2>
-          {t('weeklyFinanceNotFound')}
-        </h2>
-
-        <button
-          onClick={() =>
-            navigate('/customers')
-          }
-        >
-          {t('customers')}
-        </button>
-
+      <div className="modern-loan-manage">
+        <div className="modern-card p-12 text-center">
+          <AlertCircle size={36} className="mx-auto mb-3 text-danger" />
+          <h2 className="text-xl font-bold mb-3">{t('weeklyFinanceNotFound')}</h2>
+          <button className="modern-btn-primary" onClick={() => navigate('/customers')}>
+            {t('customers')}
+          </button>
+        </div>
       </div>
     )
   }
 
-  const pending =
-    Number(finance.pending || 0)
+  const pending = Number(finance.pending || 0)
+  const principal = Number(
+    finance.original_principal ||
+    finance.principal_amount ||
+    finance.amount ||
+    0
+  )
 
-  const principal =
-    Number(
-      finance.original_principal ||
-      finance.principal_amount ||
-      finance.amount ||
-      0
-    )
+  const weeklyAmount = schedule.length > 0 ? Number(schedule[0].due_amount || 0) : 0
+  const isClosed = finance.loan_status === 'closed' || pending <= 0
 
-  const alreadyPaid =
-    Math.max(
-      0,
-      Number(finance.amount || 0) -
-      schedule.reduce(
-        (total, item) =>
-          total +
-          Number(item.due_amount || 0),
-        0
-      )
-    )
+  const totalAmount = Number(finance.amount || 0)
+  const totalPaid = Number(finance.paid || 0)
+  const progressRatio = totalAmount > 0 ? Math.min(100, Math.round((totalPaid / totalAmount) * 100)) : 0
 
-  const weeklyAmount =
-    schedule.length > 0
-      ? Number(schedule[0].due_amount || 0)
-      : 0
-
-  const isClosed =
-    finance.loan_status === 'closed' ||
-    pending <= 0
+  const currentEnteredAmount = Number(paymentAmount) || 0
+  const simulatedRemaining = Math.max(0, pending - currentEnteredAmount)
 
   return (
-    <div className="daily-manage-page">
-
-      {/* BACK */}
-
+    <div className="modern-loan-manage">
+      {/* BACK BUTTON */}
       <button
-        className="back-button"
+        className="modern-back-link"
         onClick={() => {
           if (finance.customer_id) {
-            navigate(
-              `/customers/${finance.customer_id}`
-            )
+            navigate(`/customers/${finance.customer_id}`)
           } else {
             navigate('/customers')
           }
         }}
       >
-        ← {t('customerProfile')}
+        <ArrowLeft size={16} />
+        <span>{t('customerProfile')}</span>
       </button>
 
-      {/* HEADER */}
-
-      <div className="daily-manage-header">
-
-        <div>
-
-          <p>
+      {/* HEADER HERO */}
+      <div className="modern-manage-hero">
+        <div className="modern-manage-title-wrap">
+          <span className="modern-loan-category-tag">
+            <CalendarRange size={14} />
             {t('weeklyFinance')}
-          </p>
-
-          <h1>
-            {t('manageWeeklyLoan')}
-          </h1>
-
-          <span>
-            {t('customer')}:{' '}
-
-            <strong>
-              {customer?.full_name ||
-                finance.name}
-            </strong>
-
-            {customer?.customer_id &&
-              ` • ${customer.customer_id}`}
           </span>
-
+          <h1 className="modern-manage-heading">{t('manageWeeklyLoan')}</h1>
+          <div className="modern-customer-meta">
+            <span>{t('customer')}:</span>
+            <strong className="modern-customer-pill">
+              {customer?.full_name || finance.name}
+            </strong>
+            {customer?.customer_id && (
+              <span className="text-muted">({customer.customer_id})</span>
+            )}
+          </div>
         </div>
 
-        <span
-          className={
-            isClosed
-              ? 'loan-big-status closed'
-              : 'loan-big-status active'
-          }
-        >
-          {isClosed
-            ? t('closedUpper')
-            : t('activeUpper')}
+        <span className={`modern-status-badge ${isClosed ? 'closed' : 'active'}`}>
+          <span className="w-2 h-2 rounded-full bg-current" />
+          {isClosed ? t('closedUpper') : t('activeUpper')}
         </span>
-
       </div>
 
-      {/* SUMMARY */}
-
-      <div className="daily-manage-summary">
-
-        <div>
-          <span>{t('principal')}</span>
-
-          <strong>
-            ₹{formatMoney(principal)}
-          </strong>
+      {/* 4-CARD SUMMARY METRICS */}
+      <div className="modern-summary-grid">
+        <div className="modern-summary-card">
+          <div className="modern-summary-top">
+            <span className="modern-summary-label">{t('principal')}</span>
+            <WalletCards size={18} className="text-primary" />
+          </div>
+          <div className="modern-summary-val">₹{formatMoney(principal)}</div>
         </div>
 
-        <div>
-          <span>{t('alreadyPaid')}</span>
-
-          <strong>
-            ₹{formatMoney(alreadyPaid)}
-          </strong>
+        <div className="modern-summary-card">
+          <div className="modern-summary-top">
+            <span className="modern-summary-label">{t('totalPaid')}</span>
+            <CheckCircle2 size={18} className="text-emerald" />
+          </div>
+          <div className="modern-summary-val emerald">₹{formatMoney(totalPaid)}</div>
+          <div className="modern-progress-bar-wrap">
+            <div className="modern-progress-bar-fill" style={{ width: `${progressRatio}%` }} />
+          </div>
         </div>
 
-        <div>
-          <span>{t('totalPaid')}</span>
-
-          <strong>
-            ₹{formatMoney(finance.paid)}
-          </strong>
+        <div className="modern-summary-card">
+          <div className="modern-summary-top">
+            <span className="modern-summary-label">{t('pending')}</span>
+            <AlertCircle size={18} className="text-amber" />
+          </div>
+          <div className="modern-summary-val amber">₹{formatMoney(pending)}</div>
         </div>
 
-        <div>
-          <span>{t('pending')}</span>
-
-          <strong>
-            ₹{formatMoney(finance.pending)}
-          </strong>
+        <div className="modern-summary-card">
+          <div className="modern-summary-top">
+            <span className="modern-summary-label">{t('installments')}</span>
+            <TrendingUp size={18} className="text-primary" />
+          </div>
+          <div className="modern-summary-val">
+            {paidInstallments} <span className="text-sm text-secondary font-normal">/ {schedule.length} {t('weeks')}</span>
+          </div>
+          <span className="text-xs text-muted mt-2">{t('percentRepaid', { percent: progressRatio })}</span>
         </div>
-
       </div>
 
-      {/* WEEKLY INFORMATION */}
-
-      <div className="daily-manage-section">
-
-        <h2>
-          {t('weeklyLoanInformation')}
-        </h2>
-
-        <div className="daily-info-grid">
-
-          <div>
-            <span>
-              {t('weeklyAmount')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(
-                weeklyAmount
-              )}
-            </strong>
+      {/* LOAN SPECIFICATIONS */}
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div className="modern-card-title">
+            <CalendarRange size={18} className="text-primary" />
+            <span>{t('weeklyLoanInformation')}</span>
           </div>
-
-          <div>
-            <span>
-              {t('rateOfInterest')}
-            </span>
-
-            <strong>
-              {Number(finance.interest_rate || 0)}%
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('interestAmount')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(finance.interest_due)}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('totalRepayment')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(finance.amount)}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('numberOfWeeks')}
-            </span>
-
-            <strong>
-              {schedule.length}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('startDate')}
-            </span>
-
-            <strong>
-              {formatDate(
-                finance.entry_date
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('endingDate')}
-            </span>
-
-            <strong>
-              {formatDate(
-                finance.ending_date
-              )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              {t('nextDueDate')}
-            </span>
-
-            <strong>
-              {isClosed
-                ? '-'
-                : formatDate(
-                    finance.next_due_date
-                  )}
-            </strong>
-          </div>
-
-          <div>
-            <span>
-              Status
-            </span>
-
-            <strong>
-              {isClosed
-                ? t('closed')
-                : t('active')}
-            </strong>
-          </div>
-
         </div>
 
+        <div className="modern-info-grid">
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('weeklyAmount')}</span>
+            <span className="modern-info-val">₹{formatMoney(weeklyAmount)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('rateOfInterest')}</span>
+            <span className="modern-info-val">{Number(finance.interest_rate || 0)}%</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('interestAmount')}</span>
+            <span className="modern-info-val">₹{formatMoney(finance.interest_due)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('totalRepayment')}</span>
+            <span className="modern-info-val">₹{formatMoney(finance.amount)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('startDate')}</span>
+            <span className="modern-info-val">{formatDate(finance.entry_date)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('endingDate')}</span>
+            <span className="modern-info-val">{formatDate(finance.ending_date)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('nextDueDate')}</span>
+            <span className="modern-info-val">{isClosed ? '-' : formatDate(finance.next_due_date)}</span>
+          </div>
+
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('status')}</span>
+            <span className="modern-info-val">{isClosed ? t('closed') : t('active')}</span>
+          </div>
+        </div>
       </div>
 
-      {/* RECORD PAYMENT */}
-
-      <div className="daily-manage-section">
-
-        <h2>
-          {t('recordWeeklyPayment')}
-        </h2>
+      {/* RECORD PAYMENT SECTION */}
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div className="modern-card-title">
+            <Receipt size={18} className="text-primary" />
+            <span>{t('recordWeeklyPayment')}</span>
+          </div>
+        </div>
 
         {isClosed ? (
-
-          <div className="loan-completed-message">
-
-            <h3>
-              ✓ {t('weeklyLoanCompleted')}
-            </h3>
-
-            <p>
-              {t('financeFullyPaid')}
-            </p>
-
+          <div className="p-6 rounded-xl bg-surface-hover border border-border text-center">
+            <CheckCircle2 size={32} className="text-emerald mx-auto mb-2" />
+            <h3 className="text-base font-bold text-primary mb-1">{t('weeklyLoanCompleted')}</h3>
+            <p className="text-sm text-secondary">{t('financeFullyPaid')}</p>
           </div>
-
         ) : (
+          <form className="modern-payment-form" onSubmit={recordPayment}>
+            <div className="modern-form-row">
+              <div className="modern-field">
+                <label htmlFor="weeklyPaymentDate">{t('paymentDate')} *</label>
+                <input
+                  id="weeklyPaymentDate"
+                  type="date"
+                  value={paymentDate}
+                  onChange={(e) => setPaymentDate(e.target.value)}
+                  required
+                />
+              </div>
 
-          <form
-            className="daily-payment-form"
-            onSubmit={recordPayment}
-          >
-
-            <div>
-              <label>
-                {t('paymentDate')} *
-              </label>
-
-              <input
-                type="date"
-                value={paymentDate}
-                onChange={(e) =>
-                  setPaymentDate(
-                    e.target.value
-                  )
-                }
-                required
-              />
-            </div>
-
-            <div>
-              <label>
-                {t('paymentAmount')} ₹ *
-              </label>
-
-              <input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={paymentAmount}
-                placeholder={
-                  weeklyAmount > 0
-                    ? t('weeklyAmountPlaceholder', { amount: formatMoney(weeklyAmount) })
-                    : t('enterAmount')
-                }
-                onChange={(e) =>
-                  setPaymentAmount(
-                    e.target.value
-                  )
-                }
-                required
-              />
-            </div>
-
-            <div className="payment-preview">
-
-              <span>
-                {t('currentPending')}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  finance.pending
+              <div className="modern-field">
+                <label htmlFor="weeklyPaymentAmount">{t('paymentAmount')} ₹ *</label>
+                <input
+                  id="weeklyPaymentAmount"
+                  type="number"
+                  min="0.01"
+                  step="0.01"
+                  value={paymentAmount}
+                  placeholder={
+                    weeklyAmount > 0
+                      ? t('weeklyAmountPlaceholder', { amount: formatMoney(weeklyAmount) })
+                      : t('enterAmount')
+                  }
+                  onChange={(e) => setPaymentAmount(e.target.value)}
+                  required
+                />
+                {weeklyAmount > 0 && (
+                  <button
+                    type="button"
+                    className="modern-quick-amount-chip"
+                    onClick={() => setPaymentAmount(String(weeklyAmount))}
+                  >
+                    <Sparkles size={12} />
+                    Fill Weekly Due: ₹{formatMoney(weeklyAmount)}
+                  </button>
                 )}
-              </strong>
-
+              </div>
             </div>
+
+            {currentEnteredAmount > 0 && (
+              <div className="modern-live-calc-box">
+                <span>{t('remainingAfterPayment')}</span>
+                <strong>₹{formatMoney(simulatedRemaining)}</strong>
+              </div>
+            )}
+
             <EvidenceCapture evidence={evidence} disabled={saving} />
 
-
-            <button
-              type="submit"
-              className="record-payment-button"
-              disabled={saving}
-            >
-              {saving
-                ? t('recording')
-                : t('recordPayment')}
-            </button>
-
+            <div>
+              <button
+                type="submit"
+                className="modern-btn-primary"
+                disabled={saving}
+              >
+                <Check size={16} />
+                <span>{saving ? t('recording') : t('recordPayment')}</span>
+              </button>
+            </div>
           </form>
         )}
-
       </div>
 
-      {/* WEEKLY SCHEDULE */}
-
-      <div className="daily-manage-section">
-
-        <div className="schedule-heading">
-
+      {/* REPAYMENT SCHEDULE TABLE */}
+      <div className="modern-card">
+        <div className="modern-card-header">
           <div>
-
-            <h2>
-              {t('weeklyCollectionSchedule')}
-            </h2>
-
-            <p>
+            <div className="modern-card-title">
+              <Calendar size={18} className="text-primary" />
+              <span>{t('weeklyCollectionSchedule')}</span>
+            </div>
+            <p className="modern-card-subtitle">
               {t('weekRepaymentSchedule', { count: schedule.length })}
             </p>
-
           </div>
 
-        </div>
-
-        <div className="schedule-summary">
-
-          <div>
-            <span>{t('paid')}</span>
-            <strong>
-              {paidInstallments}
-            </strong>
+          <div className="modern-table-filter-bar">
+            <button
+              type="button"
+              className={`modern-filter-btn ${scheduleFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setScheduleFilter('all')}
+            >
+              All ({schedule.length})
+            </button>
+            <button
+              type="button"
+              className={`modern-filter-btn ${scheduleFilter === 'paid' ? 'active' : ''}`}
+              onClick={() => setScheduleFilter('paid')}
+            >
+              Paid ({paidInstallments})
+            </button>
+            <button
+              type="button"
+              className={`modern-filter-btn ${scheduleFilter === 'overdue' ? 'active' : ''}`}
+              onClick={() => setScheduleFilter('overdue')}
+            >
+              Overdue ({overdueInstallments})
+            </button>
+            <button
+              type="button"
+              className={`modern-filter-btn ${scheduleFilter === 'pending' ? 'active' : ''}`}
+              onClick={() => setScheduleFilter('pending')}
+            >
+              Pending ({pendingInstallments + partialInstallments})
+            </button>
           </div>
-
-          <div>
-            <span>{t('overdue')}</span>
-            <strong>
-              {overdueInstallments}
-            </strong>
-          </div>
-
-          <div>
-            <span>{t('pending')}</span>
-            <strong>
-              {pendingInstallments +
-                partialInstallments}
-            </strong>
-          </div>
-
         </div>
 
         {schedule.length === 0 ? (
-
-          <div className="no-payment-history">
+          <div className="p-8 text-center text-muted">
             {t('weeklyScheduleNotGenerated')}
           </div>
-
         ) : (
+          <div className="modern-table-card">
+            <div className="modern-table-wrap">
+              <table className="modern-data-table">
+                <thead>
+                  <tr>
+                    <th>{t('week')}</th>
+                    <th>{t('dueDate')}</th>
+                    <th>{t('dueAmount')}</th>
+                    <th>{t('paid')}</th>
+                    <th>{t('balance')}</th>
+                    <th>{t('paidDate')}</th>
+                    <th>{t('status')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredSchedule.map((item) => {
+                    const status = getDisplayStatus(item)
+                    const balance = Math.max(0, Number(item.due_amount || 0) - Number(item.paid_amount || 0))
 
-          <div className="payment-table-wrapper">
-
-            <table className="payment-history-table">
-
-              <thead>
-
-                <tr>
-                  <th>{t('week')}</th>
-                  <th>{t('dueDate')}</th>
-                  <th>{t('dueAmount')}</th>
-                  <th>{t('paid')}</th>
-                  <th>{t('balance')}</th>
-                  <th>{t('paidDate')}</th>
-                  <th>{t('status')}</th>
-                </tr>
-
-              </thead>
-
-              <tbody>
-
-                {schedule.map((item) => {
-
-                  const status =
-                    getDisplayStatus(item)
-
-                  const balance =
-                    Math.max(
-                      0,
-                      Number(
-                        item.due_amount || 0
-                      ) -
-                      Number(
-                        item.paid_amount || 0
-                      )
+                    return (
+                      <tr key={item.id}>
+                        <td>{t('weekNumber', { number: item.installment_number })}</td>
+                        <td>{formatDate(item.due_date)}</td>
+                        <td>₹{formatMoney(item.due_amount)}</td>
+                        <td>₹{formatMoney(item.paid_amount)}</td>
+                        <td>₹{formatMoney(balance)}</td>
+                        <td>{formatDate(item.paid_date)}</td>
+                        <td>
+                          <span className={`modern-table-chip ${status}`}>
+                            {t(status)}
+                          </span>
+                        </td>
+                      </tr>
                     )
-
-                  return (
-                    <tr key={item.id}>
-
-                      <td>
-                        {t('weekNumber', { number: item.installment_number })}
-                      </td>
-
-                      <td>
-                        {formatDate(
-                          item.due_date
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          item.due_amount
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          item.paid_amount
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          balance
-                        )}
-                      </td>
-
-                      <td>
-                        {formatDate(
-                          item.paid_date
-                        )}
-                      </td>
-
-                      <td>
-                        <span
-                          className={`schedule-status ${getStatusClass(
-                            status
-                          )}`}
-                        >
-                          {t(status)}
-                        </span>
-                      </td>
-
-                    </tr>
-                  )
-                })}
-
-              </tbody>
-
-            </table>
-
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-
       </div>
 
       <EvidenceHistory financeId={finance?.id} payments={payments} />
 
-      {/* PAYMENT HISTORY */}
-
-      <div className="daily-manage-section">
-
-        <div className="payment-history-heading">
-
-          <h2>
-            Payment History
-          </h2>
-
-          <p>
-            {t('paymentsRecorded', { count: payments.length })}
-          </p>
-
+      {/* PAYMENT HISTORY TABLE */}
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div>
+            <div className="modern-card-title">
+              <Receipt size={18} className="text-primary" />
+              <span>{t('paymentHistory')}</span>
+            </div>
+            <p className="modern-card-subtitle">
+              {t('paymentsRecorded', { count: payments.length })}
+            </p>
+          </div>
         </div>
 
         {payments.length === 0 ? (
-
-          <div className="no-payment-history">
+          <div className="p-8 text-center text-muted">
             {t('noWeeklyPaymentsRecorded')}
           </div>
-
         ) : (
-
-          <div className="payment-table-wrapper">
-
-            <table className="payment-history-table">
-
-              <thead>
-                <tr>
-                  <th>#</th>
-                  <th>{t('paymentDate')}</th>
-                  <th>{t('payment')}</th>
-                  <th>{t('balanceBefore')}</th>
-                  <th>{t('balanceAfter')}</th>
-                </tr>
-              </thead>
-
-              <tbody>
-
-                {payments.map(
-                  (payment, index) => (
-
+          <div className="modern-table-card">
+            <div className="modern-table-wrap">
+              <table className="modern-data-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>{t('paymentDate')}</th>
+                    <th>{t('payment')}</th>
+                    <th>{t('balanceBefore')}</th>
+                    <th>{t('balanceAfter')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {payments.map((payment, index) => (
                     <tr key={payment.id}>
-
-                      <td>
-                        {payments.length -
-                          index}
-                      </td>
-
-                      <td>
-                        {formatDate(
-                          payment.payment_date
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          payment.payment_amount
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          payment.balance_before
-                        )}
-                      </td>
-
-                      <td>
-                        ₹{formatMoney(
-                          payment.balance_after
-                        )}
-                      </td>
-
+                      <td>{payments.length - index}</td>
+                      <td>{formatDate(payment.payment_date)}</td>
+                      <td>₹{formatMoney(payment.payment_amount)}</td>
+                      <td>₹{formatMoney(payment.balance_before)}</td>
+                      <td>₹{formatMoney(payment.balance_after)}</td>
                     </tr>
-
-                  )
-                )}
-
-              </tbody>
-
-            </table>
-
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
-
       </div>
-
     </div>
   )
+}
+
+function getLocalDateString() {
+  const date = new Date()
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
 }
 
 export default WeeklyManage

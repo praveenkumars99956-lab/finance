@@ -1,7 +1,9 @@
+import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import SelectMenu from '../../components/SelectMenu'
 
 function CollectionCategories() {
   const navigate = useNavigate()
@@ -29,7 +31,7 @@ function CollectionCategories() {
   // LOAD CATEGORIES
   // =========================================
 
-  const loadCategories = async () => {
+  async function loadCategories() {
     setLoading(true)
 
     const {
@@ -45,7 +47,7 @@ function CollectionCategories() {
     if (error) {
       console.error(error)
 
-      alert(
+      notify(
         t('categoriesLoadFailed', { message: error.message })
       )
 
@@ -79,7 +81,7 @@ function CollectionCategories() {
       categoryName.trim()
 
     if (!cleanName) {
-      alert(t('enterCategoryName'))
+      notify(t('enterCategoryName'))
       return
     }
 
@@ -89,7 +91,7 @@ function CollectionCategories() {
     } = await supabase.auth.getUser()
 
     if (userError || !user) {
-      alert(t('pleaseLoginAgain'))
+      notify(t('pleaseLoginAgain'))
       navigate('/')
       return
     }
@@ -114,13 +116,13 @@ function CollectionCategories() {
         console.error(error)
         setSaving(false)
 
-        alert(
+        notify(
           t('categoryUpdateFailed', { message: error.message })
         )
         return
       }
 
-      alert(
+      notify(
         t('categoryUpdatedSuccessfully')
       )
     }
@@ -142,11 +144,11 @@ function CollectionCategories() {
         setSaving(false)
 
         if (error.code === '23505') {
-          alert(
+          notify(
             t('categoryNameAlreadyExists')
           )
         } else {
-          alert(
+          notify(
             t('categoryCreateFailed', { message: error.message })
           )
         }
@@ -154,7 +156,7 @@ function CollectionCategories() {
         return
       }
 
-      alert(
+      notify(
         t('categoryCreatedSuccessfully')
       )
     }
@@ -208,7 +210,7 @@ function CollectionCategories() {
     if (error) {
       console.error(error)
 
-      alert(
+      notify(
         t('categoryDeleteFailed', { message: error.message })
       )
 
@@ -221,7 +223,7 @@ function CollectionCategories() {
 
     await loadCategories()
 
-    alert(
+    notify(
       t('categoryDeletedSuccessfully')
     )
   }
@@ -388,22 +390,15 @@ function CollectionCategories() {
               {t('status')}
             </label>
 
-            <select
+            <SelectMenu
               value={status}
-              onChange={(e) =>
-                setStatus(
-                  e.target.value
-                )
-              }
-            >
-              <option value="active">
-                {t('active')}
-              </option>
-
-              <option value="inactive">
-                {t('inactive')}
-              </option>
-            </select>
+              onChange={setStatus}
+              ariaLabel={t('status')}
+              options={[
+                { value: 'active', label: t('active') },
+                { value: 'inactive', label: t('inactive') }
+              ]}
+            />
           </div>
 
           <button

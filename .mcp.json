@@ -1,0 +1,8 @@
+{
+	"mcpServers": {
+		"my-mcp-server-a813bc95": {
+			"url": "https://stitch.withgoogle.com",
+			"type": "http"
+		}
+	}
+}
