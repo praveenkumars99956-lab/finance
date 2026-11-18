@@ -8,6 +8,7 @@ import { supabase } from '../../services/supabase'
 import CalendarDatePicker from '../../components/CalendarDatePicker'
 import { ensureInterestOnlyLoanCategory } from '../../services/collectionCategories'
 import { generateCustomerId } from '../../utils/customerId'
+import { rateFromInterestAmount } from '../../utils/interestRate'
 
 function InterestOnly() {
   const navigate = useNavigate()
@@ -886,7 +887,7 @@ function InterestOnly() {
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step="any"
                 value={interestRate}
                 onChange={(e) =>
                   setInterestRate(
@@ -903,6 +904,43 @@ function InterestOnly() {
 
               <small>
                 {t('weeklyInterestRateHelp')}
+              </small>
+
+            </div>
+
+            {/* INTEREST AMOUNT */}
+
+            <div>
+
+              <label>
+                {t(
+                  'interestAmount',
+                  'Interest Amount'
+                )} ₹
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={interestAmount}
+                onChange={(e) => {
+                  const value = e.target.value
+                  setInterestAmount(value)
+                  setInterestRate(
+                    rateFromInterestAmount(
+                      value,
+                      principal
+                    )
+                  )
+                }}
+              />
+
+              <small>
+                {t(
+                  'interestAmountRateHint',
+                  'Enter the interest amount to calculate the rate automatically.'
+                )}
               </small>
 
             </div>

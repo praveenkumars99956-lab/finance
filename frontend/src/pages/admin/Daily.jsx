@@ -8,6 +8,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { generateCustomerId } from '../../utils/customerId'
+import { rateFromInterestAmount } from '../../utils/interestRate'
 import SelectMenu from '../../components/SelectMenu'
 import CustomerAutocomplete, {
   getTrimmedCustomerName
@@ -1375,7 +1376,7 @@ function Daily() {
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step="any"
                 placeholder={
                   settingsLoading
                     ? t(
@@ -1416,11 +1417,29 @@ function Daily() {
 
               <input
                 type="number"
+                min="0"
+                step="0.01"
                 value={
                   interestAmount
                 }
-                readOnly
+                onChange={(e) => {
+                  const value = e.target.value
+                  setInterestAmount(value)
+                  setInterestRate(
+                    rateFromInterestAmount(
+                      value,
+                      principal
+                    )
+                  )
+                }}
               />
+
+              <small>
+                {t(
+                  'interestAmountRateHint',
+                  'Enter the interest amount to calculate the rate automatically.'
+                )}
+              </small>
             </div>
 
             <div>

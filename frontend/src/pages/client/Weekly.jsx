@@ -7,6 +7,7 @@ import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
 import { useToast } from '../../components/Toast'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
+import { rateFromInterestAmount } from '../../utils/interestRate'
 import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
@@ -1112,7 +1113,7 @@ function Weekly() {
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step="any"
                 value={interestRate}
                 onChange={(e) =>
                   setInterestRate(
@@ -1193,14 +1194,30 @@ function Weekly() {
               </label>
 
               <input
-                type="text"
+                type="number"
+                min="0"
+                step="0.01"
                 value={
-                  formatMoney(
-                    interestAmount
-                  )
+                  interestAmount
                 }
-                readOnly
+                onChange={(e) => {
+                  const value = e.target.value
+                  setInterestAmount(value)
+                  setInterestRate(
+                    rateFromInterestAmount(
+                      value,
+                      principal
+                    )
+                  )
+                }}
               />
+
+              <small>
+                {t(
+                  'interestAmountRateHint',
+                  'Enter the interest amount to calculate the rate automatically.'
+                )}
+              </small>
 
             </div>
 

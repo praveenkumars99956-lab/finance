@@ -7,6 +7,7 @@ import { supabase } from '../../services/supabase'
 import { ensureMonthlyLoanCategory } from '../../services/collectionCategories'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
+import { rateFromInterestAmount } from '../../utils/interestRate'
 import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
@@ -1487,7 +1488,7 @@ function Monthly() {
               <input
                 type="number"
                 min="0"
-                step="0.01"
+                step="any"
                 value={
                   interestRate
                 }
@@ -1514,6 +1515,46 @@ function Monthly() {
                 {t(
                   'monthlyInterestHelp',
                   'Monthly interest rate. Default rate is loaded from Settings.'
+                )}
+              </small>
+
+            </div>
+
+            {/* INTEREST AMOUNT */}
+
+            <div>
+
+              <label>
+                {t(
+                  'interestAmount',
+                  'Interest Amount'
+                )} ₹
+              </label>
+
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={
+                  interestAmount
+                }
+                onChange={(e) => {
+                  const value = e.target.value
+                  setInterestAmount(value)
+                  setInterestRate(
+                    rateFromInterestAmount(
+                      value,
+                      principal,
+                      numberOfMonths
+                    )
+                  )
+                }}
+              />
+
+              <small>
+                {t(
+                  'interestAmountRateHint',
+                  'Enter the interest amount to calculate the rate automatically.'
                 )}
               </small>
 
