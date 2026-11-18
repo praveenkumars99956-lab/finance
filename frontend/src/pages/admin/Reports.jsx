@@ -285,6 +285,18 @@ function Reports() {
     return 'all-finance-records'
   }
 
+  const getGeneratedOnText = () =>
+    t('generatedOn', {
+      date: new Date().toLocaleDateString(
+        {
+          en: 'en-IN',
+          ta: 'ta-IN',
+          hi: 'hi-IN',
+          ml: 'ml-IN'
+        }[i18n.resolvedLanguage] || 'en-IN'
+      )
+    })
+
   const downloadExcel = async () => {
     if (filteredRecords.length === 0) {
       notify(t('noRecordsToDownload'))
@@ -292,54 +304,69 @@ function Reports() {
     }
 
     const XLSX = (await import('xlsx/dist/xlsx.mini.min.js')).default
-    const excelData = filteredRecords.map(
-      (record, index) => ({
-        [t('serialNumber')]: index + 1,
-        [t('customerId')]: getCustomerId(record),
-        [t('customerName')]: getCustomerName(record),
-        [t('collectionCategory')]:
-          getCategoryName(record),
-        [t('loanType')]:
-          getLoanName(record.finance_type),
-        [t('totalAmount')]:
-          Number(record.amount || 0),
-        [t('paidAmount')]:
-          Number(record.paid || 0),
-        [t('pendingAmount')]:
-          Number(record.pending || 0),
-        [t('nextDueDate')]:
-          record.next_due_date || '',
-        [t('status')]: t(getStatus(record))
-      })
+
+    const headers = [
+      t('serialNumber'),
+      t('customerId'),
+      t('customerName'),
+      t('collectionCategory'),
+      t('loanType'),
+      t('totalAmount'),
+      t('paidAmount'),
+      t('pendingAmount'),
+      t('nextDueDate'),
+      t('status')
+    ]
+
+    const dataRows = filteredRecords.map(
+      (record, index) => [
+        index + 1,
+        getCustomerId(record),
+        getCustomerName(record),
+        getCategoryName(record),
+        getLoanName(record.finance_type),
+        Number(record.amount || 0),
+        Number(record.paid || 0),
+        Number(record.pending || 0),
+        record.next_due_date || '',
+        t(getStatus(record))
+      ]
     )
 
-    excelData.push({
-      [t('serialNumber')]: '',
-      [t('customerId')]: '',
-      [t('customerName')]: t('total'),
-      [t('collectionCategory')]: '',
-      [t('loanType')]: '',
-      [t('totalAmount')]: totalAmount,
-      [t('paidAmount')]: totalPaid,
-      [t('pendingAmount')]: totalPending,
-      [t('nextDueDate')]: '',
-      [t('status')]: ''
-    })
+    const totalRow = [
+      '',
+      '',
+      t('total'),
+      '',
+      '',
+      totalAmount,
+      totalPaid,
+      totalPending,
+      '',
+      ''
+    ]
 
-    const worksheet =
-      XLSX.utils.json_to_sheet(excelData)
+    // Title + generated date + blank line keep the exported list readable.
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      [getReportName()],
+      [getGeneratedOnText()],
+      [],
+      headers,
+      ...dataRows,
+      totalRow
+    ])
 
     worksheet['!cols'] = [
       { wch: 8 },
       { wch: 18 },
-      { wch: 24 },
-      { wch: 24 },
+      { wch: 26 },
+      { wch: 26 },
+      { wch: 20 },
       { wch: 18 },
       { wch: 18 },
       { wch: 18 },
       { wch: 18 },
-      { wch: 18 },
-      { wch: 15 }
+      { wch: 16 }
     ]
 
     const workbook = XLSX.utils.book_new()
@@ -374,29 +401,42 @@ function Reports() {
     doc.text(getReportName(), 14, 15)
 
     doc.setFontSize(10)
+    doc.text(getGeneratedOnText(), 14, 22)
 
-    doc.text(
-      t('generatedOn', { date: new Date().toLocaleDateString({ en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN') }),
-      14,
-      22
-    )
-
-    const tableRows = filteredRecords.map(
+    const dataRows = filteredRecords.map(
       (record, index) => [
         index + 1,
         getCustomerName(record),
         getCategoryName(record),
         getLoanName(record.finance_type),
-        `Rs. ${formatMoney(record.amount)}`,
-        `Rs. ${formatMoney(record.paid)}`,
-        `Rs. ${formatMoney(record.pending)}`,
+        `₹${formatMoney(record.amount)}`,
+        `₹${formatMoney(record.paid)}`,
+        `₹${formatMoney(record.pending)}`,
         formatDate(record.next_due_date),
-        getStatus(record)
+        t(getStatus(record))
       ]
     )
 
+    // Totals are part of the table so they stay on the same page as the list.
+    const tableRows = [
+      ...dataRows,
+      [
+        '',
+        t('total'),
+        '',
+        '',
+        `₹${formatMoney(totalAmount)}`,
+        `₹${formatMoney(totalPaid)}`,
+        `₹${formatMoney(totalPending)}`,
+        '',
+        ''
+      ]
+    ]
+
     autoTable(doc, {
       startY: 28,
+
+      margin: { left: 14, right: 14, top: 28, bottom: 18 },
 
       head: [
         [
@@ -412,31 +452,58 @@ function Reports() {
         ]
       ],
 
-      body: tableRows
+      body: tableRows,
+
+      styles: {
+        fontSize: 8,
+        cellPadding: 2,
+        overflow: 'linebreak',
+        valign: 'middle'
+      },
+
+      headStyles: {
+        fillColor: [53, 16, 120],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+
+      alternateRowStyles: {
+        fillColor: [245, 243, 255]
+      },
+
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 12 },
+        1: { cellWidth: 42 },
+        2: { cellWidth: 36 },
+        3: { cellWidth: 26 },
+        4: { halign: 'right', cellWidth: 30 },
+        5: { halign: 'right', cellWidth: 30 },
+        6: { halign: 'right', cellWidth: 30 },
+        7: { cellWidth: 30 },
+        8: { halign: 'center', cellWidth: 26 }
+      },
+
+      didParseCell: (data) => {
+        if (
+          data.section === 'body' &&
+          data.row.index === dataRows.length
+        ) {
+          data.cell.styles.fontStyle = 'bold'
+          data.cell.styles.fillColor = [239, 230, 255]
+        }
+      },
+
+      didDrawPage: (data) => {
+        doc.setFontSize(8)
+        doc.text(
+          `Page ${data.pageNumber}`,
+          doc.internal.pageSize.getWidth() - 14,
+          doc.internal.pageSize.getHeight() - 8,
+          { align: 'right' }
+        )
+      }
     })
-
-    const finalY =
-      doc.lastAutoTable?.finalY || 40
-
-    doc.setFontSize(11)
-
-    doc.text(
-      `${t('totalAmount')}: ₹${formatMoney(totalAmount)}`,
-      14,
-      finalY + 10
-    )
-
-    doc.text(
-      `${t('totalPaid')}: ₹${formatMoney(totalPaid)}`,
-      14,
-      finalY + 17
-    )
-
-    doc.text(
-      `${t('totalPending')}: ₹${formatMoney(totalPending)}`,
-      14,
-      finalY + 24
-    )
 
     doc.save(`${getFileName()}.pdf`)
   }
@@ -632,6 +699,7 @@ function Reports() {
               <table
                 style={{
                   width: '100%',
+                  minWidth: '900px',
                   borderCollapse: 'collapse',
                   background: '#ffffff',
                   border: '1px solid #e5e7eb',
@@ -641,14 +709,14 @@ function Reports() {
               >
                 <thead>
                   <tr style={{ background: '#f5f3ff' }}>
-                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('customer')}</th>
-                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('collectionCategory')}</th>
-                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('loanType')}</th>
-                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('total')}</th>
-                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('paid')}</th>
-                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('pending')}</th>
-                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('nextDueDate')}</th>
-                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078' }}>{t('status')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('customer')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('collectionCategory')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('loanType')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('total')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('paid')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('pending')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('nextDueDate')}</th>
+                    <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('status')}</th>
                   </tr>
                 </thead>
 

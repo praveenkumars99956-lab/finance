@@ -370,6 +370,18 @@ function CollectionReport() {
   // EXCEL
   // =========================================
 
+  const getGeneratedOnText = () =>
+    t('generatedOn', {
+      date: new Date().toLocaleDateString(
+        {
+          en: 'en-IN',
+          ta: 'ta-IN',
+          hi: 'hi-IN',
+          ml: 'ml-IN'
+        }[i18n.resolvedLanguage] || 'en-IN'
+      )
+    })
+
   const downloadExcel = async () => {
     if (filteredRecords.length === 0) {
       notify(t('noCollectionRecordsAvailable'))
@@ -377,37 +389,63 @@ function CollectionReport() {
     }
 
     const XLSX = (await import('xlsx/dist/xlsx.mini.min.js')).default
-    const rows = filteredRecords.map((record, index) => ({
-      [t('serialNumber')]: index + 1,
-      [t('date')]: record.paymentDate,
-      [t('customerId')]: record.customerId,
-      [t('customerName')]: record.customerName,
-      [t('phone')]: record.phone,
-      [t('agent')]: record.agentName,
-      [t('agentIdLabel')]: record.agentCode,
-      [t('collectionCategory')]: record.category,
-      [t('loanType')]: getFinanceTypeName(record.financeType),
-      [t('collectedAmount')]: record.paymentAmount,
-      [t('balanceBefore')]: record.balanceBefore,
-      [t('balanceAfter')]: record.balanceAfter
-    }))
 
-    rows.push({
-      [t('serialNumber')]: '',
-      [t('date')]: '',
-      [t('customerId')]: '',
-      [t('customerName')]: t('total'),
-      [t('phone')]: '',
-      [t('agent')]: '',
-      [t('agentIdLabel')]: '',
-      [t('collectionCategory')]: '',
-      [t('loanType')]: '',
-      [t('collectedAmount')]: totalCollected,
-      [t('balanceBefore')]: '',
-      [t('balanceAfter')]: ''
-    })
+    const headers = [
+      t('serialNumber'),
+      t('date'),
+      t('customerId'),
+      t('customerName'),
+      t('phone'),
+      t('agent'),
+      t('agentIdLabel'),
+      t('collectionCategory'),
+      t('loanType'),
+      t('collectedAmount'),
+      t('balanceBefore'),
+      t('balanceAfter')
+    ]
 
-    const worksheet = XLSX.utils.json_to_sheet(rows)
+    const dataRows = filteredRecords.map(
+      (record, index) => [
+        index + 1,
+        record.paymentDate,
+        record.customerId,
+        record.customerName,
+        record.phone,
+        record.agentName,
+        record.agentCode,
+        record.category,
+        getFinanceTypeName(record.financeType),
+        Number(record.paymentAmount || 0),
+        Number(record.balanceBefore || 0),
+        Number(record.balanceAfter || 0)
+      ]
+    )
+
+    const totalRow = [
+      '',
+      '',
+      '',
+      t('total'),
+      '',
+      '',
+      '',
+      '',
+      '',
+      totalCollected,
+      '',
+      ''
+    ]
+
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      [t('collectionReport')],
+      [getGeneratedOnText()],
+      [],
+      headers,
+      ...dataRows,
+      totalRow
+    ])
+
     worksheet['!cols'] = [
       { wch: 8 }, { wch: 15 }, { wch: 18 }, { wch: 22 },
       { wch: 16 }, { wch: 20 }, { wch: 16 }, { wch: 22 },
@@ -428,7 +466,7 @@ function CollectionReport() {
       filteredRecords.length === 0
     ) {
       notify(
-          t('noCollectionRecordsAvailable')
+        t('noCollectionRecordsAvailable')
       )
       return
     }
@@ -437,89 +475,116 @@ function CollectionReport() {
       import('jspdf'),
       import('jspdf-autotable')
     ])
-    const doc =
-      new jsPDF({
-        orientation: 'landscape'
-      })
+    const doc = new jsPDF({
+      orientation: 'landscape'
+    })
 
     doc.setFontSize(18)
-
-    doc.text(
-        t('collectionReport'),
-      14,
-      15
-    )
+    doc.text(t('collectionReport'), 14, 15)
 
     doc.setFontSize(10)
+    doc.text(getGeneratedOnText(), 14, 22)
 
-    doc.text(
-        t('generatedOn', { date: new Date().toLocaleDateString({ en: 'en-IN', ta: 'ta-IN', hi: 'hi-IN', ml: 'ml-IN' }[i18n.resolvedLanguage] || 'en-IN') }),
-      14,
-      22
+    const dataRows = filteredRecords.map(
+      (record, index) => [
+        index + 1,
+        formatDate(record.paymentDate),
+        record.customerName,
+        record.agentName,
+        record.category,
+        getFinanceTypeName(record.financeType),
+        `₹${formatMoney(record.paymentAmount)}`,
+        `₹${formatMoney(record.balanceBefore)}`,
+        `₹${formatMoney(record.balanceAfter)}`
+      ]
     )
 
-    const rows =
-      filteredRecords.map(
-        (record, index) => [
-          index + 1,
-
-          formatDate(
-            record.paymentDate
-          ),
-
-          record.customerName,
-
-          record.agentName,
-
-          record.category,
-
-          getFinanceTypeName(
-            record.financeType
-          ),
-
-          `₹${formatMoney(record.paymentAmount)}`,
-          `₹${formatMoney(record.balanceBefore)}`,
-          `₹${formatMoney(record.balanceAfter)}`
-        ]
-      )
+    const tableRows = [
+      ...dataRows,
+      [
+        '',
+        '',
+        t('total'),
+        '',
+        '',
+        '',
+        `₹${formatMoney(totalCollected)}`,
+        '',
+        ''
+      ]
+    ]
 
     autoTable(doc, {
       startY: 28,
 
+      margin: { left: 14, right: 14, top: 28, bottom: 18 },
+
       head: [[
-          t('serialNumber'),
-          t('date'),
-          t('customer'),
-          t('agent'),
-          t('collectionCategory'),
-          t('loanType'),
-          t('collected'),
-          t('balanceBefore'),
-          t('balanceAfter')
+        t('serialNumber'),
+        t('date'),
+        t('customer'),
+        t('agent'),
+        t('collectionCategory'),
+        t('loanType'),
+        t('collected'),
+        t('balanceBefore'),
+        t('balanceAfter')
       ]],
 
-      body: rows,
+      body: tableRows,
 
       styles: {
-        fontSize: 8
+        fontSize: 8,
+        cellPadding: 2,
+        overflow: 'linebreak',
+        valign: 'middle'
+      },
+
+      headStyles: {
+        fillColor: [53, 16, 120],
+        textColor: 255,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+
+      alternateRowStyles: {
+        fillColor: [245, 243, 255]
+      },
+
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 12 },
+        1: { cellWidth: 28 },
+        2: { cellWidth: 46 },
+        3: { cellWidth: 38 },
+        4: { cellWidth: 38 },
+        5: { cellWidth: 26 },
+        6: { halign: 'right', cellWidth: 30 },
+        7: { halign: 'right', cellWidth: 30 },
+        8: { halign: 'right', cellWidth: 30 }
+      },
+
+      didParseCell: (data) => {
+        if (
+          data.section === 'body' &&
+          data.row.index === dataRows.length
+        ) {
+          data.cell.styles.fontStyle = 'bold'
+          data.cell.styles.fillColor = [239, 230, 255]
+        }
+      },
+
+      didDrawPage: (data) => {
+        doc.setFontSize(8)
+        doc.text(
+          `Page ${data.pageNumber}`,
+          doc.internal.pageSize.getWidth() - 14,
+          doc.internal.pageSize.getHeight() - 8,
+          { align: 'right' }
+        )
       }
     })
 
-    const finalY =
-      doc.lastAutoTable
-        ?.finalY || 40
-
-    doc.setFontSize(11)
-
-    doc.text(
-      `${t('totalCollected')}: ₹${formatMoney(totalCollected)}`,
-      14,
-      finalY + 10
-    )
-
-    doc.save(
-      'collection-report.pdf'
-    )
+    doc.save('collection-report.pdf')
   }
 
   // =========================================
@@ -756,6 +821,7 @@ function CollectionReport() {
             <table
               style={{
                 width: '100%',
+                minWidth: '900px',
                 borderCollapse: 'collapse',
                 background: '#ffffff',
                 border: '1px solid #e5e7eb',
