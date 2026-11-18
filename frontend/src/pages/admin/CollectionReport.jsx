@@ -13,6 +13,7 @@ function CollectionReport() {
 
   const [records, setRecords] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showFilters, setShowFilters] = useState(false)
 
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('all')
@@ -608,27 +609,44 @@ function CollectionReport() {
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={() => navigate('/reports')}
-          style={{
-            background: '#ffffff',
-            color: '#351078',
-            border: '1px solid #c4b5fd',
-            borderRadius: '10px',
-            padding: '0.55rem 0.9rem',
-            fontWeight: 600,
-            cursor: 'pointer'
-          }}
-        >
-          ← {t('reports')}
-        </button>
+        <div className="collection-report-header-actions">
+
+          <button
+            type="button"
+            className="collection-report-filters-button flex items-center gap-space-xs px-space-md py-space-sm rounded-DEFAULT bg-primary text-on-primary shadow-sm hover:bg-primary-container transition-colors font-label-lg text-label-lg border-0 cursor-pointer font-semibold"
+            onClick={() =>
+              setShowFilters(true)
+            }
+          >
+            <span className="material-symbols-outlined text-[18px]">filter_alt</span>
+            <span>{t('reportFilters')}</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/reports')}
+            style={{
+              background: '#ffffff',
+              color: '#351078',
+              border: '1px solid #c4b5fd',
+              borderRadius: '10px',
+              padding: '0.55rem 0.9rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            ← {t('reports')}
+          </button>
+
+        </div>
 
       </div>
 
       {/* FILTERS */}
 
-      <div className="daily-manage-section">
+      {showFilters && (
+
+      <div className="collection-report-filters-section daily-manage-section">
 
         <h2>
           {t('reportFilters')}
@@ -697,7 +715,21 @@ function CollectionReport() {
 
         </div>
 
+        {/* CLOSE FILTERS WITHOUT RESETTING APPLIED VALUES */}
+
+        <button
+          type="button"
+          className="collection-report-filters-cancel-button back-button"
+          onClick={() =>
+            setShowFilters(false)
+          }
+        >
+          {t('cancel')}
+        </button>
+
       </div>
+
+      )}
 
       {/* SUMMARY */}
 
