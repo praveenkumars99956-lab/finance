@@ -9,6 +9,9 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { generateCustomerId } from '../../utils/customerId'
 import SelectMenu from '../../components/SelectMenu'
+import CustomerAutocomplete, {
+  getTrimmedCustomerName
+} from '../../components/CustomerAutocomplete'
 
 function Daily() {
   const navigate = useNavigate()
@@ -25,8 +28,26 @@ function Daily() {
   const [createdCustomer, setCreatedCustomer] =
     useState(null)
 
+  const [
+    existingCustomerRecords,
+    setExistingCustomerRecords
+  ] = useState([])
+
+  const [
+    selectedExistingCustomer,
+    setSelectedExistingCustomer
+  ] = useState(null)
+
+  const [customerName, setCustomerName] =
+    useState(
+      (customer || createdCustomer)?.full_name || ''
+    )
+
+  const [customerNameError, setCustomerNameError] =
+    useState(false)
+
   const activeCustomer =
-    customer || createdCustomer
+    customer || createdCustomer || selectedExistingCustomer
 
   const activeCustomerDbId =
     location.state?.customerId ??
@@ -44,6 +65,96 @@ function Daily() {
 
   const [newCustomerAddress, setNewCustomerAddress] =
     useState('')
+
+  const existingCustomerNames =
+    existingCustomerRecords
+      .map((record) =>
+        String(record.full_name || '').trim()
+      )
+      .filter(Boolean)
+
+  // =========================================
+  // CUSTOMER NAME — SEARCH OR CREATE
+  // =========================================
+
+  useEffect(() => {
+    let active = true
+
+    const loadCustomers = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('customers')
+          .select('id, customer_id, full_name')
+          .eq('status', 'active')
+          .order('full_name')
+
+        if (error) {
+          console.error(
+            'Unable to load customers:',
+            error
+          )
+          return
+        }
+
+        if (active) {
+          setExistingCustomerRecords(data || [])
+        }
+      } catch (error) {
+        console.error(
+          'Customer loading error:',
+          error
+        )
+      }
+    }
+
+    loadCustomers()
+
+    return () => {
+      active = false
+    }
+  }, [])
+
+  useEffect(() => {
+    const name = activeCustomer?.full_name
+
+    if (name) {
+      setCustomerName(name)
+    }
+  }, [activeCustomer?.full_name])
+
+  const handleCustomerNameChange = (nextName) => {
+    const name = String(nextName ?? '')
+
+    setCustomerName(name)
+    setNewCustomerName(name)
+    setCustomerNameError(false)
+
+    const match = existingCustomerRecords.find(
+      (record) =>
+        String(record.full_name || '')
+          .trim()
+          .toLocaleLowerCase() ===
+        name.trim().toLocaleLowerCase()
+    )
+
+    setSelectedExistingCustomer(match || null)
+
+    if (match) {
+      setCreatedCustomer(null)
+      setNewCustomerId(match.customer_id || '')
+    } else if (!name) {
+      setNewCustomerId(generateCustomerId())
+    }
+  }
+
+  const handleCreateNewCustomer = (name) => {
+    const trimmedName = getTrimmedCustomerName(name)
+
+    setCustomerName(trimmedName)
+    setNewCustomerName(trimmedName)
+    setSelectedExistingCustomer(null)
+    setCreatedCustomer(null)
+  }
 
   // =========================================
   // LOAN DETAILS
@@ -368,7 +479,11 @@ function Daily() {
       // CUSTOMER VALIDATION
       // =====================================
 
-      if (!activeCustomer && !newCustomerName.trim()) {
+      const trimmedCustomerName =
+        getTrimmedCustomerName(customerName)
+
+      if (!activeCustomer && !trimmedCustomerName) {
+        setCustomerNameError(true)
         notify(
           t(
             'dailyCustomerNameRequired',
@@ -376,6 +491,11 @@ function Daily() {
           )
         )
         return
+      }
+
+      if (!activeCustomer) {
+        setCustomerName(trimmedCustomerName)
+        setNewCustomerName(trimmedCustomerName)
       }
 
       if (activeCustomer && !activeCustomerDbId) {
@@ -951,7 +1071,7 @@ function Daily() {
 
           <div className="daily-form-grid">
 
-            {activeCustomer ? (
+            {customer ? (
               <>
                 <div>
                   <label>
@@ -983,21 +1103,42 @@ function Daily() {
               </>
             ) : (
               <>
-                <div>
-                  <label>
-                    {t(
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <CustomerAutocomplete
+                    id="daily-customer-name"
+                    label={`${t(
                       'customerName',
                       'Customer Name'
-                    )} *
-                  </label>
-
-                  <input
-                    value={newCustomerName}
-                    onChange={(event) =>
-                      setNewCustomerName(event.target.value)
-                    }
-                    autoComplete="name"
+                    )} *`}
+                    value={customerName}
+                    onChange={handleCustomerNameChange}
+                    existingCustomers={existingCustomerNames}
+                    onCreateNew={handleCreateNewCustomer}
+                    placeholder={t(
+                      'enterCustomerName',
+                      'Enter Customer Name'
+                    )}
                     required
+                    error={
+                      customerNameError
+                        ? t(
+                            'dailyCustomerNameRequired',
+                            'Enter the customer name to create a Daily Finance account.'
+                          )
+                        : ''
+                    }
+                    disabled={saving}
+                    createNewLabel={(name) =>
+                      t(
+                        'createNewCustomer',
+                        'Create new customer "{{name}}"',
+                        { name }
+                      )
+                    }
+                    ariaLabel={t(
+                      'customerName',
+                      'Customer Name'
+                    )}
                   />
                 </div>
 

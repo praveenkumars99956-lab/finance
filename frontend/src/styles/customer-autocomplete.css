@@ -1,0 +1,97 @@
+.customer-autocomplete {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.customer-autocomplete__label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--fs-ink, #1a0a3b);
+}
+
+.customer-autocomplete__input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--fs-line, #e0d6f7);
+  border-radius: var(--fs-radius-sm, 10px);
+  background: var(--fs-white, #fff);
+  color: var(--fs-ink, #1a0a3b);
+  font: inherit;
+  line-height: 1.4;
+  outline: none;
+}
+
+.customer-autocomplete__input::placeholder {
+  color: var(--fs-ink-muted, #7b6ba0);
+}
+
+.customer-autocomplete__input:focus {
+  border-color: var(--fs-purple-bright, #7c4dbc);
+  box-shadow: var(--fs-ring, 0 0 0 3px rgba(124, 77, 188, 0.18));
+}
+
+.customer-autocomplete__input:disabled {
+  background: var(--fs-mist-soft, #f8f4ff);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.customer-autocomplete__input[aria-invalid='true'] {
+  border-color: var(--fs-danger, #a51d33);
+}
+
+.customer-autocomplete__list {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 5px);
+  left: 0;
+  right: 0;
+  max-height: 240px;
+  margin: 0;
+  padding: 6px;
+  overflow-y: auto;
+  list-style: none;
+  background: var(--fs-white, #fff);
+  border: 1px solid var(--fs-line, #e0d6f7);
+  border-radius: var(--fs-radius-sm, 10px);
+  box-shadow: var(--fs-shadow, 0 10px 30px -12px rgba(53, 16, 120, 0.22));
+}
+
+.customer-autocomplete__option {
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: var(--fs-ink, #1a0a3b);
+  font-size: 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.customer-autocomplete__option--active {
+  background: var(--fs-royal-soft, #efe6ff);
+  color: var(--fs-royal, #351078);
+}
+
+.customer-autocomplete__option--create {
+  margin-top: 4px;
+  border-top: 1px solid var(--fs-line-soft, #ede5ff);
+  color: var(--fs-purple, #5b2d8e);
+  font-weight: 600;
+}
+
+.customer-autocomplete__hint,
+.customer-autocomplete__error {
+  margin: 0;
+  font-size: 0.78rem;
+}
+
+.customer-autocomplete__hint {
+  color: var(--fs-ink-muted, #7b6ba0);
+}
+
+.customer-autocomplete__error {
+  color: var(--fs-danger, #a51d33);
+}

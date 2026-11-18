@@ -6,6 +6,10 @@ import { supabase } from '../../services/supabase'
 import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
 import { useToast } from '../../components/Toast'
 import SelectMenu from '../../components/SelectMenu'
+import { generateCustomerId } from '../../utils/customerId'
+import CustomerAutocomplete, {
+  getTrimmedCustomerName
+} from '../../components/CustomerAutocomplete'
 
 function Weekly() {
   const { t } = useTranslation()
@@ -25,6 +29,14 @@ function Weekly() {
   const [customerOptions, setCustomerOptions] = useState([])
   const [customerLoading, setCustomerLoading] = useState(!providedCustomerId)
   const [customerError, setCustomerError] = useState(false)
+
+  const [customerName, setCustomerName] = useState(
+    providedCustomer?.full_name || ''
+  )
+
+  const existingCustomerNames = customerOptions
+    .map((option) => String(option.full_name || '').trim())
+    .filter(Boolean)
 
   const customerId = providedCustomerId || customer?.id || null
 
@@ -209,13 +221,28 @@ function Weekly() {
   // CUSTOMER SELECTION
   // =========================================
 
-  const handleCustomerChange = (value) => {
+  const handleCustomerNameChange = (value) => {
+    const typedName = String(value ?? '')
+    const normalized = typedName.trim().toLocaleLowerCase()
+
     const selectedCustomer =
       customerOptions.find(
-        (option) => String(option.id) === value
+        (option) =>
+          String(option.full_name || '')
+            .trim()
+            .toLocaleLowerCase() === normalized
       ) || null
 
+    setCustomerName(typedName)
     setCustomer(selectedCustomer)
+    setCustomerError(false)
+  }
+
+  const handleCreateNewCustomer = (value) => {
+    const trimmedName = getTrimmedCustomerName(value)
+
+    setCustomerName(trimmedName)
+    setCustomer(null)
     setCustomerError(false)
   }
 
@@ -351,7 +378,10 @@ function Weekly() {
     // VALIDATION
     // =========================================
 
-    if (!customerId) {
+    const trimmedCustomerName =
+      getTrimmedCustomerName(customerName)
+
+    if (!customer && !trimmedCustomerName) {
       setCustomerError(true)
       showToast(
         t('selectCustomerRequired', 'Please select a customer before creating this loan.'),
@@ -456,6 +486,70 @@ function Weekly() {
 
     try {
       // =========================================
+      // RESOLVE CUSTOMER (SELECT EXISTING OR CREATE NEW)
+      // =========================================
+
+      let financeCustomer = customer
+      let financeCustomerId = customerId
+
+      if (!financeCustomer) {
+        const existingCustomer = customerOptions.find(
+          (option) =>
+            String(option.full_name || '')
+              .trim()
+              .toLocaleLowerCase() ===
+            trimmedCustomerName.toLocaleLowerCase()
+        )
+
+        if (existingCustomer) {
+          financeCustomer = existingCustomer
+          financeCustomerId = existingCustomer.id
+        } else {
+          let insertResult = null
+
+          for (let attempt = 0; attempt < 5; attempt += 1) {
+            const result = await supabase
+              .from('customers')
+              .insert({
+                customer_id: generateCustomerId(),
+                full_name: trimmedCustomerName,
+                phone: '',
+                address: '',
+                status: 'active',
+                created_by: user.id,
+                updated_at: new Date().toISOString()
+              })
+              .select('id, customer_id, full_name')
+              .single()
+
+            if (!result.error) {
+              insertResult = result
+              break
+            }
+
+            if (result.error.code !== '23505') {
+              throw result.error
+            }
+          }
+
+          if (!insertResult?.data) {
+            throw new Error(
+              t(
+                'customerIdGenerationFailed',
+                'Unable to generate a unique customer ID. Please try again.'
+              )
+            )
+          }
+
+          financeCustomer = insertResult.data
+          financeCustomerId = insertResult.data.id
+
+          setCustomer(financeCustomer)
+          setCustomerOptions((current) => [...current, financeCustomer])
+        }
+      }
+
+      // =========================================
       // CREATE WEEKLY FINANCE ACCOUNT
       // =========================================
 
@@ -468,13 +562,14 @@ function Weekly() {
           user_id: user.id,
 
           customer_id:
-            Number(customerId),
+            Number(financeCustomerId),
 
           collection_category_id:
             Number(collectionCategoryId),
 
           name:
-            customer?.full_name ||
+            financeCustomer?.full_name ||
+            trimmedCustomerName ||
             'Customer',
 
           finance_type:
@@ -633,7 +728,7 @@ function Weekly() {
       )
 
       navigate(
-        `/customers/${customerId}`
+        `/customers/${financeCustomerId}`
       )
     } catch (error) {
       console.error(
@@ -732,42 +827,37 @@ function Weekly() {
             style={{ marginBottom: '18px' }}
           >
             <div style={{ gridColumn: '1 / -1' }}>
-              <label htmlFor="weekly-customer">
-                {t('customer', 'Customer')} *
-              </label>
-
-              <SelectMenu
+              <CustomerAutocomplete
                 id="weekly-customer"
-                value={customer ? String(customer.id) : ''}
-                onChange={handleCustomerChange}
+                label={`${t('customer', 'Customer')} *`}
+                value={customerName}
+                onChange={handleCustomerNameChange}
+                existingCustomers={existingCustomerNames}
+                onCreateNew={handleCreateNewCustomer}
                 disabled={customerLoading}
                 ariaLabel={t('customer', 'Customer')}
-                ariaInvalid={customerError}
+                required
+                error={
+                  customerError
+                    ? t(
+                        'selectCustomerRequired',
+                        'Please select a customer before creating this loan.'
+                      )
+                    : ''
+                }
                 placeholder={
                   customerLoading
                     ? t('loadingCustomers', 'Loading customers...')
                     : t('selectCustomer', 'Select Customer')
                 }
-                options={customerOptions.map((option) => ({
-                  value: String(option.id),
-                  label: `${option.customer_id} - ${option.full_name}`
-                }))}
+                createNewLabel={(name) =>
+                  t(
+                    'createNewCustomer',
+                    'Create new customer "{{name}}"',
+                    { name }
+                  )
+                }
               />
-
-              {!customerLoading && customerOptions.length === 0 && (
-                <small
-                  style={{
-                    display: 'block',
-                    marginTop: 6,
-                    color: '#b42318'
-                  }}
-                >
-                  {t(
-                    'noCustomersAvailable',
-                    'No active customers are available. Add a customer before creating this loan.'
-                  )}
-                </small>
-              )}
             </div>
           </div>
         )}
@@ -785,7 +875,7 @@ function Weekly() {
 
             <strong>
               {
-                customer?.full_name ||
+                customerName ||
                 t(
                   'notSelected',
                   'Not selected'
