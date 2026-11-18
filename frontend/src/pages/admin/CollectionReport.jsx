@@ -297,7 +297,24 @@ function CollectionReport() {
             'Not Assigned',
 
           agentCode:
-            agent?.agent_id || '-'
+            agent?.agent_id || '-',
+
+          searchText: [
+            customer.full_name || '-',
+            customer.customer_id || '-',
+            customer.phone || '-',
+            agent?.full_name || 'Not Assigned',
+            agent?.agent_id || '-',
+            category.category_name || 'Not Assigned',
+            getFinanceTypeName(finance.finance_type),
+            finance.finance_type || '-',
+            payment.payment_date || '',
+            payment.payment_amount || 0,
+            payment.balance_before || 0,
+            payment.balance_after || 0
+          ]
+            .join(' ')
+            .toLowerCase()
         }
       }
     )
@@ -321,21 +338,17 @@ function CollectionReport() {
 
           const matchesSearch =
             !text ||
-            record.customerName
-              .toLowerCase()
-              .includes(text) ||
-            record.customerId
-              .toLowerCase()
-              .includes(text) ||
-            record.agentName
-              .toLowerCase()
-              .includes(text) ||
-            record.agentCode
-              .toLowerCase()
-              .includes(text) ||
-            record.category
-              .toLowerCase()
-              .includes(text)
+            (record.searchText ||
+              [
+                record.customerName,
+                record.customerId,
+                record.agentName,
+                record.agentCode,
+                record.category
+              ]
+                .join(' ')
+                .toLowerCase()
+            ).includes(text)
 
           const matchesType =
             typeFilter === 'all' ||
