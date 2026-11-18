@@ -5,6 +5,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import { getCurrentWorkspaceId } from '../../services/workspaces'
+import { subscribeToCollections } from '../../services/collectionsRealtime'
 import SelectMenu from '../../components/SelectMenu'
 
 function CollectionReport() {
@@ -22,6 +24,34 @@ function CollectionReport() {
 
   useEffect(() => {
     loadCollections()
+
+    let unsubscribeRealtime = () => {}
+
+    getCurrentWorkspaceId()
+      .then((workspaceId) => {
+        unsubscribeRealtime = subscribeToCollections({
+          workspaceId,
+          onChange: () => loadCollections(false)
+        })
+      })
+      .catch(() => {
+        // Realtime is best-effort; focus refresh below keeps data fresh.
+      })
+
+    const refreshOnFocus = () => {
+      if (document.visibilityState === 'visible') {
+        loadCollections(false)
+      }
+    }
+
+    window.addEventListener('focus', refreshOnFocus)
+    document.addEventListener('visibilitychange', refreshOnFocus)
+
+    return () => {
+      unsubscribeRealtime()
+      window.removeEventListener('focus', refreshOnFocus)
+      document.removeEventListener('visibilitychange', refreshOnFocus)
+    }
   }, [])
 
   const formatMoney = (value) => formatMoneyValue(value)
@@ -62,8 +92,8 @@ function CollectionReport() {
   // LOAD COLLECTIONS
   // =========================================
 
-  async function loadCollections() {
-    setLoading(true)
+  async function loadCollections(showLoader = true) {
+    if (showLoader) setLoading(true)
 
     const {
       data: sessionData,
