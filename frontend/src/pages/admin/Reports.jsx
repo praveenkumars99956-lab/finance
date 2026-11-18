@@ -568,6 +568,7 @@ function Reports() {
           })}
 
           <button
+            className="report-filters__collection-report"
             type="button"
             onClick={() => navigate('/reports/collections')}
             style={{
