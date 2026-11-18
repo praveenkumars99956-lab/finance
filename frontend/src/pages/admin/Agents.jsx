@@ -15,6 +15,7 @@ function Agents() {
   const [saving, setSaving] = useState(false)
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState(null)
+  const [showForm, setShowForm] = useState(false)
   const [loginEmails, setLoginEmails] = useState({})
 
   const [form, setForm] = useState({
@@ -99,6 +100,7 @@ function Agents() {
 
   const clearForm = () => {
     setEditingId(null)
+    setShowForm(false)
 
     setForm({
       agent_id: '',
@@ -108,6 +110,18 @@ function Agents() {
       password: '',
       address: '',
       status: 'active'
+    })
+  }
+
+  // Same interaction pattern as the Customers page: the header button opens
+  // an empty form, while the form itself keeps one Create Agent & Login action.
+  const openAddAgent = () => {
+    clearForm()
+    setShowForm(true)
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
     })
   }
 
@@ -443,6 +457,8 @@ function Agents() {
       agent.id
     )
 
+    setShowForm(true)
+
     setForm({
       agent_id:
         agent.agent_id || '',
@@ -678,6 +694,15 @@ function Agents() {
 
         </div>
 
+        <button
+          type="button"
+          className="agents-add-button flex items-center gap-space-xs px-space-md py-space-sm rounded-DEFAULT bg-primary text-on-primary shadow-sm hover:bg-primary-container transition-colors font-label-lg text-label-lg border-0 cursor-pointer font-semibold"
+          onClick={openAddAgent}
+        >
+          <span className="material-symbols-outlined text-[18px]">person_add</span>
+          <span>{t('addAgent')}</span>
+        </button>
+
       </div>
 
       {/* =====================================
@@ -732,7 +757,9 @@ function Agents() {
           ADD / EDIT AGENT
       ====================================== */}
 
-      <div className="daily-manage-section">
+      {showForm && (
+
+      <div className="agents-form-section daily-manage-section">
 
         <h2>
           {
@@ -941,7 +968,7 @@ function Agents() {
 
           <button
             type="submit"
-            className="record-payment-button"
+            className="agents-submit-button record-payment-button"
             disabled={saving}
           >
 
@@ -955,28 +982,26 @@ function Agents() {
 
           </button>
 
-          {/* CANCEL EDIT */}
+          {/* CANCEL / CLOSE FORM */}
 
-          {editingId && (
-
-            <button
-              type="button"
-              className="back-button"
-              onClick={
-                clearForm
-              }
-              disabled={
-                saving
-              }
-            >
-              {t('cancelEdit')}
-            </button>
-
-          )}
+          <button
+            type="button"
+            className="agents-cancel-button back-button"
+            onClick={
+              clearForm
+            }
+            disabled={
+              saving
+            }
+          >
+            {t('cancel')}
+          </button>
 
         </form>
 
       </div>
+
+      )}
 
       {/* =====================================
           {t('agentList').toUpperCase()}
