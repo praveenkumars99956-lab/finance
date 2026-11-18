@@ -592,7 +592,7 @@ function CollectionReport() {
   // =========================================
 
   return (
-    <div className="customer-profile-page">
+    <div className="customer-profile-page reports-page-shell">
 
       <div className="customer-profile-header">
 
@@ -813,6 +813,7 @@ function CollectionReport() {
         ) : (
 
           <div
+            className="reports-table-wrapper"
             style={{
               overflowX: 'auto'
             }}

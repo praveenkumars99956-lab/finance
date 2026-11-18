@@ -509,7 +509,7 @@ function Reports() {
   }
 
   return (
-    <div className="weekly-page">
+    <div className="weekly-page reports-page-shell">
       <p>{t('appName')}</p>
 
       <h1>{t('reports')}</h1>
@@ -690,6 +690,7 @@ function Reports() {
           </div>
 
           <div
+            className="reports-table-wrapper"
             style={{
               overflowX: 'auto'
             }}
