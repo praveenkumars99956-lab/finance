@@ -7,7 +7,10 @@ import { supabase } from '../../services/supabase'
 import { ensureMonthlyLoanCategory } from '../../services/collectionCategories'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
-import { rateFromInterestAmount } from '../../utils/interestRate'
+import {
+  normalizeInterestInput,
+  rateFromInterestAmount
+} from '../../utils/interestRate'
 import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
@@ -112,6 +115,10 @@ function Monthly() {
 
   const [interestAmount, setInterestAmount] =
     useState(0)
+
+  // Tracks which field the user last edited. While Interest Amount is being
+  // typed, the rate follows it; otherwise the rate drives the interest.
+  const interestAmountEdited = useRef(false)
 
   const [totalRepayment, setTotalRepayment] =
     useState(0)
@@ -372,14 +379,16 @@ function Monthly() {
     // =========================================
 
     const interest =
-      months > 0
-        ? Number(
-            (
-              (p * rate * months) /
-              100
-            ).toFixed(2)
-          )
-        : 0
+      interestAmountEdited.current
+        ? Number(interestAmount || 0)
+        : months > 0
+          ? Number(
+              (
+                (p * rate * months) /
+                100
+              ).toFixed(2)
+            )
+          : 0
 
     // =========================================
     // TOTAL REPAYMENT
@@ -420,9 +429,22 @@ function Monthly() {
           )
         : 0
 
-    setInterestAmount(
-      interest
-    )
+    if (interestAmountEdited.current) {
+      const derivedRate =
+        rateFromInterestAmount(
+          interestAmount,
+          principal,
+          numberOfMonths
+        )
+
+      if (derivedRate !== interestRate) {
+        setInterestRate(derivedRate)
+      }
+    } else {
+      setInterestAmount(
+        interest
+      )
+    }
 
     setTotalRepayment(
       total
@@ -512,6 +534,7 @@ function Monthly() {
   }, [
     principal,
     interestRate,
+    interestAmount,
     alreadyPaid,
     numberOfMonths,
     startDate
@@ -1492,11 +1515,10 @@ function Monthly() {
                 value={
                   interestRate
                 }
-                onChange={(e) =>
-                  setInterestRate(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => {
+                  interestAmountEdited.current = false
+                  setInterestRate(e.target.value)
+                }}
                 placeholder={
                   settingsLoading
                     ? t(
@@ -1539,7 +1561,11 @@ function Monthly() {
                   interestAmount
                 }
                 onChange={(e) => {
-                  const value = e.target.value
+                  const value = normalizeInterestInput(
+                    e.target.value,
+                    interestAmount
+                  )
+                  interestAmountEdited.current = true
                   setInterestAmount(value)
                   setInterestRate(
                     rateFromInterestAmount(

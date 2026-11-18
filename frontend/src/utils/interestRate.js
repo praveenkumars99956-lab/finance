@@ -37,3 +37,23 @@ export function rateFromInterestAmount(
   // the exact amount the user typed.
   return String(Number(((interest * 100) / base).toFixed(8)))
 }
+
+// The calculated fields start at 0 / 0.00. If the user starts typing a whole
+// amount at the end of that placeholder, replace the placeholder instead of
+// producing values like 04500 or 0.004500.
+export function normalizeInterestInput(value, previousValue) {
+  const raw = String(value ?? '')
+  const previous = String(previousValue ?? '')
+
+  if (
+    previous !== '' &&
+    Number(previous) === 0 &&
+    raw.startsWith(previous) &&
+    raw.length > previous.length &&
+    /^\d+$/.test(raw.slice(previous.length))
+  ) {
+    return raw.slice(previous.length)
+  }
+
+  return raw
+}

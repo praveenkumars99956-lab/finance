@@ -8,7 +8,10 @@ import {
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { generateCustomerId } from '../../utils/customerId'
-import { rateFromInterestAmount } from '../../utils/interestRate'
+import {
+  normalizeInterestInput,
+  rateFromInterestAmount
+} from '../../utils/interestRate'
 import SelectMenu from '../../components/SelectMenu'
 import CustomerAutocomplete, {
   getTrimmedCustomerName
@@ -171,6 +174,10 @@ function Daily() {
     interestAmount,
     setInterestAmount
   ] = useState('')
+
+  // Tracks which field the user last edited. While Interest Amount is being
+  // typed, the rate follows it; otherwise the rate drives the interest.
+  const interestAmountEdited = useRef(false)
 
   const [
     totalAmount,
@@ -365,16 +372,30 @@ function Daily() {
       Number(numberOfDays || 0)
 
     const interest =
-      (p * rate) / 100
+      interestAmountEdited.current
+        ? Number(interestAmount || 0)
+        : (p * rate) / 100
+
+    if (interestAmountEdited.current) {
+      const derivedRate =
+        rateFromInterestAmount(
+          interestAmount,
+          principal
+        )
+
+      if (derivedRate !== interestRate) {
+        setInterestRate(derivedRate)
+      }
+    } else {
+      setInterestAmount(
+        interest > 0
+          ? interest.toFixed(2)
+          : ''
+      )
+    }
 
     const total =
       p + interest
-
-    setInterestAmount(
-      interest > 0
-        ? interest.toFixed(2)
-        : ''
-    )
 
     setTotalAmount(
       total > 0
@@ -396,6 +417,7 @@ function Daily() {
   }, [
     principal,
     interestRate,
+    interestAmount,
     numberOfDays
   ])
 
@@ -1391,11 +1413,10 @@ function Daily() {
                 value={
                   interestRate
                 }
-                onChange={(e) =>
-                  setInterestRate(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => {
+                  interestAmountEdited.current = false
+                  setInterestRate(e.target.value)
+                }}
                 required
               />
 
@@ -1423,7 +1444,11 @@ function Daily() {
                   interestAmount
                 }
                 onChange={(e) => {
-                  const value = e.target.value
+                  const value = normalizeInterestInput(
+                    e.target.value,
+                    interestAmount
+                  )
+                  interestAmountEdited.current = true
                   setInterestAmount(value)
                   setInterestRate(
                     rateFromInterestAmount(

@@ -1,6 +1,6 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
 import { notify } from '../../utils/notify'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 
@@ -8,7 +8,10 @@ import { supabase } from '../../services/supabase'
 import CalendarDatePicker from '../../components/CalendarDatePicker'
 import { ensureInterestOnlyLoanCategory } from '../../services/collectionCategories'
 import { generateCustomerId } from '../../utils/customerId'
-import { rateFromInterestAmount } from '../../utils/interestRate'
+import {
+  normalizeInterestInput,
+  rateFromInterestAmount
+} from '../../utils/interestRate'
 
 function InterestOnly() {
   const navigate = useNavigate()
@@ -38,6 +41,10 @@ function InterestOnly() {
   const [principal, setPrincipal] = useState('')
   const [interestRate, setInterestRate] = useState('')
   const [interestAmount, setInterestAmount] = useState('')
+
+  // Tracks which field the user last edited. While Interest Amount is being
+  // typed, the rate follows it; otherwise the rate drives the interest.
+  const interestAmountEdited = useRef(false)
 
   // =========================================
   // START DATE
@@ -175,6 +182,20 @@ function InterestOnly() {
   // =========================================
 
   useEffect(() => {
+    if (interestAmountEdited.current) {
+      const derivedRate =
+        rateFromInterestAmount(
+          interestAmount,
+          principal
+        )
+
+      if (derivedRate !== interestRate) {
+        setInterestRate(derivedRate)
+      }
+
+      return
+    }
+
     const p =
       Number(principal || 0)
 
@@ -203,7 +224,8 @@ function InterestOnly() {
     }
   }, [
     principal,
-    interestRate
+    interestRate,
+    interestAmount
   ])
 
   // =========================================
@@ -682,6 +704,8 @@ function InterestOnly() {
   // =========================================
 
   const clearForm = () => {
+    interestAmountEdited.current = false
+
     setPrincipal('')
 
     setInterestAmount('')
@@ -889,11 +913,10 @@ function InterestOnly() {
                 min="0"
                 step="any"
                 value={interestRate}
-                onChange={(e) =>
-                  setInterestRate(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => {
+                  interestAmountEdited.current = false
+                  setInterestRate(e.target.value)
+                }}
                 placeholder={
                   settingsLoading
                     ? t('loadingDefaultRate')
@@ -925,7 +948,11 @@ function InterestOnly() {
                 step="0.01"
                 value={interestAmount}
                 onChange={(e) => {
-                  const value = e.target.value
+                  const value = normalizeInterestInput(
+                    e.target.value,
+                    interestAmount
+                  )
+                  interestAmountEdited.current = true
                   setInterestAmount(value)
                   setInterestRate(
                     rateFromInterestAmount(

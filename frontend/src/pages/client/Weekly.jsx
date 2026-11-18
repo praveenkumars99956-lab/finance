@@ -7,7 +7,10 @@ import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
 import { useToast } from '../../components/Toast'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
-import { rateFromInterestAmount } from '../../utils/interestRate'
+import {
+  normalizeInterestInput,
+  rateFromInterestAmount
+} from '../../utils/interestRate'
 import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
@@ -56,6 +59,11 @@ function Weekly() {
   // =========================================
 
   const [interestAmount, setInterestAmount] = useState(0)
+
+  // Tracks which field the user last edited. While Interest Amount is being
+  // typed, the rate follows it; otherwise the rate drives the interest.
+  const interestAmountEdited = useRef(false)
+
   const [totalAmount, setTotalAmount] = useState(0)
   const [remainingAmount, setRemainingAmount] = useState(0)
   const [weeklyAmount, setWeeklyAmount] = useState(0)
@@ -260,9 +268,12 @@ function Weekly() {
     // INTEREST
     // =========================================
 
-    const interest = Number(
-      ((p * rate) / 100).toFixed(2)
-    )
+    const interest =
+      interestAmountEdited.current
+        ? Number(interestAmount || 0)
+        : Number(
+            ((p * rate) / 100).toFixed(2)
+          )
 
     /*
       IMPORTANT REQUIRED BEHAVIOUR
@@ -281,7 +292,20 @@ function Weekly() {
     const total = p
     const remaining = p
 
-    setInterestAmount(interest)
+    if (interestAmountEdited.current) {
+      const derivedRate =
+        rateFromInterestAmount(
+          interestAmount,
+          principal
+        )
+
+      if (derivedRate !== interestRate) {
+        setInterestRate(derivedRate)
+      }
+    } else {
+      setInterestAmount(interest)
+    }
+
     setTotalAmount(total)
     setRemainingAmount(remaining)
 
@@ -333,6 +357,7 @@ function Weekly() {
   }, [
     principal,
     interestRate,
+    interestAmount,
     alreadyPaid,
     numberOfWeeks,
     startDate
@@ -1115,11 +1140,10 @@ function Weekly() {
                 min="0"
                 step="any"
                 value={interestRate}
-                onChange={(e) =>
-                  setInterestRate(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => {
+                  interestAmountEdited.current = false
+                  setInterestRate(e.target.value)
+                }}
                 placeholder={
                   settingsLoading
                     ? t(
@@ -1201,7 +1225,11 @@ function Weekly() {
                   interestAmount
                 }
                 onChange={(e) => {
-                  const value = e.target.value
+                  const value = normalizeInterestInput(
+                    e.target.value,
+                    interestAmount
+                  )
+                  interestAmountEdited.current = true
                   setInterestAmount(value)
                   setInterestRate(
                     rateFromInterestAmount(
