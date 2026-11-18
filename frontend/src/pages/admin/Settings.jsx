@@ -11,6 +11,7 @@ import {
   MapPin,
   Camera,
   Save,
+  RotateCcw,
   ArrowLeft,
   ShieldCheck,
   Sliders
@@ -20,7 +21,7 @@ import { getCurrentWorkspaceId } from '../../services/workspaces'
 
 function Settings() {
   const navigate = useNavigate()
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
 
   const [settingsId, setSettingsId] = useState(null)
   const [workspaceId, setWorkspaceId] = useState(null)
@@ -30,6 +31,7 @@ function Settings() {
   const [overdueGraceDays, setOverdueGraceDays] = useState('0')
   const [requireGps, setRequireGps] = useState(true)
   const [requireCollectionProof, setRequireCollectionProof] = useState(true)
+  const [updatedAt, setUpdatedAt] = useState(null)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -67,6 +69,7 @@ function Settings() {
     }
 
     setWorkspaceId(currentWorkspaceId)
+    setUpdatedAt(data?.updated_at || null)
 
     if (data) {
       setSettingsId(data.id)
@@ -140,6 +143,25 @@ function Settings() {
     setSaving(false)
   }
 
+  const formatTimestamp = (value) => {
+    if (!value) return t('notAvailable')
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return t('notAvailable')
+
+    return date.toLocaleString(i18n.resolvedLanguage || i18n.language || 'en')
+  }
+
+  const resetToDefaults = () => {
+    setBusinessName('FINANCE')
+    setCurrencySymbol('₹')
+    setDefaultInterestRate('0')
+    setOverdueGraceDays('0')
+    setRequireGps(true)
+    setRequireCollectionProof(true)
+    notify(t('settingsResetNotice'))
+  }
+
   if (loading) {
     return (
       <div className="settings-page">
@@ -186,6 +208,9 @@ function Settings() {
               <label htmlFor="businessName">
                 {t('businessName')} *
               </label>
+              <span className="text-sm text-secondary">
+                {t('businessNameHint')}
+              </span>
               <input
                 id="businessName"
                 type="text"
@@ -199,6 +224,9 @@ function Settings() {
               <label htmlFor="currencySymbol">
                 {t('currencySymbol')} *
               </label>
+              <span className="text-sm text-secondary">
+                {t('currencySymbolHint')}
+              </span>
               <input
                 id="currencySymbol"
                 type="text"
@@ -215,6 +243,9 @@ function Settings() {
               <label htmlFor="defaultInterestRate">
                 {t('defaultInterestRate')} (%)
               </label>
+              <span className="text-sm text-secondary">
+                {t('defaultInterestRateHint')}
+              </span>
               <input
                 id="defaultInterestRate"
                 type="number"
@@ -229,6 +260,9 @@ function Settings() {
               <label htmlFor="overdueGraceDays">
                 {t('overdueGraceDays')}
               </label>
+              <span className="text-sm text-secondary">
+                {t('overdueGraceDaysHint')}
+              </span>
               <input
                 id="overdueGraceDays"
                 type="number"
@@ -279,7 +313,17 @@ function Settings() {
           </div>
         </div>
 
-        <div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="modern-btn-secondary"
+            onClick={resetToDefaults}
+            disabled={saving}
+          >
+            <RotateCcw size={16} />
+            <span>{t('resetToDefaults')}</span>
+          </button>
+
           <button
             type="submit"
             className="modern-btn-primary"
@@ -329,6 +373,35 @@ function Settings() {
           <div className="modern-info-item">
             <span className="modern-info-label">{t('collectionProofRequiredLabel')}</span>
             <span className="modern-info-val">{requireCollectionProof ? t('yes') : t('no')}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Workspace Information Card */}
+      <div className="modern-card">
+        <div className="modern-card-header">
+          <div className="modern-card-title">
+            <Building2 size={18} className="text-primary" />
+            <span>{t('workspaceInformation')}</span>
+          </div>
+        </div>
+
+        <div className="modern-info-grid">
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('workspaceId')}</span>
+            <span
+              className="modern-info-val"
+              title={workspaceId || t('notAvailable')}
+              style={{ wordBreak: 'break-all', fontSize: 13 }}
+            >
+              {workspaceId || t('notAvailable')}
+            </span>
+          </div>
+          <div className="modern-info-item">
+            <span className="modern-info-label">{t('lastUpdated')}</span>
+            <span className="modern-info-val">
+              {formatTimestamp(updatedAt)}
+            </span>
           </div>
         </div>
       </div>
