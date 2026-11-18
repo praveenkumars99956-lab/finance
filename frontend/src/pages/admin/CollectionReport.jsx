@@ -609,7 +609,15 @@ function CollectionReport() {
           </span>
         </div>
 
-        <div className="collection-report-header-actions">
+        <div
+          className="collection-report-header-actions"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            flexWrap: 'wrap'
+          }}
+        >
 
           <button
             type="button"
