@@ -1,8 +1,9 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import { getCurrentWorkspaceId } from '../../services/workspaces'
 import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
 import { useToast } from '../../components/Toast'
 import SelectMenu from '../../components/SelectMenu'
@@ -34,6 +35,19 @@ function Weekly() {
   const [customerLoading, setCustomerLoading] = useState(!providedCustomerId)
   const [customerError, setCustomerError] = useState(false)
 
+  // Editing a row in the live list overrides the customer linked from the
+  // customer profile so the whole loan can be changed from this page.
+  const [editingFinanceId, setEditingFinanceId] = useState(null)
+  const [editingCustomer, setEditingCustomer] = useState(null)
+  const editingFinanceIdRef = useRef(null)
+
+  const activeCustomer = editingCustomer || customer
+  const activeCustomerName = activeCustomer?.full_name || ''
+
+  const customerId = editingFinanceId
+    ? activeCustomer?.id ?? null
+    : providedCustomerId ?? customer?.id ?? null
+
   const [customerName, setCustomerName] = useState(
     providedCustomer?.full_name || ''
   )
@@ -41,8 +55,6 @@ function Weekly() {
   const existingCustomerNames = customerOptions
     .map((option) => String(option.full_name || '').trim())
     .filter(Boolean)
-
-  const customerId = providedCustomerId || customer?.id || null
 
   // =========================================
   // FORM
@@ -64,6 +76,11 @@ function Weekly() {
   // typed, the rate follows it; otherwise the rate drives the interest.
   const interestAmountEdited = useRef(false)
 
+  // Snapshot of the values loaded from a stored loan. The calculation effect
+  // uses it to skip the one update that opens the edit form so the saved
+  // interest and rate are not recomputed.
+  const loadedLoanValuesRef = useRef(null)
+
   const [totalAmount, setTotalAmount] = useState(0)
   const [remainingAmount, setRemainingAmount] = useState(0)
   const [weeklyAmount, setWeeklyAmount] = useState(0)
@@ -81,15 +98,309 @@ function Weekly() {
 
   const [categories, setCategories] = useState([])
   const [collectionCategoryId, setCollectionCategoryId] = useState('')
+  const [weeklyCategoryId, setWeeklyCategoryId] = useState('')
   const [categoryLoading, setCategoryLoading] = useState(true)
   const [categoryError, setCategoryError] = useState(false)
   const categorySelectRef = useRef(null)
 
   // =========================================
-  // SAVE STATUS
+  // SAVE STATUS / VISIBILITY
   // =========================================
 
   const [saving, setSaving] = useState(false)
+
+  // The header button opens the form. When this page is opened from a customer
+  // profile, the form is already needed.
+  const [showForm, setShowForm] = useState(Boolean(providedCustomer))
+
+  // =========================================
+  // LIVE WEEKLY LOANS LIST
+  // =========================================
+
+  const [weeklyLoans, setWeeklyLoans] = useState([])
+  const [listLoading, setListLoading] = useState(true)
+  const [listError, setListError] = useState('')
+  const [listSearch, setListSearch] = useState('')
+
+  const realtimeTimer = useRef(null)
+  const loadRequestRef = useRef(0)
+
+  const loadWeeklyLoans = useCallback(async () => {
+    const requestId = ++loadRequestRef.current
+
+    try {
+      setListLoading(true)
+
+      const {
+        data: loans,
+        error: loansError
+      } = await supabase
+        .from('finance_records')
+        .select('*')
+        .eq('finance_type', 'weekly')
+        .order('created_at', { ascending: false })
+
+      if (loansError) {
+        throw loansError
+      }
+
+      const rows = loans || []
+
+      const customerIds = [
+        ...new Set(
+          rows
+            .map((row) => row.customer_id)
+            .filter(Boolean)
+        )
+      ]
+
+      let customerMap = {}
+
+      if (customerIds.length) {
+        const {
+          data: customerRows,
+          error: customerError
+        } = await supabase
+          .from('customers')
+          .select('id, customer_id, full_name, phone')
+          .in('id', customerIds)
+
+        if (customerError) {
+          console.error(
+            'Weekly loan customers error:',
+            customerError
+          )
+        } else {
+          customerMap = Object.fromEntries(
+            (customerRows || []).map((row) => [
+              row.id,
+              row
+            ])
+          )
+        }
+      }
+
+      // Ignore a slower refresh that started before the post-save reload.
+      if (requestId === loadRequestRef.current) {
+        setWeeklyLoans(
+          rows.map((row) => ({
+            ...row,
+            customer: customerMap[row.customer_id] || null
+          }))
+        )
+
+        setListError('')
+      }
+    } catch (error) {
+      if (requestId !== loadRequestRef.current) {
+        return
+      }
+
+      console.error('Weekly loans load error:', error)
+
+      setListError(
+        error?.message ||
+          t(
+            'unableToLoadWeeklyLoans',
+            'Unable to load weekly loans.'
+          )
+      )
+    } finally {
+      if (requestId === loadRequestRef.current) {
+        setListLoading(false)
+      }
+    }
+  }, [t])
+
+  useEffect(() => {
+    loadWeeklyLoans()
+
+    let disposed = false
+    let channel = null
+
+    getCurrentWorkspaceId()
+      .then((workspaceId) => {
+        if (!workspaceId || disposed) return
+
+        channel = supabase
+          .channel(`weekly-loans:${workspaceId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'finance_records',
+              filter: `workspace_id=eq.${workspaceId}`
+            },
+            () => {
+              if (realtimeTimer.current) {
+                clearTimeout(realtimeTimer.current)
+              }
+
+              realtimeTimer.current = setTimeout(
+                () => {
+                  if (!disposed) {
+                    loadWeeklyLoans()
+                  }
+                },
+                200
+              )
+            }
+          )
+          .subscribe()
+      })
+      .catch(() => {
+        // Realtime is best-effort; focus refresh below keeps data fresh.
+      })
+
+    const refreshOnFocus = () => {
+      if (document.visibilityState === 'visible') {
+        loadWeeklyLoans()
+      }
+    }
+
+    window.addEventListener('focus', refreshOnFocus)
+    document.addEventListener(
+      'visibilitychange',
+      refreshOnFocus
+    )
+
+    return () => {
+      disposed = true
+
+      if (realtimeTimer.current) {
+        clearTimeout(realtimeTimer.current)
+      }
+
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+
+      window.removeEventListener('focus', refreshOnFocus)
+      document.removeEventListener(
+        'visibilitychange',
+        refreshOnFocus
+      )
+    }
+  }, [loadWeeklyLoans])
+
+  // =========================================
+  // OPEN / CLOSE FORM
+  // =========================================
+
+  useEffect(() => {
+    if (providedCustomer) {
+      setShowForm(true)
+    }
+  }, [providedCustomer])
+
+  useEffect(() => {
+    if (activeCustomerName) {
+      setCustomerName(activeCustomerName)
+    }
+  }, [activeCustomerName])
+
+  const resetForm = () => {
+    editingFinanceIdRef.current = null
+    loadedLoanValuesRef.current = null
+    setEditingFinanceId(null)
+    setEditingCustomer(null)
+    setCustomer(providedCustomer)
+    setCustomerName(providedCustomer?.full_name || '')
+    setCustomerError(false)
+    setPrincipal('')
+    setInterestRate('')
+    setAlreadyPaid('0')
+    setInterestAmount(0)
+    interestAmountEdited.current = false
+    setTotalAmount(0)
+    setRemainingAmount(0)
+    setWeeklyAmount(0)
+    setEndingDate('')
+    setNumberOfWeeks('')
+    setStartDate('')
+    setCollectionCategoryId(weeklyCategoryId)
+    setCategoryError(false)
+  }
+
+  const openAddWeekly = () => {
+    resetForm()
+    setShowForm(true)
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
+
+  const closeForm = () => {
+    resetForm()
+    setShowForm(false)
+  }
+
+  const editWeeklyLoan = (loan) => {
+    const weeks = parseInt(
+      String(loan.period || '').split(' ')[0],
+      10
+    )
+
+    const nextPrincipal = loan.principal_amount ?? ''
+    const nextInterestRate = loan.interest_rate ?? ''
+    const nextInterestAmount =
+      loan.interest_accrual ?? loan.interest_due ?? 0
+    const nextAlreadyPaid = loan.paid ?? 0
+    const nextWeeks =
+      Number.isFinite(weeks) ? String(weeks) : ''
+    const nextStartDate =
+      loan.payment_date || loan.entry_date || ''
+
+    const loanCustomer =
+      loan.customer ||
+      (loan.customer_id
+        ? {
+            id: loan.customer_id,
+            customer_id: loan.customer_id,
+            full_name: loan.name || '',
+            phone: ''
+          }
+        : null)
+
+    editingFinanceIdRef.current = loan.id
+    loadedLoanValuesRef.current = {
+      principal: nextPrincipal,
+      interestRate: nextInterestRate,
+      interestAmount: nextInterestAmount,
+      alreadyPaid: nextAlreadyPaid,
+      numberOfWeeks: nextWeeks,
+      startDate: nextStartDate
+    }
+
+    setEditingFinanceId(loan.id)
+    setEditingCustomer(loanCustomer)
+    setCustomer(loanCustomer)
+    setCustomerName(
+      loan.name || loanCustomer?.full_name || ''
+    )
+    setCustomerError(false)
+
+    setPrincipal(nextPrincipal)
+    setInterestRate(nextInterestRate)
+    setInterestAmount(nextInterestAmount)
+    interestAmountEdited.current = false
+    setAlreadyPaid(nextAlreadyPaid)
+    setNumberOfWeeks(nextWeeks)
+    setStartDate(nextStartDate)
+    setCollectionCategoryId(
+      loan.collection_category_id || ''
+    )
+    setCategoryError(false)
+    setShowForm(true)
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
 
   // =========================================
   // LOAD DEFAULT INTEREST RATE
@@ -115,6 +426,7 @@ function Weekly() {
         }
 
         if (
+          !editingFinanceIdRef.current &&
           data?.default_interest_rate !== null &&
           data?.default_interest_rate !== undefined
         ) {
@@ -123,10 +435,7 @@ function Weekly() {
           )
         }
       } catch (error) {
-        console.error(
-          'Finance settings error:',
-          error
-        )
+        console.error('Finance settings error:', error)
       } finally {
         setSettingsLoading(false)
       }
@@ -161,7 +470,14 @@ function Weekly() {
           await ensureWeeklyLoanCategory(user.id)
 
         setCategories(activeCategories)
-        setCollectionCategoryId(String(weeklyCategory.id))
+        setWeeklyCategoryId(String(weeklyCategory.id))
+        // An Edit click can happen while this loader is in flight. Keep the
+        // category from the loaded loan instead of replacing it with default.
+        setCollectionCategoryId((current) =>
+          editingFinanceIdRef.current && current
+            ? current
+            : String(weeklyCategory.id)
+        )
         setCategoryError(false)
       } catch (error) {
         console.error('Collection category loading error:', error)
@@ -178,11 +494,11 @@ function Weekly() {
   }, [showToast, t])
 
   // =========================================
-  // LOAD CUSTOMERS (when opened without one)
+  // LOAD CUSTOMERS (when opened without one, or while editing)
   // =========================================
 
   useEffect(() => {
-    if (providedCustomerId) {
+    if (providedCustomerId && !editingFinanceId) {
       return undefined
     }
 
@@ -224,7 +540,7 @@ function Weekly() {
     return () => {
       active = false
     }
-  }, [providedCustomerId, showToast, t])
+  }, [providedCustomerId, editingFinanceId, showToast, t])
 
   // =========================================
   // CUSTOMER SELECTION
@@ -244,6 +560,7 @@ function Weekly() {
 
     setCustomerName(typedName)
     setCustomer(selectedCustomer)
+    setEditingCustomer(selectedCustomer)
     setCustomerError(false)
   }
 
@@ -252,6 +569,7 @@ function Weekly() {
 
     setCustomerName(trimmedName)
     setCustomer(null)
+    setEditingCustomer(null)
     setCustomerError(false)
   }
 
@@ -264,6 +582,22 @@ function Weekly() {
     const rate = Number(interestRate || 0)
     const weeks = Number(numberOfWeeks || 0)
 
+    const loadedValues = loadedLoanValuesRef.current
+
+    const isLoanLoadUpdate = Boolean(
+      loadedValues &&
+        loadedValues.principal === principal &&
+        loadedValues.interestRate === interestRate &&
+        loadedValues.interestAmount === interestAmount &&
+        loadedValues.alreadyPaid === alreadyPaid &&
+        loadedValues.numberOfWeeks === numberOfWeeks &&
+        loadedValues.startDate === startDate
+    )
+
+    if (loadedValues) {
+      loadedLoanValuesRef.current = null
+    }
+
     // =========================================
     // INTEREST
     // =========================================
@@ -271,9 +605,7 @@ function Weekly() {
     const interest =
       interestAmountEdited.current
         ? Number(interestAmount || 0)
-        : Number(
-            ((p * rate) / 100).toFixed(2)
-          )
+        : Number(((p * rate) / 100).toFixed(2))
 
     /*
       IMPORTANT REQUIRED BEHAVIOUR
@@ -292,18 +624,19 @@ function Weekly() {
     const total = p
     const remaining = p
 
-    if (interestAmountEdited.current) {
-      const derivedRate =
-        rateFromInterestAmount(
+    if (!isLoanLoadUpdate) {
+      if (interestAmountEdited.current) {
+        const derivedRate = rateFromInterestAmount(
           interestAmount,
           principal
         )
 
-      if (derivedRate !== interestRate) {
-        setInterestRate(derivedRate)
+        if (derivedRate !== interestRate) {
+          setInterestRate(derivedRate)
+        }
+      } else {
+        setInterestAmount(interest)
       }
-    } else {
-      setInterestAmount(interest)
     }
 
     setTotalAmount(total)
@@ -315,9 +648,7 @@ function Weekly() {
 
     if (weeks > 0) {
       setWeeklyAmount(
-        Number(
-          (remaining / weeks).toFixed(2)
-        )
+        Number((remaining / weeks).toFixed(2))
       )
     } else {
       setWeeklyAmount(0)
@@ -328,14 +659,11 @@ function Weekly() {
     // =========================================
 
     if (startDate && weeks > 0) {
-      const date = new Date(
-        `${startDate}T00:00:00`
-      )
+      const date = new Date(`${startDate}T00:00:00`)
 
       // Week 1 is the start date.
       date.setDate(
-        date.getDate() +
-        ((weeks - 1) * 7)
+        date.getDate() + ((weeks - 1) * 7)
       )
 
       const year = date.getFullYear()
@@ -348,9 +676,7 @@ function Weekly() {
         date.getDate()
       ).padStart(2, '0')
 
-      setEndingDate(
-        `${year}-${month}-${day}`
-      )
+      setEndingDate(`${year}-${month}-${day}`)
     } else {
       setEndingDate('')
     }
@@ -370,7 +696,7 @@ function Weekly() {
   const formatMoney = (value) => formatMoneyValue(value)
 
   // =========================================
-  // SELECTED CATEGORY
+  // SELECTED CATEGORY / LIST HELPERS
   // =========================================
 
   const selectedCategory =
@@ -379,6 +705,39 @@ function Weekly() {
         String(category.id) ===
         String(collectionCategoryId)
     )
+
+  const categoryName = (id) =>
+    categories.find(
+      (category) => String(category.id) === String(id)
+    )?.category_name || t('notSelected', 'Not Selected')
+
+  const loanWeeks = (loan) =>
+    parseInt(
+      String(loan.period || '').split(' ')[0],
+      10
+    ) || 0
+
+  const normalizedListSearch =
+    listSearch.trim().toLocaleLowerCase()
+
+  const filteredWeeklyLoans =
+    weeklyLoans.filter((loan) => {
+      if (!normalizedListSearch) return true
+
+      return [
+        loan.finance_id,
+        loan.id,
+        loan.customer?.full_name,
+        loan.name,
+        loan.customer?.customer_id,
+        loan.customer?.phone,
+        categoryName(loan.collection_category_id)
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase()
+        .includes(normalizedListSearch)
+    })
 
   // =========================================
   // SAVE WEEKLY FINANCE
@@ -392,9 +751,11 @@ function Weekly() {
     const paid = Number(alreadyPaid || 0)
     const weeks = Number(numberOfWeeks)
 
-    const interest = Number(
-      ((p * rate) / 100).toFixed(2)
-    )
+    // On edit the form holds the loan's stored interest, which may have been
+    // typed directly, so keep it instead of recomputing from the rate.
+    const interest = editingFinanceId
+      ? Number(interestAmount || 0)
+      : Number(((p * rate) / 100).toFixed(2))
 
     // IMPORTANT:
     // Total repayment remains Principal.
@@ -407,18 +768,32 @@ function Weekly() {
     const trimmedCustomerName =
       getTrimmedCustomerName(customerName)
 
-    if (!customer && !trimmedCustomerName) {
+    if (!activeCustomer && !trimmedCustomerName) {
       setCustomerError(true)
       showToast(
-        t('selectCustomerRequired', 'Please select a customer before creating this loan.'),
+        t(
+          'selectCustomerRequired',
+          'Please select a customer before creating this loan.'
+        ),
         'error'
       )
 
       return
     }
 
+    if (!activeCustomer) {
+      setCustomerName(trimmedCustomerName)
+    }
+
     if (!collectionCategoryId) {
       setCategoryError(true)
+      showToast(
+        t(
+          'collectionCategoryRequired',
+          'Please select a collection category.'
+        ),
+        'error'
+      )
       categorySelectRef.current?.focus()
       categorySelectRef.current?.scrollIntoView({
         behavior: 'smooth',
@@ -437,6 +812,7 @@ function Weekly() {
     }
 
     if (
+      String(interestRate).trim() === '' ||
       !Number.isFinite(rate) ||
       rate < 0
     ) {
@@ -515,7 +891,7 @@ function Weekly() {
       // RESOLVE CUSTOMER (SELECT EXISTING OR CREATE NEW)
       // =========================================
 
-      let financeCustomer = customer
+      let financeCustomer = activeCustomer
       let financeCustomerId = customerId
 
       if (!financeCustomer) {
@@ -571,78 +947,127 @@ function Weekly() {
           financeCustomerId = insertResult.data.id
 
           setCustomer(financeCustomer)
-          setCustomerOptions((current) => [...current, financeCustomer])
+          setCustomerOptions((current) => [
+            ...current,
+            financeCustomer
+          ])
         }
       }
 
       // =========================================
-      // CREATE WEEKLY FINANCE ACCOUNT
+      // EDITING? READ PRESERVED PAYMENT TOTALS
       // =========================================
 
-      const {
-        data: financeRecord,
-        error: financeError
-      } = await supabase
-        .from('finance_records')
-        .insert({
+      const isEditing = Boolean(editingFinanceId)
+
+      const editingRecord = isEditing
+        ? weeklyLoans.find(
+            (loan) =>
+              String(loan.id) ===
+              String(editingFinanceId)
+          )
+        : null
+
+      // Already Paid is edited in the form, so use that value on save rather
+      // than the stored snapshot when recomputing the pending balance.
+      const paidSoFar = paid
+
+      const principalPaidSoFar = Number(
+        editingRecord?.principal_paid || 0
+      )
+
+      const interestPaidSoFar = Number(
+        editingRecord?.interest_paid || 0
+      )
+
+      // =========================================
+      // CREATE / UPDATE WEEKLY FINANCE ACCOUNT
+      // =========================================
+
+      const recordPayload = {
+        customer_id: Number(financeCustomerId),
+
+        collection_category_id:
+          Number(collectionCategoryId),
+
+        name:
+          financeCustomer?.full_name ||
+          trimmedCustomerName ||
+          'Customer',
+
+        finance_type: 'weekly',
+
+        // Keep internal/database value in English.
+        period: `${weeks} Weeks`,
+
+        payment_date: startDate,
+
+        entry_date: startDate,
+
+        ending_date: endingDate,
+
+        // =====================================
+        // TOTAL AMOUNT = PRINCIPAL
+        // =====================================
+
+        amount: total,
+
+        // =====================================
+        // ALREADY PAID SAVED SEPARATELY
+        // =====================================
+
+        paid,
+
+        // =====================================
+        // PENDING / OUTSTANDING (RECOMPUTED ON EDIT)
+        // =====================================
+
+        pending: isEditing
+          ? Math.max(total - paidSoFar, 0)
+          : total,
+
+        calculation_mode: 'automatic',
+
+        principal_amount: p,
+
+        principal_outstanding: isEditing
+          ? Math.max(p - principalPaidSoFar, 0)
+          : p,
+
+        interest_rate: rate,
+
+        // =====================================
+        // INTEREST STORED SEPARATELY
+        // =====================================
+
+        interest_accrual: interest,
+
+        interest_due: isEditing
+          ? Math.max(interest - interestPaidSoFar, 0)
+          : interest,
+
+        interest_method: 'original_principal',
+
+        loan_type: 'normal',
+
+        interest_type: 'simple',
+
+        interest_period: 'loan_period',
+
+        collection_cadence: 'weekly',
+
+        last_interest_date: startDate,
+
+        next_due_date: startDate,
+
+        loan_status: 'active'
+      }
+
+      if (!isEditing) {
+        Object.assign(recordPayload, {
           user_id: user.id,
 
-          customer_id:
-            Number(financeCustomerId),
-
-          collection_category_id:
-            Number(collectionCategoryId),
-
-          name:
-            financeCustomer?.full_name ||
-            trimmedCustomerName ||
-            'Customer',
-
-          finance_type:
-            'weekly',
-
-          // Keep internal/database value in English.
-          period:
-            `${weeks} Weeks`,
-
-          payment_date:
-            startDate,
-
-          entry_date:
-            startDate,
-
-          ending_date:
-            endingDate,
-
-          // =====================================
-          // TOTAL AMOUNT = PRINCIPAL
-          // =====================================
-
-          amount:
-            total,
-
-          // =====================================
-          // ALREADY PAID SAVED SEPARATELY
-          // =====================================
-
-          paid:
-            paid,
-
-          // =====================================
-          // ALREADY PAID DOES NOT REDUCE PENDING
-          // =====================================
-
-          pending:
-            total,
-
-          calculation_mode:
-            'automatic',
-
-          principal_amount:
-            p,
-
-          original_principal:
-            p,
+          original_principal: p,
 
           /*
             Keep principal outstanding at
@@ -650,63 +1075,37 @@ function Weekly() {
             Already Paid must not reduce it.
           */
 
-          principal_outstanding:
-            p,
+          interest_paid: 0,
 
-          interest_rate:
-            rate,
+          principal_paid: 0,
 
-          // =====================================
-          // INTEREST STORED SEPARATELY
-          // =====================================
-
-          interest_accrual:
-            interest,
-
-          /*
-            Interest is informational/separate.
-            Already Paid does not automatically
-            consume calculated interest.
-          */
-
-          interest_due:
-            interest,
-
-          interest_paid:
-            0,
-
-          principal_paid:
-            0,
-
-          interest_method:
-            'original_principal',
-
-          loan_type:
-            'normal',
-
-          interest_type:
-            'simple',
-
-          interest_period:
-            'loan_period',
-
-          collection_cadence:
-            'weekly',
-
-          last_interest_date:
-            startDate,
-
-          next_due_date:
-            startDate,
-
-          loan_status:
-            'active',
-
-          renewal_count:
-            0
+          renewal_count: 0
         })
-        .select()
-        .single()
+      }
+
+      let financeRecord = null
+      let financeError = null
+
+      if (isEditing) {
+        const result = await supabase
+          .from('finance_records')
+          .update(recordPayload)
+          .eq('id', editingFinanceId)
+          .select('id')
+          .single()
+
+        financeRecord = result.data
+        financeError = result.error
+      } else {
+        const result = await supabase
+          .from('finance_records')
+          .insert([recordPayload])
+          .select('id')
+          .single()
+
+        financeRecord = result.data
+        financeError = result.error
+      }
 
       if (financeError) {
         console.error(financeError)
@@ -719,25 +1118,12 @@ function Weekly() {
         return
       }
 
-      // =========================================
-      // GENERATE WEEKLY REPAYMENT SCHEDULE
-      // =========================================
-
-      const {
-        error: scheduleError
-      } = await supabase.rpc(
-        'generate_weekly_schedule',
-        {
-          p_finance_record_id:
-            financeRecord.id
-        }
-      )
-
-      if (scheduleError) {
-        console.error(scheduleError)
-
+      if (!financeRecord?.id) {
         showToast(
-          `${t('weeklyCreatedScheduleFailed', 'Weekly Finance was created, but schedule generation failed')}: ${scheduleError.message}`,
+          t(
+            'weeklyFinanceNotCreatedCorrectly',
+            'Weekly Finance was not saved correctly.'
+          ),
           'error'
         )
 
@@ -745,8 +1131,106 @@ function Weekly() {
       }
 
       // =========================================
+      // WEEKLY REPAYMENT SCHEDULE
+      // =========================================
+
+      if (isEditing) {
+        // Rebuild the installment plan only when no real payments have been
+        // recorded against this loan.
+        const {
+          data: existingPayments,
+          error: paymentCheckError
+        } = await supabase
+          .from('finance_payments')
+          .select('id')
+          .eq('finance_record_id', editingFinanceId)
+          .limit(1)
+
+        if (paymentCheckError) {
+          console.error(
+            'Weekly payment check error:',
+            paymentCheckError
+          )
+        } else if (!existingPayments?.length) {
+          const { error: scheduleDeleteError } =
+            await supabase
+              .from('repayment_schedule')
+              .delete()
+              .eq('finance_record_id', editingFinanceId)
+
+          if (scheduleDeleteError) {
+            console.error(
+              'Weekly schedule reset error:',
+              scheduleDeleteError
+            )
+          }
+
+          const { error: scheduleError } =
+            await supabase.rpc(
+              'generate_weekly_schedule',
+              {
+                p_finance_record_id:
+                  financeRecord.id
+              }
+            )
+
+          if (scheduleError) {
+            console.error(scheduleError)
+
+            showToast(
+              `${t('weeklyCreatedScheduleFailed', 'Weekly Finance was created, but schedule generation failed')}: ${scheduleError.message}`,
+              'error'
+            )
+
+            closeForm()
+            await loadWeeklyLoans()
+            return
+          }
+        }
+      } else {
+        const { error: scheduleError } =
+          await supabase.rpc(
+            'generate_weekly_schedule',
+            {
+              p_finance_record_id:
+                financeRecord.id
+            }
+          )
+
+        if (scheduleError) {
+          console.error(scheduleError)
+
+          showToast(
+            `${t('weeklyCreatedScheduleFailed', 'Weekly Finance was created, but schedule generation failed')}: ${scheduleError.message}`,
+            'error'
+          )
+
+          return
+        }
+      }
+
+      // =========================================
       // SUCCESS
       // =========================================
+
+      if (isEditing) {
+        showToast(
+          t(
+            'weeklyFinanceUpdatedSuccessfully',
+            'Weekly Finance {{financeId}} saved successfully',
+            {
+              financeId:
+                editingRecord?.finance_id ||
+                `#${editingFinanceId}`
+            }
+          ),
+          'success'
+        )
+
+        closeForm()
+        await loadWeeklyLoans()
+        return
+      }
 
       showToast(
         t('weeklyFinanceCreatedSuccessfully', 'Weekly Finance created successfully'),
@@ -791,7 +1275,7 @@ function Weekly() {
               `/customers/${customerId}/finance`,
               {
                 state: {
-                  customer,
+                  customer: activeCustomer,
                   customerId:
                     Number(customerId)
                 }
@@ -809,135 +1293,194 @@ function Weekly() {
           HEADER
       ====================================== */}
 
-      <div className="daily-header">
+      <div
+        className="daily-header"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16
+        }}
+      >
+        <div>
+          <p>
+            {t('finance', 'FINANCE')}
+          </p>
 
-        <p>
-          {t(
-            'finance',
-            'FINANCE'
-          )}
-        </p>
+          <h1>
+            {editingFinanceId
+              ? `${t('edit', 'Edit')} ${t('weeklyLoan', 'Weekly Loan')}`
+              : t('weeklyLoan', 'Weekly Loan')}
+          </h1>
 
-        <h1>
-          {t(
-            'weeklyLoan',
-            'Weekly Loan'
-          )}
-        </h1>
+          <span>
+            {editingFinanceId
+              ? t('editWeeklyLoan', 'Edit Weekly Loan')
+              : t('weeklyLoanDescription', 'Create a weekly repayment finance')}
+          </span>
+        </div>
 
-        <span>
-          {t(
-            'weeklyLoanDescription',
-            'Create a weekly repayment finance'
-          )}
-        </span>
-
+        <button
+          type="button"
+          className="loan-add-button flex items-center gap-space-xs px-space-md py-space-sm rounded-DEFAULT bg-primary text-on-primary shadow-sm hover:bg-primary-container transition-colors font-label-lg text-label-lg border-0 cursor-pointer font-semibold"
+          onClick={openAddWeekly}
+        >
+          <span className="material-symbols-outlined text-[18px]">add</span>
+          <span>{t('addWeeklyFinance', 'Add Weekly Finance')}</span>
+        </button>
       </div>
 
       {/* =====================================
-          CUSTOMER
+          LOAN SUMMARY — ALWAYS VISIBLE
       ====================================== */}
 
-      <div className="daily-form-section">
-
+      <div className="daily-loan-summary">
         <h2>
-          {t(
-            'customer',
-            'Customer'
-          )}
+          {t('loanSummary', 'Loan Summary')}
         </h2>
 
-        {!providedCustomerId && (
-          <div
-            className="daily-form-grid"
-            style={{ marginBottom: '18px' }}
-          >
-            <div style={{ gridColumn: '1 / -1' }}>
-              <CustomerAutocomplete
-                id="weekly-customer"
-                label={`${t('customer', 'Customer')} *`}
-                value={customerName}
-                onChange={handleCustomerNameChange}
-                existingCustomers={existingCustomerNames}
-                onCreateNew={handleCreateNewCustomer}
-                disabled={customerLoading}
-                ariaLabel={t('customer', 'Customer')}
-                required
-                error={
-                  customerError
-                    ? t(
-                        'selectCustomerRequired',
-                        'Please select a customer before creating this loan.'
-                      )
-                    : ''
-                }
-                placeholder={
-                  customerLoading
-                    ? t('loadingCustomers', 'Loading customers...')
-                    : t('selectCustomer', 'Select Customer')
-                }
-                createNewLabel={(name) =>
-                  t(
-                    'createNewCustomer',
-                    'Create new customer "{{name}}"',
-                    { name }
-                  )
-                }
-              />
-            </div>
-          </div>
-        )}
-
-        <div className="daily-info-grid">
-
+        <div className="daily-summary-grid">
           <div>
-
-            <span>
-              {t(
-                'customerName',
-                'Customer Name'
-              )}
-            </span>
-
-            <strong>
-              {
-                customerName ||
-                t(
-                  'notSelected',
-                  'Not selected'
-                )
-              }
-            </strong>
-
+            <span>{t('principal', 'Principal')}</span>
+            <strong>₹{formatMoney(principal)}</strong>
           </div>
 
           <div>
-
-            <span>
-              {t(
-                'customerId',
-                'Customer ID'
-              )}
-            </span>
-
-            <strong>
-              {
-                customer?.customer_id ||
-                '-'
-              }
-            </strong>
-
+            <span>{t('interest', 'Interest')}</span>
+            <strong>₹{formatMoney(interestAmount)}</strong>
           </div>
 
+          <div>
+            <span>{t('totalRepayment', 'Total Repayment')}</span>
+            <strong>₹{formatMoney(totalAmount)}</strong>
+          </div>
+
+          <div>
+            <span>{t('alreadyPaid', 'Already Paid')}</span>
+            <strong>₹{formatMoney(alreadyPaid)}</strong>
+          </div>
+
+          <div>
+            <span>{t('remainingAmount', 'Remaining Amount')}</span>
+            <strong>₹{formatMoney(remainingAmount)}</strong>
+          </div>
+
+          <div>
+            <span>{t('weeklyAmount', 'Weekly Amount')}</span>
+            <strong>₹{formatMoney(weeklyAmount)}</strong>
+          </div>
+
+          <div>
+            <span>{t('startDate', 'Start Date')}</span>
+            <strong>{startDate || '-'}</strong>
+          </div>
+
+          <div>
+            <span>{t('numberOfWeeks', 'Number of Weeks')}</span>
+            <strong>{numberOfWeeks || 0}</strong>
+          </div>
+
+          <div>
+            <span>{t('endingDate', 'Ending Date')}</span>
+            <strong>{endingDate || '-'}</strong>
+          </div>
+
+          <div>
+            <span>{t('collectionCategory', 'Collection Category')}</span>
+            <strong>
+              {selectedCategory?.category_name ||
+                t('notSelected', 'Not Selected')}
+            </strong>
+          </div>
         </div>
-
       </div>
 
       {/* =====================================
           FORM
       ====================================== */}
 
-      <form onSubmit={saveWeeklyFinance}>
+      {showForm && (
+
+      <form onSubmit={saveWeeklyFinance} noValidate>
+
+        {/* =================================
+            CUSTOMER
+        ================================== */}
+
+        <div className="daily-form-section">
+
+          <h2>
+            {t('customer', 'Customer')}
+          </h2>
+
+          {(!providedCustomerId || editingFinanceId) && (
+            <div
+              className="daily-form-grid"
+              style={{ marginBottom: '18px' }}
+            >
+              <div style={{ gridColumn: '1 / -1' }}>
+                <CustomerAutocomplete
+                  id="weekly-customer"
+                  label={`${t('customer', 'Customer')} *`}
+                  value={customerName}
+                  onChange={handleCustomerNameChange}
+                  existingCustomers={existingCustomerNames}
+                  onCreateNew={handleCreateNewCustomer}
+                  disabled={customerLoading}
+                  ariaLabel={t('customer', 'Customer')}
+                  required
+                  error={
+                    customerError
+                      ? t(
+                          'selectCustomerRequired',
+                          'Please select a customer before creating this loan.'
+                        )
+                      : ''
+                  }
+                  placeholder={
+                    customerLoading
+                      ? t('loadingCustomers', 'Loading customers...')
+                      : t('selectCustomer', 'Select Customer')
+                  }
+                  createNewLabel={(name) =>
+                    t(
+                      'createNewCustomer',
+                      'Create new customer "{{name}}"',
+                      { name }
+                    )
+                  }
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="daily-info-grid">
+
+            <div>
+              <span>
+                {t('customerName', 'Customer Name')}
+              </span>
+
+              <strong>
+                {activeCustomerName ||
+                  t('notSelected', 'Not selected')}
+              </strong>
+            </div>
+
+            <div>
+              <span>
+                {t('customerId', 'Customer ID')}
+              </span>
+
+              <strong>
+                {activeCustomer?.customer_id || '-'}
+              </strong>
+            </div>
+
+          </div>
+
+        </div>
 
         {/* =================================
             COLLECTION CATEGORY
@@ -946,21 +1489,14 @@ function Weekly() {
         <div className="daily-form-section">
 
           <h2>
-            {t(
-              'collectionCategory',
-              'Collection Category'
-            )}
+            {t('collectionCategory', 'Collection Category')}
           </h2>
 
           <div className="daily-form-grid">
 
             <div>
-
               <label>
-                {t(
-                  'collectionCategory',
-                  'Collection Category'
-                )} *
+                {t('collectionCategory', 'Collection Category')} *
               </label>
 
               <SelectMenu
@@ -1044,33 +1580,20 @@ function Weekly() {
                   )}
                 </small>
               )}
-
             </div>
 
             <div>
-
               <label>
-                {t(
-                  'selectedCategory',
-                  'Selected Category'
-                )}
+                {t('selectedCategory', 'Selected Category')}
               </label>
 
               <input
                 value={
-                  selectedCategory
-                    ?.category_name ||
-                  ''
+                  selectedCategory?.category_name || ''
                 }
-                placeholder={
-                  t(
-                    'noCategorySelected',
-                    'No category selected'
-                  )
-                }
+                placeholder={t('noCategorySelected', 'No category selected')}
                 readOnly
               />
-
             </div>
 
           </div>
@@ -1084,10 +1607,7 @@ function Weekly() {
         <div className="daily-form-section">
 
           <h2>
-            {t(
-              'weeklyFinanceDetails',
-              'Weekly Finance Details'
-            )}
+            {t('weeklyFinanceDetails', 'Weekly Finance Details')}
           </h2>
 
           <div className="daily-form-grid">
@@ -1095,12 +1615,8 @@ function Weekly() {
             {/* PRINCIPAL */}
 
             <div>
-
               <label>
-                {t(
-                  'principalAmount',
-                  'Principal Amount'
-                )} ₹ *
+                {t('principalAmount', 'Principal Amount')} ₹ *
               </label>
 
               <input
@@ -1109,30 +1625,18 @@ function Weekly() {
                 step="0.01"
                 value={principal}
                 onChange={(e) =>
-                  setPrincipal(
-                    e.target.value
-                  )
+                  setPrincipal(e.target.value)
                 }
-                placeholder={
-                  t(
-                    'weeklyPrincipalExample',
-                    'Example: 20000'
-                  )
-                }
+                placeholder={t('weeklyPrincipalExample', 'Example: 20000')}
                 required
               />
-
             </div>
 
             {/* INTEREST RATE */}
 
             <div>
-
               <label>
-                {t(
-                  'rateOfInterest',
-                  'Rate of Interest'
-                )} % *
+                {t('rateOfInterest', 'Rate of Interest')} % *
               </label>
 
               <input
@@ -1146,14 +1650,8 @@ function Weekly() {
                 }}
                 placeholder={
                   settingsLoading
-                    ? t(
-                        'loadingDefaultRate',
-                        'Loading default rate...'
-                      )
-                    : t(
-                        'enterInterestRate',
-                        'Enter interest rate'
-                      )
+                    ? t('loadingDefaultRate', 'Loading default rate...')
+                    : t('enterInterestRate', 'Enter interest rate')
                 }
                 required
               />
@@ -1164,18 +1662,13 @@ function Weekly() {
                   'Default rate from Settings. You can change it for this loan.'
                 )}
               </small>
-
             </div>
 
             {/* ALREADY PAID */}
 
             <div>
-
               <label>
-                {t(
-                  'alreadyPaid',
-                  'Already Paid'
-                )} ₹ *
+                {t('alreadyPaid', 'Already Paid')} ₹ *
               </label>
 
               <input
@@ -1184,16 +1677,9 @@ function Weekly() {
                 step="0.01"
                 value={alreadyPaid}
                 onChange={(e) =>
-                  setAlreadyPaid(
-                    e.target.value
-                  )
+                  setAlreadyPaid(e.target.value)
                 }
-                placeholder={
-                  t(
-                    'weeklyAlreadyPaidExample',
-                    'Example: 2000'
-                  )
-                }
+                placeholder={t('weeklyAlreadyPaidExample', 'Example: 2000')}
                 required
               />
 
@@ -1203,27 +1689,20 @@ function Weekly() {
                   'Already Paid is recorded separately and does not reduce Total Repayment.'
                 )}
               </small>
-
             </div>
 
             {/* INTEREST */}
 
             <div>
-
               <label>
-                {t(
-                  'interestAmount',
-                  'Interest Amount'
-                )} ₹
+                {t('interestAmount', 'Interest Amount')} ₹
               </label>
 
               <input
                 type="number"
                 min="0"
                 step="0.01"
-                value={
-                  interestAmount
-                }
+                value={interestAmount}
                 onChange={(e) => {
                   const value = normalizeInterestInput(
                     e.target.value,
@@ -1246,41 +1725,27 @@ function Weekly() {
                   'Enter the interest amount to calculate the rate automatically.'
                 )}
               </small>
-
             </div>
 
             {/* TOTAL */}
 
             <div>
-
               <label>
-                {t(
-                  'totalRepayment',
-                  'Total Repayment'
-                )} ₹
+                {t('totalRepayment', 'Total Repayment')} ₹
               </label>
 
               <input
                 type="text"
-                value={
-                  formatMoney(
-                    totalAmount
-                  )
-                }
+                value={formatMoney(totalAmount)}
                 readOnly
               />
-
             </div>
 
             {/* NUMBER OF WEEKS */}
 
             <div>
-
               <label>
-                {t(
-                  'numberOfWeeks',
-                  'Number of Weeks'
-                )} *
+                {t('numberOfWeeks', 'Number of Weeks')} *
               </label>
 
               <input
@@ -1289,222 +1754,28 @@ function Weekly() {
                 step="1"
                 value={numberOfWeeks}
                 onChange={(e) =>
-                  setNumberOfWeeks(
-                    e.target.value
-                  )
+                  setNumberOfWeeks(e.target.value)
                 }
-                placeholder={
-                  t(
-                    'weeksExample',
-                    'Example: 20'
-                  )
-                }
+                placeholder={t('weeksExample', 'Example: 20')}
                 required
               />
-
             </div>
 
             {/* START DATE */}
 
             <div>
-
               <label>
-                {t(
-                  'startDate',
-                  'Start Date'
-                )} *
+                {t('startDate', 'Start Date')} *
               </label>
 
               <input
                 type="date"
                 value={startDate}
                 onChange={(e) =>
-                  setStartDate(
-                    e.target.value
-                  )
+                  setStartDate(e.target.value)
                 }
                 required
               />
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* =================================
-            WEEKLY CALCULATION
-        ================================== */}
-
-        <div className="daily-form-section">
-
-          <h2>
-            {t(
-              'weeklyCalculation',
-              'Weekly Calculation'
-            )}
-          </h2>
-
-          <div className="daily-manage-summary">
-
-            <div>
-
-              <span>
-                {t(
-                  'principal',
-                  'Principal'
-                )}
-              </span>
-
-              <strong>
-                ₹{formatMoney(principal)}
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'interest',
-                  'Interest'
-                )}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  interestAmount
-                )}
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'totalRepayment',
-                  'Total Repayment'
-                )}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  totalAmount
-                )}
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'alreadyPaid',
-                  'Already Paid'
-                )}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  alreadyPaid
-                )}
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'remaining',
-                  'Remaining'
-                )}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  remainingAmount
-                )}
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'weeklyAmount',
-                  'Weekly Amount'
-                )}
-              </span>
-
-              <strong>
-                ₹{formatMoney(
-                  weeklyAmount
-                )}
-              </strong>
-
-            </div>
-
-          </div>
-
-          {/* =================================
-              EXTRA INFORMATION
-          ================================== */}
-
-          <div className="daily-info-grid">
-
-            <div>
-
-              <span>
-                {t(
-                  'numberOfWeeks',
-                  'Number of Weeks'
-                )}
-              </span>
-
-              <strong>
-                {numberOfWeeks || 0}
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'endingDate',
-                  'Ending Date'
-                )}
-              </span>
-
-              <strong>
-                {endingDate || '-'}
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'collectionCategory',
-                  'Collection Category'
-                )}
-              </span>
-
-              <strong>
-                {
-                  selectedCategory
-                    ?.category_name ||
-                  t(
-                    'notSelected',
-                    'Not Selected'
-                  )
-                }
-              </strong>
-
             </div>
 
           </div>
@@ -1518,24 +1789,15 @@ function Weekly() {
         <div className="daily-form-section">
 
           <h2>
-            {t(
-              'calculationMethod',
-              'Calculation Method'
-            )}
+            {t('calculationMethod', 'Calculation Method')}
           </h2>
 
           <p>
-            {t(
-              'interestFormulaWeekly',
-              'Interest = Principal × Rate of Interest ÷ 100'
-            )}
+            {t('interestFormulaWeekly', 'Interest = Principal × Rate of Interest ÷ 100')}
           </p>
 
           <p>
-            {t(
-              'totalRepaymentFormulaWeekly',
-              'Total Repayment = Principal Amount'
-            )}
+            {t('totalRepaymentFormulaWeekly', 'Total Repayment = Principal Amount')}
           </p>
 
           <p>
@@ -1546,10 +1808,7 @@ function Weekly() {
           </p>
 
           <p>
-            {t(
-              'remainingFormulaWeekly',
-              'Remaining Amount = Principal Amount'
-            )}
+            {t('remainingFormulaWeekly', 'Remaining Amount = Principal Amount')}
           </p>
 
           <p>
@@ -1562,28 +1821,218 @@ function Weekly() {
         </div>
 
         {/* =================================
-            SUBMIT
+            SAVE / CANCEL
         ================================== */}
 
-        <button
-          type="submit"
-          className="record-payment-button"
-          disabled={saving}
-        >
-          {
-            saving
-              ? t(
-                  'creatingWeeklyFinance',
-                  'Creating Weekly Finance...'
-                )
-              : t(
-                  'createWeeklyFinance',
-                  'Create Weekly Finance'
-                )
-          }
-        </button>
+        <div className="daily-save-area">
+
+          <button
+            type="submit"
+            className="record-payment-button"
+            disabled={saving}
+          >
+            {saving
+              ? editingFinanceId
+                ? t('saving', 'Saving...')
+                : t('creatingWeeklyFinance', 'Creating Weekly Finance...')
+              : editingFinanceId
+                ? t('saveWeeklyFinance', 'Save Weekly Finance')
+                : t('createWeeklyFinance', 'Create Weekly Finance')}
+          </button>
+
+          <button
+            type="button"
+            className="back-button"
+            onClick={closeForm}
+            disabled={saving}
+          >
+            {t('cancel', 'Cancel')}
+          </button>
+
+        </div>
 
       </form>
+
+      )}
+
+      {/* =================================
+          LIVE WEEKLY LOANS LIST
+      ================================== */}
+
+      <div className="loan-list-section">
+
+        <div className="loan-list-header">
+
+          <div>
+            <h2>
+              {t('liveWeeklyLoans', 'Live Weekly Loans')}
+            </h2>
+
+            <span>
+              {t('liveLoansHelp', 'Updates automatically as data changes.')}
+            </span>
+          </div>
+
+          <input
+            type="search"
+            value={listSearch}
+            onChange={(e) =>
+              setListSearch(e.target.value)
+            }
+            placeholder={t(
+              'searchWeeklyLoans',
+              'Search customer, ID, phone or finance ID...'
+            )}
+            aria-label={t(
+              'searchWeeklyLoans',
+              'Search weekly loans'
+            )}
+          />
+
+        </div>
+
+        {listLoading ? (
+
+          <p className="loan-list-message">
+            {t('loading', 'Loading...')}
+          </p>
+
+        ) : listError ? (
+
+          <p className="loan-list-error">
+            {listError}
+          </p>
+
+        ) : filteredWeeklyLoans.length === 0 ? (
+
+          <p className="loan-list-message">
+            {t('noWeeklyLoansFound', 'No weekly loans found.')}
+          </p>
+
+        ) : (
+
+          <div className="loan-list-table-wrap">
+
+            <table className="loan-list-table">
+
+              <thead>
+                <tr>
+                  <th>{t('financeId', 'Finance ID')}</th>
+                  <th>{t('customerName', 'Customer Name')}</th>
+                  <th>{t('customerId', 'Customer ID')}</th>
+                  <th>{t('phone', 'Phone')}</th>
+                  <th>{t('principal', 'Principal')}</th>
+                  <th>{t('interestRate', 'Interest Rate')}</th>
+                  <th>{t('interest', 'Interest')}</th>
+                  <th>{t('totalRepayment', 'Total Repayment')}</th>
+                  <th>{t('remainingAmount', 'Remaining Amount')}</th>
+                  <th>{t('weeklyAmount', 'Weekly Amount')}</th>
+                  <th>{t('startDate', 'Start Date')}</th>
+                  <th>{t('numberOfWeeks', 'Number of Weeks')}</th>
+                  <th>{t('endingDate', 'Ending Date')}</th>
+                  <th>{t('collectionCategory', 'Collection Category')}</th>
+                  <th>{t('paid', 'Paid')}</th>
+                  <th>{t('pending', 'Pending')}</th>
+                  <th>{t('status', 'Status')}</th>
+                  <th>{t('edit', 'Edit')}</th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredWeeklyLoans.map((loan) => {
+                  const weeks = loanWeeks(loan)
+
+                  return (
+                    <tr key={loan.id}>
+                      <td>{loan.finance_id || `#${loan.id}`}</td>
+
+                      <td>
+                        {loan.customer?.full_name ||
+                          loan.name ||
+                          '-'}
+                      </td>
+
+                      <td>
+                        {loan.customer?.customer_id || '-'}
+                      </td>
+
+                      <td>{loan.customer?.phone || '-'}</td>
+
+                      <td>
+                        ₹{formatMoney(loan.principal_amount)}
+                      </td>
+
+                      <td>{loan.interest_rate ?? 0}%</td>
+
+                      <td>
+                        ₹{formatMoney(
+                          loan.interest_accrual ??
+                            loan.interest_due
+                        )}
+                      </td>
+
+                      <td>
+                        ₹{formatMoney(loan.amount)}
+                      </td>
+
+                      <td>
+                        ₹{formatMoney(
+                          loan.principal_outstanding ??
+                            loan.pending
+                        )}
+                      </td>
+
+                      <td>
+                        ₹{formatMoney(
+                          weeks
+                            ? Number(loan.amount || 0) / weeks
+                            : 0
+                        )}
+                      </td>
+
+                      <td>
+                        {loan.payment_date ||
+                          loan.entry_date ||
+                          '-'}
+                      </td>
+
+                      <td>{weeks || '-'}</td>
+
+                      <td>{loan.ending_date || '-'}</td>
+
+                      <td>
+                        {categoryName(loan.collection_category_id)}
+                      </td>
+
+                      <td>₹{formatMoney(loan.paid)}</td>
+
+                      <td>₹{formatMoney(loan.pending)}</td>
+
+                      <td>{loan.loan_status || '-'}</td>
+
+                      <td>
+                        <button
+                          type="button"
+                          className="loan-list-edit-button"
+                          onClick={() =>
+                            editWeeklyLoan(loan)
+                          }
+                        >
+                          {t('edit', 'Edit')}
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+
+            </table>
+
+          </div>
+
+        )}
+
+      </div>
 
     </div>
   )

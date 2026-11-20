@@ -1,9 +1,10 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
 import { notify } from '../../utils/notify'
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import { getCurrentWorkspaceId } from '../../services/workspaces'
 import { ensureMonthlyLoanCategory } from '../../services/collectionCategories'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
@@ -68,6 +69,220 @@ function Monthly() {
 
   const customerId = providedCustomerId || customer?.id || null
 
+  // Editing a row in the live list overrides the customer linked from the
+  // customer profile so the whole loan can be changed from this page.
+  // `customer` starts as the navigation customer, so editingCustomer wins
+  // whenever a list row is being edited.
+  const [editingFinanceId, setEditingFinanceId] =
+    useState(null)
+
+  const [editingCustomer, setEditingCustomer] =
+    useState(null)
+
+  const activeCustomer =
+    editingCustomer || customer
+
+  const activeCustomerId =
+    editingCustomer?.id ??
+    customer?.id ??
+    null
+
+  // =========================================
+  // FORM VISIBILITY + LIVE LIST STATE
+  // =========================================
+
+  // The header button opens the form. When this page is opened from a
+  // customer profile, the form is already needed.
+  const [showForm, setShowForm] =
+    useState(Boolean(providedCustomer))
+
+  const [monthlyLoans, setMonthlyLoans] =
+    useState([])
+
+  const [listLoading, setListLoading] =
+    useState(true)
+
+  const [listError, setListError] =
+    useState('')
+
+  const [listSearch, setListSearch] =
+    useState('')
+
+  const realtimeTimer = useRef(null)
+  const loadRequestRef = useRef(0)
+
+  const loadMonthlyLoans = useCallback(async () => {
+    const requestId = ++loadRequestRef.current
+
+    try {
+      setListLoading(true)
+
+      const {
+        data: loans,
+        error: loansError
+      } = await supabase
+        .from('finance_records')
+        .select('*')
+        .eq('finance_type', 'monthly')
+        .order('created_at', {
+          ascending: false
+        })
+
+      if (loansError) {
+        throw loansError
+      }
+
+      const rows = loans || []
+
+      const customerIds = [
+        ...new Set(
+          rows
+            .map((row) => row.customer_id)
+            .filter(Boolean)
+        )
+      ]
+
+      let customerMap = {}
+
+      if (customerIds.length) {
+        const {
+          data: customerRows,
+          error: customerError
+        } = await supabase
+          .from('customers')
+          .select(
+            'id, customer_id, full_name, phone, address'
+          )
+          .in('id', customerIds)
+
+        if (customerError) {
+          console.error(
+            'Monthly loan customers error:',
+            customerError
+          )
+        } else {
+          customerMap = Object.fromEntries(
+            (customerRows || []).map((row) => [
+              row.id,
+              row
+            ])
+          )
+        }
+      }
+
+      // Ignore a slower refresh that started before the post-save reload.
+      if (requestId === loadRequestRef.current) {
+        setMonthlyLoans(
+          rows.map((row) => ({
+            ...row,
+            customer:
+              customerMap[row.customer_id] || null
+          }))
+        )
+
+        setListError('')
+      }
+    } catch (error) {
+      if (requestId !== loadRequestRef.current) {
+        return
+      }
+
+      console.error(
+        'Monthly loans load error:',
+        error
+      )
+
+      setListError(
+        error?.message ||
+          t(
+            'unableToLoadMonthlyLoans',
+            'Unable to load monthly loans.'
+          )
+      )
+    } finally {
+      if (requestId === loadRequestRef.current) {
+        setListLoading(false)
+      }
+    }
+  }, [t])
+
+  useEffect(() => {
+    loadMonthlyLoans()
+
+    let disposed = false
+    let channel = null
+
+    getCurrentWorkspaceId()
+      .then((workspaceId) => {
+        if (!workspaceId || disposed) return
+
+        channel = supabase
+          .channel(`monthly-loans:${workspaceId}`)
+          .on(
+            'postgres_changes',
+            {
+              event: '*',
+              schema: 'public',
+              table: 'finance_records',
+              filter: `workspace_id=eq.${workspaceId}`
+            },
+            () => {
+              if (realtimeTimer.current) {
+                clearTimeout(realtimeTimer.current)
+              }
+
+              realtimeTimer.current = setTimeout(
+                () => {
+                  if (!disposed) {
+                    loadMonthlyLoans()
+                  }
+                },
+                200
+              )
+            }
+          )
+          .subscribe()
+      })
+      .catch(() => {
+        // Realtime is best-effort; focus refresh keeps data fresh.
+      })
+
+    const refreshOnFocus = () => {
+      if (
+        document.visibilityState === 'visible'
+      ) {
+        loadMonthlyLoans()
+      }
+    }
+
+    window.addEventListener('focus', refreshOnFocus)
+    document.addEventListener(
+      'visibilitychange',
+      refreshOnFocus
+    )
+
+    return () => {
+      disposed = true
+
+      if (realtimeTimer.current) {
+        clearTimeout(realtimeTimer.current)
+      }
+
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
+
+      window.removeEventListener(
+        'focus',
+        refreshOnFocus
+      )
+      document.removeEventListener(
+        'visibilitychange',
+        refreshOnFocus
+      )
+    }
+  }, [loadMonthlyLoans])
+
   // =========================================
   // FORM
   // =========================================
@@ -96,6 +311,10 @@ function Monthly() {
   const [collectionCategoryId, setCollectionCategoryId] =
     useState('')
 
+  // Restored when the form is cancelled/reset.
+  const [defaultCategoryId, setDefaultCategoryId] =
+    useState('')
+
   const selectedCategory = categories.find(
     (category) =>
       String(category.id) === String(collectionCategoryId)
@@ -119,6 +338,15 @@ function Monthly() {
   // Tracks which field the user last edited. While Interest Amount is being
   // typed, the rate follows it; otherwise the rate drives the interest.
   const interestAmountEdited = useRef(false)
+
+  // Loading a saved loan must not let the calculation effect or the async
+  // default-rate load replace the stored interest/rate.
+  const editLoadRef = useRef(false)
+  const editingLoanRef = useRef(false)
+
+  // Bumped on every Edit click so the calculation effect runs even when the
+  // same row is edited twice with identical values, consuming the guard.
+  const [editLoadVersion, setEditLoadVersion] = useState(0)
 
   const [totalRepayment, setTotalRepayment] =
     useState(0)
@@ -171,7 +399,8 @@ function Monthly() {
 
         if (
           data?.default_interest_rate !== null &&
-          data?.default_interest_rate !== undefined
+          data?.default_interest_rate !== undefined &&
+          !editingLoanRef.current
         ) {
           setInterestRate(
             String(
@@ -220,7 +449,14 @@ function Monthly() {
         } = await ensureMonthlyLoanCategory(user.id)
 
         setCategories(activeCategories)
-        setCollectionCategoryId(String(monthlyCategory.id))
+        // An Edit click can happen while this loader is in flight. Keep the
+        // category from the loaded loan instead of replacing it with default.
+        setCollectionCategoryId((current) =>
+          editingLoanRef.current && current
+            ? current
+            : String(monthlyCategory.id)
+        )
+        setDefaultCategoryId(String(monthlyCategory.id))
         setCategoryError(false)
       } catch (error) {
         console.error('Collection category loading error:', error)
@@ -243,7 +479,9 @@ function Monthly() {
   // =========================================
 
   useEffect(() => {
-    if (providedCustomerId) {
+    // With a linked navigation customer the autocomplete is normally hidden,
+    // but editing a list row must allow changing the customer.
+    if (providedCustomerId && !editingFinanceId) {
       return undefined
     }
 
@@ -294,7 +532,7 @@ function Monthly() {
     return () => {
       active = false
     }
-  }, [providedCustomerId, t])
+  }, [providedCustomerId, editingFinanceId, t])
 
   // =========================================
   // CUSTOMER SELECTION
@@ -315,6 +553,11 @@ function Monthly() {
 
     setCustomerName(typedName)
     setCustomer(selectedCustomer)
+    // While editing, keep the override in sync with the autocomplete so the
+    // selected customer wins over the original record/navigation customer.
+    if (editingFinanceId) {
+      setEditingCustomer(selectedCustomer)
+    }
     setCustomerError(false)
   }
 
@@ -323,6 +566,9 @@ function Monthly() {
 
     setCustomerName(trimmedName)
     setCustomer(null)
+    if (editingFinanceId) {
+      setEditingCustomer(null)
+    }
     setCustomerError(false)
   }
 
@@ -378,7 +624,11 @@ function Monthly() {
     // Principal × Monthly Rate × Months / 100
     // =========================================
 
+    const isEditLoad =
+      editLoadRef.current
+
     const interest =
+      isEditLoad ||
       interestAmountEdited.current
         ? Number(interestAmount || 0)
         : months > 0
@@ -429,7 +679,11 @@ function Monthly() {
           )
         : 0
 
-    if (interestAmountEdited.current) {
+    if (isEditLoad) {
+      // Keep the stored interest/rate from the loaded loan. The flag is
+      // consumed so later user edits recalculate as usual.
+      editLoadRef.current = false
+    } else if (interestAmountEdited.current) {
       const derivedRate =
         rateFromInterestAmount(
           interestAmount,
@@ -537,7 +791,8 @@ function Monthly() {
     interestAmount,
     alreadyPaid,
     numberOfMonths,
-    startDate
+    startDate,
+    editLoadVersion
   ])
 
   // =========================================
@@ -574,6 +829,132 @@ function Monthly() {
   }
 
   // =========================================
+  // OPEN / CLOSE FORM + EDIT ROW
+  // =========================================
+
+  const resetForm = () => {
+    editLoadRef.current = false
+    editingLoanRef.current = false
+    setEditingFinanceId(null)
+    setEditingCustomer(null)
+    setCustomer(providedCustomer)
+    setCustomerName(
+      providedCustomer?.full_name || ''
+    )
+    setCustomerError(false)
+    setPrincipal('')
+    setInterestRate('')
+    setInterestAmount(0)
+    interestAmountEdited.current = false
+    setAlreadyPaid('0')
+    setNumberOfMonths('')
+    setStartDate('')
+    setCollectionMonth('')
+    setEndingDate('')
+    setCollectionCategoryId(defaultCategoryId)
+    setCategoryError(false)
+  }
+
+  const openAddMonthly = () => {
+    resetForm()
+    setShowForm(true)
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
+
+  const closeForm = () => {
+    resetForm()
+    setShowForm(false)
+  }
+
+  const monthFromDate = (dateValue) => {
+    const parts = String(dateValue || '')
+      .split('-')
+      .map(Number)
+
+    const monthNumber = parts[1]
+
+    if (
+      monthNumber >= 1 &&
+      monthNumber <= 12
+    ) {
+      return MONTHS[monthNumber - 1].value
+    }
+
+    return ''
+  }
+
+  const editMonthlyLoan = (loan) => {
+    const months = parseInt(
+      String(loan.period || '').split(' ')[0],
+      10
+    )
+
+    const loanCustomer =
+      loan.customer ||
+      (loan.customer_id
+        ? {
+            id: loan.customer_id,
+            customer_id: loan.customer_id,
+            full_name: loan.name || '',
+            phone: '',
+            address: ''
+          }
+        : null)
+
+    const loanStartDate =
+      loan.payment_date || loan.entry_date || ''
+
+    editLoadRef.current = true
+    editingLoanRef.current = true
+    setEditLoadVersion((version) => version + 1)
+    setEditingFinanceId(loan.id)
+    setEditingCustomer(loanCustomer)
+    setCustomer(loanCustomer)
+    setCustomerName(
+      loan.name || loanCustomer?.full_name || ''
+    )
+    setCustomerError(false)
+
+    setPrincipal(loan.principal_amount ?? '')
+    setInterestRate(loan.interest_rate ?? '')
+    setInterestAmount(
+      loan.interest_accrual ?? loan.interest_due ?? 0
+    )
+    interestAmountEdited.current = false
+    setAlreadyPaid(loan.paid ?? 0)
+    setNumberOfMonths(
+      Number.isFinite(months) ? String(months) : ''
+    )
+    setStartDate(loanStartDate)
+    setCollectionMonth(
+      loan.collection_month ||
+        monthFromDate(loanStartDate)
+    )
+    setEndingDate(loan.ending_date || '')
+    setCollectionCategoryId(
+      loan.collection_category_id || defaultCategoryId
+    )
+    setCategoryError(false)
+    setShowForm(true)
+
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    })
+  }
+
+  // Navigation state from a customer profile opens the form automatically.
+  useEffect(() => {
+    if (providedCustomer) {
+      setShowForm(true)
+    }
+  }, [providedCustomer])
+
+  // =========================================
   // SAVE MONTHLY FINANCE
   // =========================================
 
@@ -607,7 +988,7 @@ function Monthly() {
         )
 
       if (
-        !customer &&
+        !activeCustomer &&
         !trimmedCustomerName
       ) {
         setCustomerError(true)
@@ -623,11 +1004,13 @@ function Monthly() {
 
       if (!collectionCategoryId) {
         setCategoryError(true)
-        categorySelectRef.current?.focus()
-        categorySelectRef.current?.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center'
-        })
+        notify(
+          t(
+            'collectionCategoryRequired',
+            'Please select a collection category.'
+          )
+        )
+
         return
       }
 
@@ -657,6 +1040,7 @@ function Monthly() {
       }
 
       if (
+        String(interestRate).trim() === '' ||
         !Number.isFinite(rate) ||
         rate < 0
       ) {
@@ -698,7 +1082,9 @@ function Monthly() {
         return
       }
 
+      // Paid-off loans may be edited; this guard only applies to new loans.
       if (
+        !editingFinanceId &&
         paid >=
         totalRepayment
       ) {
@@ -760,8 +1146,33 @@ function Monthly() {
         // RESOLVE CUSTOMER (SELECT EXISTING OR CREATE NEW)
         // =====================================
 
-        let financeCustomer = customer
-        let financeCustomerId = customerId
+        const isEditing =
+          Boolean(editingFinanceId)
+
+        const editingRecord = isEditing
+          ? monthlyLoans.find(
+              (loan) =>
+                String(loan.id) ===
+                String(editingFinanceId)
+            )
+          : null
+
+        // On edit, the form's Already Paid is authoritative for the pending
+        // balance; creating a loan keeps its existing (no prior payments) path.
+        const paidSoFar = isEditing
+          ? paid
+          : 0
+
+        const principalPaidSoFar = Number(
+          editingRecord?.principal_paid || 0
+        )
+
+        const interestPaidSoFar = Number(
+          editingRecord?.interest_paid || 0
+        )
+
+        let financeCustomer = activeCustomer
+        let financeCustomerId = activeCustomerId
 
         if (!financeCustomer) {
           const existingCustomer =
@@ -836,187 +1247,270 @@ function Monthly() {
         }
 
         // =====================================
-        // INSERT FINANCE RECORD
+        // CREATE / UPDATE FINANCE RECORD
         // =====================================
 
-        const {
-          data:
-            financeRecord,
-          error:
-            financeError
-        } =
-          await supabase
-            .from(
-              'finance_records'
-            )
-            .insert({
-              user_id:
-                user.id,
+        const recordPayload = {
+          customer_id:
+            Number(
+              financeCustomerId
+            ),
 
-              customer_id:
-                Number(
-                  financeCustomerId
-                ),
+          collection_category_id:
+            Number(collectionCategoryId),
 
-              collection_category_id:
-                Number(collectionCategoryId),
+          name:
+            financeCustomer
+              ?.full_name ||
+            trimmedCustomerName ||
+            'Customer',
 
-              name:
-                financeCustomer
-                  ?.full_name ||
-                trimmedCustomerName ||
-                'Customer',
+          finance_type:
+            'monthly',
 
-              finance_type:
-                'monthly',
+          // =================================
+          // IMPORTANT
+          // =================================
+          //
+          // generate_monthly_schedule()
+          // expects number of months here.
+          //
+          // Keep this internal/database
+          // value in English.
+          // =================================
 
-              // =================================
-              // IMPORTANT
-              // =================================
-              //
-              // generate_monthly_schedule()
-              // expects number of months here.
-              //
-              // Keep this internal/database
-              // value in English.
-              // =================================
+          period:
+            `${months} Months`,
 
-              period:
-                `${months} Months`,
+          payment_date:
+            startDate,
 
-              payment_date:
-                startDate,
+          entry_date:
+            startDate,
 
-              entry_date:
-                startDate,
+          ending_date:
+            endingDate,
 
-              ending_date:
-                endingDate,
+          // =================================
+          // PRINCIPAL / TOTAL
+          // =================================
 
-              // =================================
-              // PRINCIPAL / TOTAL
-              // =================================
+          amount:
+            totalRepayment,
 
-              amount:
-                totalRepayment,
+          principal_amount:
+            p,
 
-              principal_amount:
-                p,
+          // =================================
+          // INTEREST
+          // =================================
 
-              original_principal:
-                p,
+          interest_rate:
+            rate,
 
-              // =================================
-              // INTEREST
-              // =================================
+          interest_accrual:
+            interestAmount,
 
-              interest_rate:
-                rate,
+          interest_due:
+            Math.max(
+              Number(interestAmount || 0) -
+                interestPaidSoFar,
+              0
+            ),
 
-              interest_accrual:
-                interestAmount,
+          // =================================
+          // BALANCE
+          // =================================
 
-              interest_due:
-                interestAmount,
+          pending:
+            Math.max(
+              totalRepayment - paidSoFar,
+              0
+            ),
 
-              interest_paid:
-                0,
+          principal_outstanding:
+            Math.max(
+              p - principalPaidSoFar,
+              0
+            ),
 
-              // =================================
-              // PAYMENT
-              // =================================
+          // =================================
+          // SETTINGS
+          // =================================
 
-              paid:
-                paid,
+          calculation_mode:
+            'automatic',
 
+          interest_method:
+            'simple',
+
+          loan_type:
+            'normal',
+
+          interest_type:
+            'monthly',
+
+          interest_period:
+            'monthly',
+
+          collection_cadence:
+            'monthly',
+
+          last_interest_date:
+            startDate,
+
+          next_due_date:
+            startDate,
+
+          loan_status:
+            'active'
+        }
+
+        if (!isEditing) {
+          Object.assign(
+            recordPayload,
+            {
+              user_id: user.id,
+              original_principal: p,
+              interest_paid: 0,
+              paid: paid,
               principal_paid:
                 Math.min(
                   paid,
                   p
                 ),
+              renewal_count: 0
+            }
+          )
+        } else {
+          Object.assign(
+            recordPayload,
+            {
+              paid: paid
+            }
+          )
+        }
 
-              // =================================
-              // BALANCE
-              // =================================
+        let financeRecord = null
+        let saveError = null
 
-              pending:
-                remainingAmount,
-
-              principal_outstanding:
-                Math.max(
-                  0,
-                  p - paid
-                ),
-
-              // =================================
-              // SETTINGS
-              // =================================
-
-              calculation_mode:
-                'automatic',
-
-              interest_method:
-                'simple',
-
-              loan_type:
-                'normal',
-
-              interest_type:
-                'monthly',
-
-              interest_period:
-                'monthly',
-
-              collection_cadence:
-                'monthly',
-
-              last_interest_date:
-                startDate,
-
-              next_due_date:
-                startDate,
-
-              loan_status:
-                'active',
-
-              renewal_count:
-                0
-            })
-            .select()
+        if (isEditing) {
+          const result = await supabase
+            .from('finance_records')
+            .update(recordPayload)
+            .eq('id', editingFinanceId)
+            .select('id')
             .single()
 
-        if (financeError) {
+          financeRecord = result.data
+          saveError = result.error
+        } else {
+          const result = await supabase
+            .from('finance_records')
+            .insert([recordPayload])
+            .select('id')
+            .single()
+
+          financeRecord = result.data
+          saveError = result.error
+        }
+
+        if (saveError) {
           console.error(
-            'Monthly finance insert error:',
-            financeError
+            'Monthly finance save error:',
+            saveError
           )
 
           notify(
             `${t(
               'unableToSaveMonthlyFinance',
               'Unable to save Monthly Finance'
-            )}: ${financeError.message}`
+            )}: ${saveError.message}`
+          )
+
+          return
+        }
+
+        if (!financeRecord?.id) {
+          notify(
+            t(
+              'monthlyFinanceNotCreatedCorrectly',
+              'Monthly Finance was not saved correctly.'
+            )
           )
 
           return
         }
 
         // =====================================
-        // GENERATE MONTHLY SCHEDULE
+        // MONTHLY REPAYMENT SCHEDULE
         // =====================================
 
-        const {
-          error:
-            scheduleError
-        } =
-          await supabase
-            .rpc(
+        let scheduleError = null
+
+        if (isEditing) {
+          // Only rebuild the plan when no payments have been made yet.
+          const {
+            data: existingPayments,
+            error: paymentCheckError
+          } = await supabase
+            .from('finance_payments')
+            .select('id')
+            .eq(
+              'finance_record_id',
+              editingFinanceId
+            )
+            .limit(1)
+
+          if (paymentCheckError) {
+            console.error(
+              'Monthly payment check error:',
+              paymentCheckError
+            )
+          }
+
+          if (
+            !paymentCheckError &&
+            existingPayments?.length === 0
+          ) {
+            const {
+              error: scheduleDeleteError
+            } = await supabase
+              .from('repayment_schedule')
+              .delete()
+              .eq(
+                'finance_record_id',
+                editingFinanceId
+              )
+
+            if (scheduleDeleteError) {
+              console.error(
+                'Monthly schedule reset error:',
+                scheduleDeleteError
+              )
+            }
+
+            const result = await supabase.rpc(
               'generate_monthly_schedule',
               {
                 p_finance_record_id:
                   financeRecord.id
               }
             )
+
+            scheduleError = result.error
+          }
+        } else {
+          const result = await supabase.rpc(
+            'generate_monthly_schedule',
+            {
+              p_finance_record_id:
+                financeRecord.id
+            }
+          )
+
+          scheduleError = result.error
+        }
 
         if (
           scheduleError
@@ -1029,8 +1523,18 @@ function Monthly() {
           notify(
             `${t(
               'monthlyCreatedScheduleFailed',
-              'Monthly Finance was created, but schedule generation failed'
+              'Monthly Finance was saved, but schedule generation failed'
             )}: ${scheduleError.message}`
+          )
+
+          if (isEditing) {
+            closeForm()
+            await loadMonthlyLoans()
+            return
+          }
+
+          navigate(
+            `/customers/${financeCustomerId}`
           )
 
           return
@@ -1039,6 +1543,24 @@ function Monthly() {
         // =====================================
         // SUCCESS
         // =====================================
+
+        if (isEditing) {
+          notify(
+            t(
+              'monthlyLoanSavedSuccessfully',
+              'Monthly Loan {{financeId}} saved successfully',
+              {
+                financeId:
+                  editingRecord?.finance_id ||
+                  `#${editingFinanceId}`
+              }
+            )
+          )
+
+          closeForm()
+          await loadMonthlyLoans()
+          return
+        }
 
         notify(
           t(
@@ -1067,6 +1589,70 @@ function Monthly() {
         setSaving(false)
       }
     }
+
+  // =========================================
+  // LIST HELPERS
+  // =========================================
+
+  const categoryName = (id) =>
+    categories.find(
+      (category) =>
+        String(category.id) === String(id)
+    )?.category_name ||
+    t('notSelected', 'Not Selected')
+
+  const loanMonths = (loan) =>
+    parseInt(
+      String(loan.period || '').split(' ')[0],
+      10
+    ) || 0
+
+  const remainingFor = (loan) => {
+    const fallback = Math.max(
+      Number(loan.amount || 0) -
+        Number(loan.paid || 0),
+      0
+    )
+
+    return Number(
+      loan.pending ?? fallback
+    )
+  }
+
+  const monthlyFor = (loan) => {
+    const months = loanMonths(loan)
+
+    return months > 0
+      ? Number(
+          (
+            remainingFor(loan) / months
+          ).toFixed(2)
+        )
+      : 0
+  }
+
+  const normalizedListSearch =
+    listSearch.trim().toLocaleLowerCase()
+
+  const filteredMonthlyLoans =
+    monthlyLoans.filter((loan) => {
+      if (!normalizedListSearch) return true
+
+      return [
+        loan.finance_id,
+        loan.id,
+        loan.name,
+        loan.customer?.customer_id,
+        loan.customer?.phone,
+        categoryName(
+          loan.collection_category_id
+        )
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLocaleLowerCase()
+        .includes(normalizedListSearch)
+    })
 
   // =========================================
   // UI
@@ -1114,30 +1700,248 @@ function Monthly() {
           HEADER
       ====================================== */}
 
-      <div className="daily-header">
+      <div
+        className="daily-header"
+        style={{
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 16
+        }}
+      >
+        <div>
+          <p>
+            {t(
+              'finance',
+              'FINANCE'
+            )}
+          </p>
 
-        <p>
-          {t(
-            'finance',
-            'FINANCE'
-          )}
-        </p>
+          <h1>
+            {editingFinanceId
+              ? `${t(
+                  'edit',
+                  'Edit'
+                )} ${t(
+                  'monthlyLoan',
+                  'Monthly Loan'
+                )}`
+              : t(
+                  'monthlyLoan',
+                  'Monthly Loan'
+                )}
+          </h1>
 
-        <h1>
-          {t(
-            'monthlyLoan',
-            'Monthly Loan'
-          )}
-        </h1>
+          <span>
+            {t(
+              'monthlyLoanDescription',
+              'Create a monthly repayment finance'
+            )}
+          </span>
+        </div>
 
-        <span>
-          {t(
-            'monthlyLoanDescription',
-            'Create a monthly repayment finance'
-          )}
-        </span>
+        <button
+          type="button"
+          className="loan-add-button flex items-center gap-space-xs px-space-md py-space-sm rounded-DEFAULT bg-primary text-on-primary shadow-sm hover:bg-primary-container transition-colors font-label-lg text-label-lg border-0 cursor-pointer font-semibold"
+          onClick={openAddMonthly}
+        >
+          <span className="material-symbols-outlined text-[18px]">add</span>
+          <span>
+            {t(
+              'addMonthlyFinance',
+              'Add Monthly Finance'
+            )}
+          </span>
+        </button>
 
       </div>
+
+      {/* =====================================
+          LOAN SUMMARY — ALWAYS VISIBLE
+      ====================================== */}
+
+      <div className="daily-loan-summary">
+
+        <h2>
+          {t(
+            'loanSummary',
+            'Loan Summary'
+          )}
+        </h2>
+
+        <div className="daily-summary-grid">
+
+          <div>
+            <span>
+              {t(
+                'principal',
+                'Principal'
+              )}
+            </span>
+
+            <strong>
+              ₹{formatMoney(principal)}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'interest',
+                'Interest'
+              )}
+            </span>
+
+            <strong>
+              ₹{formatMoney(interestAmount)}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'totalRepayment',
+                'Total Repayment'
+              )}
+            </span>
+
+            <strong>
+              ₹{formatMoney(totalRepayment)}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'alreadyPaid',
+                'Already Paid'
+              )}
+            </span>
+
+            <strong>
+              ₹{formatMoney(alreadyPaid)}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'remainingAmount',
+                'Remaining Amount'
+              )}
+            </span>
+
+            <strong>
+              ₹{formatMoney(remainingAmount)}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'monthlyAmount',
+                'Monthly Amount'
+              )}
+            </span>
+
+            <strong>
+              ₹{formatMoney(monthlyAmount)}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'numberOfMonths',
+                'Number of Months'
+              )}
+            </span>
+
+            <strong>
+              {numberOfMonths || 0}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'collectionMonth',
+                'Collection Month'
+              )}
+            </span>
+
+            <strong>
+              {collectionMonth
+                ? getTranslatedMonth(
+                    collectionMonth
+                  )
+                : t(
+                    'notSelected',
+                    'Not Selected'
+                  )}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'startDate',
+                'Start Date'
+              )}
+            </span>
+
+            <strong>
+              {startDate || '-'}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'endingDate',
+                'Ending Date'
+              )}
+            </span>
+
+            <strong>
+              {endingDate || '-'}
+            </strong>
+          </div>
+
+          <div>
+            <span>
+              {t(
+                'collectionCategory',
+                'Collection Category'
+              )}
+            </span>
+
+            <strong>
+              {selectedCategory?.category_name ||
+                t(
+                  'notSelected',
+                  'Not Selected'
+                )}
+            </strong>
+          </div>
+
+        </div>
+
+      </div>
+
+      {/* =====================================
+          FORM
+      ====================================== */}
+
+      {showForm && (
+
+      <form
+        onSubmit={
+          saveMonthlyFinance
+        }
+        noValidate
+      >
 
       {/* =====================================
           CUSTOMER
@@ -1152,7 +1956,7 @@ function Monthly() {
           )}
         </h2>
 
-        {!providedCustomerId && (
+        {(!providedCustomerId || editingFinanceId) && (
           <div
             className="daily-form-grid"
             style={{ marginBottom: '18px' }}
@@ -1227,7 +2031,7 @@ function Monthly() {
 
             <strong>
               {
-                customer
+                activeCustomer
                   ?.customer_id ||
                 '-'
               }
@@ -1238,16 +2042,6 @@ function Monthly() {
         </div>
 
       </div>
-
-      {/* =====================================
-          FORM
-      ====================================== */}
-
-      <form
-        onSubmit={
-          saveMonthlyFinance
-        }
-      >
 
         {/* =================================
             COLLECTION CATEGORY
@@ -1685,224 +2479,47 @@ function Monthly() {
         </div>
 
         {/* =================================
-            MONTHLY CALCULATION
+            SAVE
         ================================== */}
 
-        <div className="daily-form-section">
+        <div className="daily-save-area">
 
-          <h2>
-            {t(
-              'monthlyCalculation',
-              'Monthly Calculation'
-            )}
-          </h2>
-
-          <div className="daily-manage-summary">
-
-            <div>
-
-              <span>
-                {t(
-                  'principal',
-                  'Principal'
-                )}
-              </span>
-
-              <strong>
-                ₹{
-                  formatMoney(
-                    principal
+          <button
+            type="submit"
+            className="record-payment-button"
+            disabled={
+              saving
+            }
+          >
+            {
+              saving
+                ? t(
+                    editingFinanceId
+                      ? 'saving'
+                      : 'creatingMonthlyFinance',
+                    editingFinanceId
+                      ? 'Saving...'
+                      : 'Creating Monthly Finance...'
                   )
-                }
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'interest',
-                  'Interest'
-                )}
-              </span>
-
-              <strong>
-                ₹{
-                  formatMoney(
-                    interestAmount
+                : t(
+                    editingFinanceId
+                      ? 'saveMonthlyFinance'
+                      : 'createMonthlyFinance',
+                    editingFinanceId
+                      ? 'Save Monthly Finance'
+                      : 'Create Monthly Finance'
                   )
-                }
-              </strong>
+            }
+          </button>
 
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'totalRepayment',
-                  'Total Repayment'
-                )}
-              </span>
-
-              <strong>
-                ₹{
-                  formatMoney(
-                    totalRepayment
-                  )
-                }
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'alreadyPaid',
-                  'Already Paid'
-                )}
-              </span>
-
-              <strong>
-                ₹{
-                  formatMoney(
-                    alreadyPaid
-                  )
-                }
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'remaining',
-                  'Remaining'
-                )}
-              </span>
-
-              <strong>
-                ₹{
-                  formatMoney(
-                    remainingAmount
-                  )
-                }
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'monthlyAmount',
-                  'Monthly Amount'
-                )}
-              </span>
-
-              <strong>
-                ₹{
-                  formatMoney(
-                    monthlyAmount
-                  )
-                }
-              </strong>
-
-            </div>
-
-          </div>
-
-          {/* =================================
-              EXTRA INFORMATION
-          ================================== */}
-
-          <div className="daily-info-grid">
-
-            <div>
-
-              <span>
-                {t(
-                  'numberOfMonths',
-                  'Number of Months'
-                )}
-              </span>
-
-              <strong>
-                {
-                  numberOfMonths ||
-                  0
-                }
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'endingDate',
-                  'Ending Date'
-                )}
-              </span>
-
-              <strong>
-                {
-                  endingDate ||
-                  '-'
-                }
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'collectionMonth',
-                  'Collection Month'
-                )}
-              </span>
-
-              <strong>
-                {
-                  collectionMonth
-                    ? getTranslatedMonth(
-                        collectionMonth
-                      )
-                    : t(
-                        'notSelected',
-                        'Not Selected'
-                      )
-                }
-              </strong>
-
-            </div>
-
-            <div>
-
-              <span>
-                {t(
-                  'collectionCategory',
-                  'Collection Category'
-                )}
-              </span>
-
-              <strong>
-                {
-                  selectedCategory?.category_name ||
-                  t(
-                    'notSelected',
-                    'Not Selected'
-                  )
-                }
-              </strong>
-
-            </div>
-
-          </div>
+          <button
+            type="button"
+            className="back-button daily-cancel-button"
+            onClick={closeForm}
+            disabled={saving}
+          >
+            {t('cancel', 'Cancel')}
+          </button>
 
         </div>
 
@@ -1969,31 +2586,335 @@ function Monthly() {
 
         </div>
 
-        {/* =================================
-            SAVE
-        ================================== */}
-
-        <button
-          type="submit"
-          className="record-payment-button"
-          disabled={
-            saving
-          }
-        >
-          {
-            saving
-              ? t(
-                  'creatingMonthlyFinance',
-                  'Creating Monthly Finance...'
-                )
-              : t(
-                  'createMonthlyFinance',
-                  'Create Monthly Finance'
-                )
-          }
-        </button>
-
       </form>
+
+      )}
+
+      {/* =================================
+          LIVE MONTHLY LOANS LIST
+      ================================= */}
+
+      <div className="loan-list-section">
+
+        <div className="loan-list-header">
+
+          <div>
+            <h2>
+              {t(
+                'liveMonthlyLoans',
+                'Live Monthly Loans'
+              )}
+            </h2>
+
+            <span>
+              {t(
+                'liveLoansHelp',
+                'Updates automatically as data changes.'
+              )}
+            </span>
+          </div>
+
+          <input
+            type="search"
+            value={listSearch}
+            onChange={(e) =>
+              setListSearch(e.target.value)
+            }
+            placeholder={t(
+              'searchMonthlyLoans',
+              'Search customer, ID, phone or finance ID...'
+            )}
+            aria-label={t(
+              'searchMonthlyLoans',
+              'Search monthly loans'
+            )}
+          />
+
+        </div>
+
+        {listLoading ? (
+
+          <p className="loan-list-message">
+            {t('loading', 'Loading...')}
+          </p>
+
+        ) : listError ? (
+
+          <p className="loan-list-error">
+            {listError}
+          </p>
+
+        ) : filteredMonthlyLoans.length === 0 ? (
+
+          <p className="loan-list-message">
+            {t(
+              'noMonthlyLoansFound',
+              'No monthly loans found.'
+            )}
+          </p>
+
+        ) : (
+
+          <div className="loan-list-table-wrap">
+
+            <table className="loan-list-table">
+
+              <thead>
+                <tr>
+                  <th>
+                    {t(
+                      'financeId',
+                      'Finance ID'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'customerName',
+                      'Customer Name'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'customerId',
+                      'Customer ID'
+                    )}
+                  </th>
+
+                  <th>
+                    {t('phone', 'Phone')}
+                  </th>
+
+                  <th>
+                    {t(
+                      'principal',
+                      'Principal'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'interestRate',
+                      'Interest Rate'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'interest',
+                      'Interest'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'totalRepayment',
+                      'Total Repayment'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'remainingAmount',
+                      'Remaining'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'monthlyAmount',
+                      'Monthly Amount'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'startDate',
+                      'Start Date'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'numberOfMonths',
+                      'Number of Months'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'endingDate',
+                      'Ending Date'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'collectionCategory',
+                      'Collection Category'
+                    )}
+                  </th>
+
+                  <th>
+                    {t('paid', 'Paid')}
+                  </th>
+
+                  <th>
+                    {t(
+                      'pending',
+                      'Pending'
+                    )}
+                  </th>
+
+                  <th>
+                    {t(
+                      'status',
+                      'Status'
+                    )}
+                  </th>
+
+                  <th>
+                    {t('edit', 'Edit')}
+                  </th>
+                </tr>
+              </thead>
+
+              <tbody>
+                {filteredMonthlyLoans.map(
+                  (loan) => {
+                    const months =
+                      loanMonths(loan)
+
+                    return (
+                      <tr key={loan.id}>
+
+                        <td>
+                          {loan.finance_id ||
+                            `#${loan.id}`}
+                        </td>
+
+                        <td>
+                          {loan.customer
+                            ?.full_name ||
+                            loan.name ||
+                            '-'}
+                        </td>
+
+                        <td>
+                          {loan.customer
+                            ?.customer_id ||
+                            '-'}
+                        </td>
+
+                        <td>
+                          {loan.customer
+                            ?.phone || '-'}
+                        </td>
+
+                        <td>
+                          ₹{formatMoney(
+                            loan.principal_amount
+                          )}
+                        </td>
+
+                        <td>
+                          {loan.interest_rate ?? 0}%
+                        </td>
+
+                        <td>
+                          ₹{formatMoney(
+                            loan.interest_accrual ??
+                              loan.interest_due
+                          )}
+                        </td>
+
+                        <td>
+                          ₹{formatMoney(
+                            loan.amount
+                          )}
+                        </td>
+
+                        <td>
+                          ₹{formatMoney(
+                            remainingFor(loan)
+                          )}
+                        </td>
+
+                        <td>
+                          ₹{formatMoney(
+                            monthlyFor(loan)
+                          )}
+                        </td>
+
+                        <td>
+                          {loan.payment_date ||
+                            loan.entry_date ||
+                            '-'}
+                        </td>
+
+                        <td>
+                          {months || '-'}
+                        </td>
+
+                        <td>
+                          {loan.ending_date ||
+                            '-'}
+                        </td>
+
+                        <td>
+                          {categoryName(
+                            loan.collection_category_id
+                          )}
+                        </td>
+
+                        <td>
+                          ₹{formatMoney(
+                            loan.paid
+                          )}
+                        </td>
+
+                        <td>
+                          ₹{formatMoney(
+                            loan.pending
+                          )}
+                        </td>
+
+                        <td>
+                          {loan.loan_status ||
+                            '-'}
+                        </td>
+
+                        <td>
+                          <button
+                            type="button"
+                            className="loan-list-edit-button"
+                            onClick={() =>
+                              editMonthlyLoan(
+                                loan
+                              )
+                            }
+                          >
+                            {t(
+                              'edit',
+                              'Edit'
+                            )}
+                          </button>
+                        </td>
+
+                      </tr>
+                    )
+                  }
+                )}
+              </tbody>
+
+            </table>
+
+          </div>
+
+        )}
+
+      </div>
 
     </div>
   )

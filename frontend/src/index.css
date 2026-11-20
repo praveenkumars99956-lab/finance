@@ -4120,6 +4120,7 @@ table {
 }
 
 .daily-loan-summary {
+  margin: 0 0 20px;
   padding: 24px;
   background:
     linear-gradient(
@@ -4133,6 +4134,178 @@ table {
 
 .daily-loan-summary h2 {
   margin: 0 0 18px;
+}
+
+/* Live daily loans list */
+.daily-loan-list-section {
+  margin-top: 24px;
+  padding: 24px;
+  background: white;
+  border: 1px solid #e1e8f0;
+  border-radius: 16px;
+  box-shadow: 0 5px 20px rgba(30, 60, 100, 0.06);
+}
+
+.daily-loan-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.daily-loan-list-header h2 {
+  margin: 0;
+  color: #351078;
+  font-size: 19px;
+}
+
+.daily-loan-list-header span {
+  color: #667085;
+  font-size: 13px;
+}
+
+.daily-loan-list-header input[type='search'] {
+  min-width: 260px;
+  padding: 10px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.daily-list-table-wrap {
+  overflow-x: auto;
+}
+
+.daily-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.daily-list-table th,
+.daily-list-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9eef5;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.daily-list-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+}
+
+.daily-list-message,
+.daily-list-error {
+  padding: 16px 0;
+  font-size: 14px;
+}
+
+.daily-list-error {
+  color: #b42318;
+}
+
+.daily-list-edit-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #351078;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.daily-list-edit-button:hover {
+  background: #260b57;
+}
+
+/* Shared live loan list (Weekly / Monthly / Interest-Only) */
+.loan-list-section {
+  margin-top: 24px;
+  padding: 24px;
+  background: white;
+  border: 1px solid #e1e8f0;
+  border-radius: 16px;
+  box-shadow: 0 5px 20px rgba(30, 60, 100, 0.06);
+}
+
+.loan-list-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.loan-list-header h2 {
+  margin: 0;
+  color: #351078;
+  font-size: 19px;
+}
+
+.loan-list-header span {
+  color: #667085;
+  font-size: 13px;
+}
+
+.loan-list-header input[type='search'] {
+  min-width: 260px;
+  padding: 10px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 10px;
+  font-size: 14px;
+}
+
+.loan-list-table-wrap {
+  overflow-x: auto;
+}
+
+.loan-list-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.loan-list-table th,
+.loan-list-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9eef5;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.loan-list-table th {
+  background: #f8fafc;
+  color: #475569;
+  font-weight: 700;
+}
+
+.loan-list-message,
+.loan-list-error {
+  padding: 16px 0;
+  font-size: 14px;
+}
+
+.loan-list-error {
+  color: #b42318;
+}
+
+.loan-list-edit-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 8px;
+  background: #351078;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.loan-list-edit-button:hover {
+  background: #260b57;
 }
 
 .daily-summary-grid {
@@ -8798,3 +8971,44 @@ table {
 .group:hover .group-hover\:bg-primary { background-color: var(--color-primary); }
 .group:hover .group-hover\:text-inverse { color: var(--color-text-inverse); }
 .group:hover .group-hover\:translate-x-1 { transform: translatex(0.25rem); }
+
+/* Collection Categories add button */
+.collection-category-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 18px;
+}
+
+.collection-category-add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 10px 18px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--color-primary);
+  color: var(--color-text-inverse);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.collection-category-add-button:hover {
+  background: var(--color-primary-hover);
+  transform: translateY(-1px);
+}
+
+.collection-category-add-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.collection-category-type-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+}

@@ -781,6 +781,16 @@ button[type='submit']:hover {
   color: var(--fs-ink-muted) !important;
 }
 
+/* Keep the Add Daily Finance button label/icon readable on the primary fill. */
+.daily-loan-header .daily-add-button span {
+  color: var(--color-on-primary, #ffffff) !important;
+}
+
+/* Shared Add buttons on Weekly / Monthly / Interest-Only headers. */
+.loan-add-button span {
+  color: var(--color-on-primary, #ffffff) !important;
+}
+
 /* Selects show a single native arrow.
    Previously a custom chevron was drawn here with background-image, but the
    native arrow was never suppressed (no `appearance: none`), so both arrows

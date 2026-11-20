@@ -13,7 +13,39 @@ async function loadCollectionCategories() {
   return data || []
 }
 
-async function ensureLoanCategory(createdBy, loanName, reactivateInactive = false) {
+async function insertLoanCategory(payload) {
+  const { data, error } = await supabase
+    .from('collection_categories')
+    .insert(payload)
+    .select('id, category_name, status')
+    .single()
+
+  // The category_type column is added by a recent migration. Until it has
+  // been applied, fall back to a plain insert so loan creation still works.
+  if (
+    error &&
+    error.code === '42703' &&
+    /category_type/i.test(error.message || '')
+  ) {
+    const payloadWithoutType = { ...payload }
+    delete payloadWithoutType.category_type
+
+    return supabase
+      .from('collection_categories')
+      .insert(payloadWithoutType)
+      .select('id, category_name, status')
+      .single()
+  }
+
+  return { data, error }
+}
+
+async function ensureLoanCategory(
+  createdBy,
+  loanName,
+  reactivateInactive = false,
+  categoryType = 'daily'
+) {
   if (!createdBy) {
     throw new Error(`A signed-in admin is required to create the ${loanName} category.`)
   }
@@ -77,16 +109,14 @@ async function ensureLoanCategory(createdBy, loanName, reactivateInactive = fals
     }
   }
 
-  const { data: createdCategory, error: createError } = await supabase
-    .from('collection_categories')
-    .insert({
+  const { data: createdCategory, error: createError } =
+    await insertLoanCategory({
       category_name: loanName,
       description: `Default collection category for ${loanName}`,
       status: 'active',
+      category_type: categoryType,
       created_by: createdBy
     })
-    .select('id, category_name, status')
-    .single()
 
   if (createError) {
     if (createError.code === '23505') {
@@ -127,7 +157,12 @@ async function ensureLoanCategory(createdBy, loanName, reactivateInactive = fals
 
 export async function ensureWeeklyLoanCategory(createdBy) {
   const { categories, loanCategory } =
-    await ensureLoanCategory(createdBy, 'Weekly Loan')
+    await ensureLoanCategory(
+      createdBy,
+      'Weekly Loan',
+      false,
+      'weekly'
+    )
 
   return {
     categories,
@@ -137,7 +172,12 @@ export async function ensureWeeklyLoanCategory(createdBy) {
 
 export async function ensureMonthlyLoanCategory(createdBy) {
   const { categories, loanCategory } =
-    await ensureLoanCategory(createdBy, 'Monthly Loan', true)
+    await ensureLoanCategory(
+      createdBy,
+      'Monthly Loan',
+      true,
+      'monthly'
+    )
 
   return {
     categories,
@@ -147,7 +187,12 @@ export async function ensureMonthlyLoanCategory(createdBy) {
 
 export async function ensureInterestOnlyLoanCategory(createdBy) {
   const { loanCategory } =
-    await ensureLoanCategory(createdBy, 'Interest-Only Collection', true)
+    await ensureLoanCategory(
+      createdBy,
+      'Interest-Only Collection',
+      true,
+      'interest'
+    )
 
   return {
     interestOnlyCategory: loanCategory

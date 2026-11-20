@@ -907,9 +907,70 @@ function AgentCollection() {
   const status =
     getCollectionStatus()
 
+  const financeType = String(finance.finance_type || '').toLowerCase()
+  const isInterestOnlyLoan =
+    financeType === 'interest_only' || financeType === 'interest-only'
+
   const pendingForDate = getPendingForDate(finance, paymentDate)
   const paymentLimitForDate = getPaymentLimitForDate(finance, paymentDate)
-  const totalAmount = Number(finance.paid || 0) + pendingForDate
+  const paidAmount = Number(finance.paid || 0)
+  const totalAmount = paidAmount + pendingForDate
+  const principalAmount = Number(finance.principal_amount ?? finance.amount ?? 0)
+  // Interest accrual is cumulative; the outstanding principal and the
+  // per-period interest must be derived separately for payoff figures.
+  const principalOutstanding = Number(
+    finance.principal_outstanding ?? principalAmount
+  )
+  const interestRate = Number(finance.interest_rate ?? 0)
+  const interestAmount = Number(
+    finance.interest_amount ??
+      finance.interest_accrual ??
+      finance.interest_due ??
+      0
+  )
+  const interestPer30Days = Math.round(
+    principalOutstanding * interestRate / 100 * 100
+  ) / 100
+  const totalRepayment = isInterestOnlyLoan
+    ? Number(finance.total_amount ?? principalOutstanding + interestPer30Days)
+    : Number(finance.total_amount ?? totalAmount)
+  const startDateValue =
+    finance.start_date ||
+    finance.payment_date ||
+    finance.entry_date ||
+    ''
+  const endingDateValue = finance.ending_date || ''
+  const installmentAmount = Number(
+    finance.daily_amount ??
+      finance.weekly_amount ??
+      finance.monthly_amount ??
+      finance.installment_amount ??
+      0
+  )
+  const durationCount =
+    finance.number_of_days ??
+    finance.number_of_weeks ??
+    finance.number_of_months ??
+    finance.duration ??
+    finance.days ??
+    finance.weeks ??
+    finance.months ??
+    ''
+  const durationLabel = financeType === 'daily'
+    ? t('numberOfDays', 'Number of Days')
+    : financeType === 'weekly'
+      ? t('numberOfWeeks', 'Number of Weeks')
+      : financeType === 'monthly'
+        ? t('numberOfMonths', 'Number of Months')
+        : null
+  const installmentLabel = financeType === 'daily'
+    ? t('dailyAmount', 'Daily Amount')
+    : financeType === 'weekly'
+      ? t('weeklyAmount', 'Weekly Amount')
+      : financeType === 'monthly'
+        ? t('monthlyAmount', 'Monthly Amount')
+        : null
+  const collectionMonthValue = finance.collection_month || finance.collectionMonth || ''
 
   // =========================================
   // UI
@@ -1047,116 +1108,119 @@ function AgentCollection() {
 
       </div>
 
-      {/* SUMMARY */}
-
-      <div className="daily-manage-summary">
-
-        <div>
-          <span>
-            {t('loanType')}
-          </span>
-
-          <strong>
-            {getLoanName(
-              finance.finance_type
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            {t('totalAmount')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(
-              totalAmount
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            {t('collected')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(
-              finance.paid
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            {t('pending')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(
-              pendingForDate
-            )}
-          </strong>
-        </div>
-
-      </div>
-
-      {/* FINANCE DETAILS */}
+      {/* LOAN SUMMARY */}
 
       <div className="daily-manage-section">
 
         <h2>
-          {t('financeDetails')}
+          {t('loanSummary', 'Loan Summary')}
         </h2>
 
         <div className="daily-info-grid">
 
           <div>
-            <span>
-              {t('principal')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(
-                finance.principal_amount ||
-                finance.amount
-              )}
-            </strong>
+            <span>{t('loanType', 'Loan Type')}</span>
+            <strong>{getLoanName(finance.finance_type)}</strong>
           </div>
 
           <div>
-            <span>
-              {t('nextDueDate')}
-            </span>
-
-            <strong>
-              {formatDate(
-                finance.next_due_date
-              )}
-            </strong>
+            <span>{t('principal', 'Principal')}</span>
+            <strong>₹{formatMoney(principalAmount)}</strong>
           </div>
 
           <div>
-            <span>
-              {t('status')}
-            </span>
+            <span>{t('interestRate', 'Interest Rate')}</span>
+            <strong>{interestRate}%</strong>
+          </div>
 
-            <strong>
-              {t(status)}
-            </strong>
+          {isInterestOnlyLoan ? (
+            <div>
+              <span>{t('interestPer30Days', 'Interest per 30 days')}</span>
+              <strong>₹{formatMoney(interestPer30Days)}</strong>
+            </div>
+          ) : (
+            <div>
+              <span>{t('interest', 'Interest')}</span>
+              <strong>₹{formatMoney(interestAmount)}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{t('totalRepayment', 'Total Repayment')}</span>
+            <strong>₹{formatMoney(totalRepayment)}</strong>
+          </div>
+
+          {isInterestOnlyLoan && (
+            <div>
+              <span>{t('principalDueAtPayoff', 'Principal Due At Payoff')}</span>
+              <strong>₹{formatMoney(principalOutstanding)}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{t('collected', 'Collected')}</span>
+            <strong>₹{formatMoney(paidAmount)}</strong>
           </div>
 
           <div>
-            <span>
-              Loan Status
-            </span>
+            <span>{isInterestOnlyLoan ? t('balanceDue', 'Balance Due') : t('pending', 'Pending')}</span>
+            <strong>₹{formatMoney(pendingForDate)}</strong>
+          </div>
 
+          {!isInterestOnlyLoan && installmentLabel && (
+            <div>
+              <span>{installmentLabel}</span>
+              <strong>₹{formatMoney(installmentAmount)}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{t('startDate', 'Start Date')}</span>
+            <strong>{formatDate(startDateValue)}</strong>
+          </div>
+
+          {!isInterestOnlyLoan && durationLabel && (
+            <div>
+              <span>{durationLabel}</span>
+              <strong>{durationCount || 0}</strong>
+            </div>
+          )}
+
+          {!isInterestOnlyLoan && (
+            <div>
+              <span>{t('endingDate', 'Ending Date')}</span>
+              <strong>{formatDate(endingDateValue)}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{isInterestOnlyLoan ? t('nextInterestDue', 'Next Interest Due') : t('nextDueDate', 'Next Due Date')}</span>
+            <strong>{formatDate(finance.next_due_date)}</strong>
+          </div>
+
+          {financeType === 'monthly' && (
+            <div>
+              <span>{t('collectionMonth', 'Collection Month')}</span>
+              <strong>{collectionMonthValue || t('notSelected', 'Not Selected')}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{t('collectionCategory', 'Collection Category')}</span>
+            <strong>{categoryName}</strong>
+          </div>
+
+          <div>
+            <span>{t('status', 'Status')}</span>
+            <strong>{t(status)}</strong>
+          </div>
+
+          <div>
+            <span>{t('loanStatus', 'Loan Status')}</span>
             <strong>
-              {
-                ['active', 'closed'].includes(String(finance.loan_status || 'active').toLowerCase())
-                  ? t(String(finance.loan_status || 'active').toLowerCase())
-                  : finance.loan_status || '-'
-              }
+              {['active', 'closed'].includes(String(finance.loan_status || 'active').toLowerCase())
+                ? t(String(finance.loan_status || 'active').toLowerCase())
+                : (finance.loan_status || '-')}
             </strong>
           </div>
 

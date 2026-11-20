@@ -34,6 +34,19 @@ function AgentAssignments() {
   )
   const [status, setStatus] = useState('active')
 
+  // Keep the original assignment selectable while editing, even if its
+  // category or agent is no longer active/available.
+  const currentAssignment = editingId
+    ? assignments.find((assignment) => assignment.id === editingId)
+    : null
+  // The bypass only applies while editing the assignment unchanged. Flipping
+  // an inactive assignment to active must still validate the agent.
+  const isExistingAssignmentAgent = Boolean(
+    currentAssignment &&
+      String(currentAssignment.agent_id) === String(agentId) &&
+      String(currentAssignment.status) === String(status)
+  )
+
   useEffect(() => {
     loadPage()
   }, [])
@@ -218,12 +231,19 @@ function AgentAssignments() {
       return
     }
 
-    if (!selectedAgent.auth_user_id && (!editingId || status === 'active')) {
+    if (
+      !selectedAgent.auth_user_id &&
+      (!editingId || (status === 'active' && !isExistingAssignmentAgent))
+    ) {
       notify(t('agentAssignmentLoginRequired'))
       return
     }
 
-    if (selectedAgent.status !== 'active' && status === 'active') {
+    if (
+      selectedAgent.status !== 'active' &&
+      status === 'active' &&
+      !isExistingAssignmentAgent
+    ) {
       notify(t('agentAssignmentActiveRequired'))
       return
     }
@@ -702,10 +722,24 @@ function AgentAssignments() {
               onChange={setCategoryId}
               ariaLabel={t('collectionCategory')}
               placeholder={t('selectCategory')}
-              options={activeCategories.map((category) => ({
-                value: String(category.id),
-                label: category.category_name
-              }))}
+              options={[
+                ...activeCategories.map((category) => ({
+                  value: String(category.id),
+                  label: category.category_name
+                })),
+                ...(currentAssignment &&
+                !activeCategories.some(
+                  (category) =>
+                    String(category.id) ===
+                    String(currentAssignment.category_id)
+                )
+                  ? [{
+                      value: String(currentAssignment.category_id),
+                      label: currentAssignment.collection_categories?.category_name ||
+                        t('collectionCategory')
+                    }]
+                  : [])
+              ]}
             />
           </div>
 
