@@ -152,6 +152,27 @@ export default {
           );
         }
 
+        // The verified login email is authoritative for role and workspace.
+        const { error: bindingError } = await ctx.supabaseAdmin
+          .from("role_bindings")
+          .upsert(
+            {
+              email: loginEmail.toLowerCase(),
+              role: "admin",
+              workspace_id: workspaceId,
+              active: true,
+              note: "Created with admin workspace",
+            },
+            { onConflict: "email" },
+          );
+
+        if (bindingError) {
+          throw new Error(
+            bindingError.message ||
+              "Unable to create the admin access binding.",
+          );
+        }
+
         const { error: settingsError } = await ctx.supabaseAdmin
           .from("app_settings")
           .insert({

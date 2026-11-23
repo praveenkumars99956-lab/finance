@@ -248,7 +248,7 @@ export default function AgentLayout() {
             </Link>
           </nav>
 
-          <div style={{ marginTop: 'auto', paddingTop: '0.75rem', borderTop: '1px solid var(--fs-agent-border, rgba(53,16,120,0.12))' }}>
+          <div style={{ marginTop: 'auto', paddingTop: '0.75rem', borderTop: '1px solid var(--fs-agent-sidebar-border, rgba(53,16,120,0.1))' }}>
             <button type="button" style={{ ...logoutBtnStyle, width: '100%', justifyContent: 'center' }} onClick={logout}>
               <span className="material-symbols-outlined" style={{ fontSize: 18 }} aria-hidden="true">logout</span>
               <span>{t('logout', 'Logout')}</span>

@@ -17,7 +17,7 @@ export default {
       req: Request,
       ctx: {
         userClaims?: { id?: string };
-        jwtClaims?: { sub?: string };
+        jwtClaims?: { sub?: string; email?: string };
         supabaseAdmin: any;
       },
     ) => {
@@ -54,18 +54,27 @@ export default {
 
       try {
         // =========================================
-        // GET LOGGED-IN ADMIN USER ID
+        // VERIFY ADMIN FROM THE SIGNED-IN EMAIL
+        // -----------------------------------------
+        // profiles.role can be stale. The active role_bindings row for the
+        // verified JWT email is authoritative for both role and workspace.
         // =========================================
 
         const loggedInUserId =
   ctx.jwtClaims?.sub;
 
+        const loggedInEmail = String(
+          ctx.jwtClaims?.email || "",
+        )
+          .trim()
+          .toLowerCase();
+
         console.log(
-          "Logged in user ID:",
-          loggedInUserId,
+          "Logged in admin email:",
+          loggedInEmail,
         );
 
-        if (!loggedInUserId) {
+        if (!loggedInUserId || !loggedInEmail) {
           return jsonResponse(
             {
               success: false,
@@ -75,49 +84,38 @@ export default {
           );
         }
 
-        // =========================================
-        // VERIFY ADMIN ROLE
-        // =========================================
-
         const {
-          data: adminProfile,
-          error: adminProfileError,
+          data: adminBinding,
+          error: adminBindingError,
         } = await ctx.supabaseAdmin
-          .from("profiles")
-          .select("id, full_name, role, workspace_id")
-          .eq("id", loggedInUserId)
-          .single();
+          .from("role_bindings")
+          .select("role, workspace_id, active")
+          .eq("email", loggedInEmail)
+          .eq("active", true)
+          .maybeSingle();
 
-        if (adminProfileError) {
+        if (adminBindingError) {
           console.error(
-            "Admin profile error:",
-            adminProfileError,
+            "Admin binding error:",
+            adminBindingError,
           );
 
           return jsonResponse(
             {
               success: false,
               message:
-                "Unable to verify Admin profile.",
+                "Unable to verify Admin access.",
               details:
-                adminProfileError.message,
+                adminBindingError.message,
             },
             403,
           );
         }
 
-        if (!adminProfile) {
-          return jsonResponse(
-            {
-              success: false,
-              message:
-                "Admin profile not found.",
-            },
-            403,
-          );
-        }
-
-        if (adminProfile.role !== "admin") {
+        if (
+          !adminBinding ||
+          String(adminBinding.role).toLowerCase() !== "admin"
+        ) {
           return jsonResponse(
             {
               success: false,
@@ -129,7 +127,7 @@ export default {
         }
 
         const workspaceId =
-          adminProfile.workspace_id || LEGACY_WORKSPACE_ID;
+          adminBinding.workspace_id || LEGACY_WORKSPACE_ID;
 
         // =========================================
         // READ REQUEST BODY
@@ -503,6 +501,43 @@ export default {
                 "Unable to create Agent profile.",
               details:
                 profileError.message,
+            },
+            500,
+          );
+        }
+
+        // Keep the email-bound role authoritative for the new agent login too.
+        const { error: bindingError } =
+          await ctx.supabaseAdmin
+            .from("role_bindings")
+            .upsert(
+              {
+                email: loginEmail.toLowerCase(),
+                role: "agent",
+                workspace_id: workspaceId,
+                active: true,
+                note: "Created with agent account",
+              },
+              { onConflict: "email" },
+            );
+
+        if (bindingError) {
+          console.error(
+            "Agent role binding error:",
+            bindingError,
+          );
+
+          await ctx.supabaseAdmin
+            .auth.admin.deleteUser(
+              newAuthUserId,
+            );
+
+          return jsonResponse(
+            {
+              success: false,
+              message:
+                "Unable to create Agent access binding.",
+              details: bindingError.message,
             },
             500,
           );

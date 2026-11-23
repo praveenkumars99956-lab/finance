@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildReportSearchText,
+  countOverdueRecords,
   getLoanStatus,
   isDateOverdue,
   matchesCollectionReport,
@@ -44,8 +45,21 @@ describe('report status and type filters', () => {
   it('matches legacy loan type labels', () => {
     expect(matchesReportFilter({ finance_type: 'Daily Loan' }, 'daily')).toBe(true)
     expect(matchesReportFilter({ finance_type: 'interest-only' }, 'interest_only')).toBe(true)
+    expect(matchesReportFilter({ finance_type: 'interestonly' }, 'interest_only')).toBe(true)
     expect(matchesReportFilter({ finance_type: 'monthly' }, 'weekly')).toBe(false)
     expect(matchesReportFilter(record, 'all')).toBe(true)
+  })
+
+  it('counts overdue records with the same status used by the table', () => {
+    const paidWithStaleDueDate = {
+      pending: 0,
+      next_due_date: '2026-01-19'
+    }
+
+    expect(getLoanStatus(paidWithStaleDueDate, now)).toBe('paid')
+    expect(
+      countOverdueRecords([record, paidWithStaleDueDate], now)
+    ).toBe(1)
   })
 })
 
@@ -121,5 +135,20 @@ describe('collection report filters', () => {
     expect(
       matchesCollectionReport(record, { search: '250' })
     ).toBe(true)
+  })
+
+  it('finds the displayed translated loan-type label', () => {
+    const translatedLabel = 'தினசரி கடன்'
+
+    expect(
+      matchesCollectionReport(record, {
+        search: translatedLabel,
+        extraSearchFields: [translatedLabel]
+      })
+    ).toBe(true)
+
+    expect(
+      matchesCollectionReport(record, { search: translatedLabel })
+    ).toBe(false)
   })
 })

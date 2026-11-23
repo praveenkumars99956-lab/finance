@@ -414,7 +414,7 @@ function AgentDashboard() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
             {todayTasks.slice(0, 12).map((record) => (
-              <div key={record.id} style={{ border: '1px solid var(--fs-inline-border, #d7e0ec)', borderRadius: 12, padding: '0.9rem', background: 'var(--fs-inline-card, #ffffff)' }}>
+              <div key={record.id} style={{ border: '1px solid var(--fs-inline-border, #d7e0ec)', borderRadius: 12, padding: '0.9rem', background: 'var(--fs-inline-card, #fff)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
                   <strong>{record.customers?.full_name || '-'}</strong>
                   <small style={{ color: '#6b7280' }}>{record.customers?.customer_id || '-'}</small>
@@ -458,7 +458,7 @@ function AgentDashboard() {
                 padding: '22px',
                 borderRadius: '14px',
                 border: `1px solid ${accent}33`,
-                background: `linear-gradient(135deg, var(--fs-inline-tint, ${bg}) 0%, var(--fs-inline-card, #ffffff) 100%)`,
+                background: `linear-gradient(135deg, var(--fs-inline-tint, ${bg}) 0%, var(--fs-inline-card, #fff) 100%)`,
                 cursor: loading ? 'not-allowed' : 'pointer',
                 textAlign: 'left',
                 boxShadow: '0 2px 8px rgba(53,16,120,0.06)'
@@ -496,7 +496,7 @@ function AgentDashboard() {
                 padding: '18px',
                 borderRadius: '12px',
                 border: `1px solid ${accent}33`,
-                background: `linear-gradient(135deg, var(--fs-inline-tint, ${bg}) 0%, var(--fs-inline-card, #ffffff) 100%)`,
+                background: `linear-gradient(135deg, var(--fs-inline-tint, ${bg}) 0%, var(--fs-inline-card, #fff) 100%)`,
                 cursor: 'pointer',
                 textAlign: 'left',
                 boxShadow: '0 2px 8px rgba(0,0,0,0.04)'

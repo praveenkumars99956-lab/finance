@@ -13,6 +13,7 @@ const TYPE_ALIASES = {
   weekly: 'weekly',
   monthly: 'monthly',
   interest: 'interest_only',
+  interestonly: 'interest_only',
   interest_only: 'interest_only'
 }
 
