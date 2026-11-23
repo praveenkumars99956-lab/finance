@@ -435,7 +435,7 @@ function AgentLoans() {
         <button
           type="button"
           onClick={() => navigate('/agent')}
-          style={{ background: '#ffffff', color: '#351078', border: '1px solid #c4b5fd', borderRadius: 10, padding: '0.5rem 0.9rem', fontWeight: 600, cursor: 'pointer' }}
+          style={{ background: 'var(--fs-inline-card, #ffffff)', color: '#351078', border: '1px solid var(--fs-inline-border, #c4b5fd)', borderRadius: 10, padding: '0.5rem 0.9rem', fontWeight: 600, cursor: 'pointer' }}
         >
           ← {t('back')}
         </button>
@@ -596,10 +596,10 @@ function AgentLoans() {
                         <div
                           key={record.id}
                           style={{
-                            border: '1px solid #d7e0ec',
+                            border: '1px solid var(--fs-inline-border, #d7e0ec)',
                             borderRadius: '14px',
                             padding: '18px',
-                            background: 'linear-gradient(180deg, #ffffff 0%, #fbfaff 100%)',
+                            background: 'linear-gradient(180deg, var(--fs-inline-card, #ffffff) 0%, var(--fs-inline-soft, #fbfaff) 100%)',
                             boxShadow: '0 2px 8px rgba(53,16,120,0.06)'
                           }}
                         >
@@ -607,7 +607,7 @@ function AgentLoans() {
                           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', marginBottom: '0.25rem' }}>
                             <small style={{ color: '#6b7280', fontWeight: 600 }}>{t('customer').toUpperCase()}</small>
                             {isInterestOnly && (
-                              <span style={{ background: '#ccfbf1', color: '#0f766e', border: '1px solid #99f6e4', borderRadius: 999, padding: '0.15rem 0.5rem', fontSize: '0.75rem', fontWeight: 700 }}>
+                              <span style={{ background: 'var(--fs-inline-success-bg, #ccfbf1)', color: 'var(--fs-inline-success, #0f766e)', border: '1px solid var(--fs-inline-success-border, #99f6e4)', borderRadius: 999, padding: '0.15rem 0.5rem', fontSize: '0.75rem', fontWeight: 700 }}>
                                 {t('interestOnlyLoan', 'Interest-Only Loan')}
                               </span>
                             )}
@@ -633,11 +633,11 @@ function AgentLoans() {
 
                           <div
                             style={{
-                              background: '#eef2ff',
+                              background: 'var(--fs-inline-tint, #eef2ff)',
                               padding: '10px',
                               borderRadius: '10px',
                               marginBottom: '12px',
-                              border: '1px solid #c7d2fe'
+                              border: '1px solid var(--fs-inline-border, #c7d2fe)'
                             }}
                           >
                             <small style={{ color: '#4338ca', fontWeight: 700 }}>
@@ -650,10 +650,10 @@ function AgentLoans() {
 
                           <div
                             style={{
-                              background: '#f8fafc',
+                              background: 'var(--fs-inline-soft, #f8fafc)',
                               padding: '12px',
                               borderRadius: '10px',
-                              border: '1px solid #e5e7eb'
+                              border: '1px solid var(--fs-inline-border, #e5e7eb)'
                             }}
                           >
                             <p style={{ margin: '0 0 6px' }}><strong>{t('phone')}:</strong> {customer?.phone || '-'}</p>

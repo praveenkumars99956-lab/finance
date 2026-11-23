@@ -128,7 +128,7 @@ function AgentProfile() {
 
   const pageStyle = {
     minHeight: '100vh',
-    background: '#f5f7fb',
+    background: 'var(--fs-inline-soft, #f5f7fb)',
     padding: '24px'
   }
 
@@ -147,7 +147,7 @@ function AgentProfile() {
   }
 
   const cardStyle = {
-    background: '#ffffff',
+    background: 'var(--fs-inline-card, #ffffff)',
     borderRadius: '16px',
     padding: '24px',
     boxShadow: '0 4px 15px rgba(0, 0, 0, 0.06)',
@@ -158,7 +158,7 @@ function AgentProfile() {
     width: '90px',
     height: '90px',
     borderRadius: '50%',
-    background: '#eef5ff',
+    background: 'var(--fs-inline-soft, #eef5ff)',
     display: 'flex',
     justifyContent: 'center',
     alignItems: 'center',
@@ -175,7 +175,7 @@ function AgentProfile() {
   }
 
   const detailStyle = {
-    background: '#f8fafc',
+    background: 'var(--fs-inline-soft, #f8fafc)',
     borderRadius: '10px',
     padding: '15px'
   }

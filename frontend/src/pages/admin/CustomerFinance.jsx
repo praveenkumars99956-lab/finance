@@ -369,7 +369,7 @@ function CustomerFinance() {
         style={{
           marginBottom: '20px',
           padding: '12px 16px',
-          background: '#f8fafc',
+          background: 'var(--fs-inline-soft, #f8fafc)',
           borderRadius: '10px'
         }}
       >

@@ -618,9 +618,9 @@ function CollectionReport() {
             type="button"
             onClick={() => navigate('/reports')}
             style={{
-              background: '#ffffff',
+              background: 'var(--fs-inline-card, #ffffff)',
               color: '#351078',
-              border: '1px solid #c4b5fd',
+              border: '1px solid var(--fs-inline-border, #c4b5fd)',
               borderRadius: '10px',
               padding: '0.55rem 0.9rem',
               fontWeight: 600,
@@ -862,14 +862,14 @@ function CollectionReport() {
                 width: '100%',
                 minWidth: '900px',
                 borderCollapse: 'collapse',
-                background: '#ffffff',
-                border: '1px solid #e5e7eb',
+                background: 'var(--fs-inline-card, #ffffff)',
+                border: '1px solid var(--fs-inline-border, #e5e7eb)',
                 borderRadius: '12px',
                 overflow: 'hidden'
               }}
             >
               <thead>
-                <tr style={{ background: '#f5f3ff' }}>
+                <tr style={{ background: 'var(--fs-inline-tint, #f5f3ff)' }}>
                   <th style={{ ...thStyle, color: '#351078' }}>{t('date')}</th>
                   <th style={{ ...thStyle, color: '#351078' }}>{t('customer')}</th>
                   <th style={{ ...thStyle, color: '#351078' }}>{t('agent')}</th>

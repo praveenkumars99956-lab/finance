@@ -415,8 +415,8 @@ function Login() {
                   marginBottom: '12px',
                   padding: '10px 12px',
                   borderRadius: '8px',
-                  background: '#fff2f2',
-                  color: '#b42318'
+                  background: 'var(--fs-inline-danger-bg, #fff2f2)',
+                  color: 'var(--fs-inline-danger, #b42318)'
                 }}
               >
                 {t(errorMessage, {

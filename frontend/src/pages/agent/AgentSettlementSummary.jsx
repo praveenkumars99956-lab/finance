@@ -635,7 +635,7 @@ function AgentSettlementSummary() {
                 style={{
                   padding: '25px',
                   textAlign: 'center',
-                  background: '#f8fafc',
+                  background: 'var(--fs-inline-soft, #f8fafc)',
                   borderRadius: '12px'
                 }}
               >
@@ -661,8 +661,7 @@ function AgentSettlementSummary() {
 
                     <tr
                       style={{
-                        background:
-                          '#f8fafc'
+                        background: 'var(--fs-inline-soft, #f8fafc)'
                       }}
                     >
 
@@ -782,7 +781,7 @@ function AgentSettlementSummary() {
                 style={{
                   padding: '25px',
                   textAlign: 'center',
-                  background: '#f8fafc',
+                  background: 'var(--fs-inline-soft, #f8fafc)',
                   borderRadius: '12px'
                 }}
               >
@@ -809,8 +808,7 @@ function AgentSettlementSummary() {
 
                     <tr
                       style={{
-                        background:
-                          '#f8fafc'
+                        background: 'var(--fs-inline-soft, #f8fafc)'
                       }}
                     >
 

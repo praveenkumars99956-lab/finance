@@ -957,7 +957,7 @@ function AgentSettlement() {
                   marginTop: '22px',
                   padding: '18px',
                   borderRadius: '12px',
-                  background: '#f8fafc'
+                  background: 'var(--fs-inline-soft, #f8fafc)'
                 }}
               >
 
@@ -1076,7 +1076,7 @@ function AgentSettlement() {
               style={{
                 marginTop: '22px',
                 padding: '16px',
-                background: '#eaf8ef',
+                background: 'var(--fs-inline-soft, #eaf8ef)',
                 borderRadius: '10px'
               }}
             >

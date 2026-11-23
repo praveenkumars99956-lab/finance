@@ -447,9 +447,9 @@ function Reports() {
         onClick={() => navigate('/admin')}
         style={{
           marginBottom: '20px',
-          background: '#ffffff',
+          background: 'var(--fs-inline-card, #ffffff)',
           color: '#351078',
-          border: '1px solid #c4b5fd',
+          border: '1px solid var(--fs-inline-border, #c4b5fd)',
           borderRadius: '10px',
           padding: '0.55rem 0.9rem',
           fontWeight: 600,
@@ -462,7 +462,7 @@ function Reports() {
       <div className="weekly-summary finance-reports-card">
         <h2>{t('financeReports')}</h2>
 
-        <div className="report-filters" style={{ background: 'var(--primary-50, #F5F3FF)' }}>
+        <div className="report-filters" style={{ background: 'var(--fs-inline-tint, #F5F3FF)' }}>
           {[
             { key: 'all', label: t('all') },
             { key: 'daily', label: t('dailyLoan') },
@@ -480,8 +480,8 @@ function Reports() {
                 type="button"
                 onClick={() => setFilter(key)}
                 style={{
-                  background: active ? 'var(--primary-800, #3B1A82)' : '#ffffff',
-                  color: active ? '#ffffff' : 'var(--primary-800, #3B1A82)',
+                  background: active ? 'var(--primary-800, #3B1A82)' : 'var(--fs-inline-card, #ffffff)',
+                  color: active ? '#ffffff' : 'var(--fs-inline-ink, #3B1A82)',
                   border: `1px solid ${active ? 'var(--primary-800, #3B1A82)' : 'var(--primary-100, #EDE9FE)'}`,
                   borderRadius: '10px',
                   padding: '0.5rem 0.85rem',
@@ -540,7 +540,7 @@ function Reports() {
               setSearch(e.target.value)
             }
             style={{
-              background: 'rgba(255,255,255,0.92)',
+              background: 'var(--fs-inline-card, rgba(255,255,255,0.92))',
               border: '1px solid rgba(139, 92, 246, 0.25)',
               color: '#1f2937'
             }}
@@ -649,14 +649,14 @@ function Reports() {
                   width: '100%',
                   minWidth: '900px',
                   borderCollapse: 'collapse',
-                  background: '#ffffff',
-                  border: '1px solid #e5e7eb',
+                  background: 'var(--fs-inline-card, #ffffff)',
+                  border: '1px solid var(--fs-inline-border, #e5e7eb)',
                   borderRadius: '12px',
                   overflow: 'hidden'
                 }}
               >
                 <thead>
-                  <tr style={{ background: '#f5f3ff' }}>
+                  <tr style={{ background: 'var(--fs-inline-tint, #f5f3ff)' }}>
                     <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('customer')}</th>
                     <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('collectionCategory')}</th>
                     <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('loanType')}</th>

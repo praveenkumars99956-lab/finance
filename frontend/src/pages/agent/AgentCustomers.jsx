@@ -572,8 +572,7 @@ function AgentCustomers() {
               width: '100%',
               maxWidth: '600px',
               padding: '12px 14px',
-              border:
-                '1px solid #d7e0ec',
+              border: '1px solid var(--fs-inline-border, #d7e0ec)',
               borderRadius: '10px',
               fontSize: '15px',
               boxSizing: 'border-box'
@@ -652,14 +651,12 @@ function AgentCustomers() {
                         <div
                           key={record.id}
                           style={{
-                            border:
-                              '1px solid #d7e0ec',
+                            border: '1px solid var(--fs-inline-border, #d7e0ec)',
                             borderRadius:
                               '14px',
                             padding:
                               '18px',
-                            background:
-                              '#ffffff',
+                            background: 'var(--fs-inline-card, #ffffff)',
                             boxShadow:
                               '0 2px 8px rgba(0,0,0,0.04)'
                           }}
@@ -705,8 +702,7 @@ function AgentCustomers() {
                             style={{
                               padding:
                                 '10px',
-                              background:
-                                '#eef5ff',
+                              background: 'var(--fs-inline-soft, #eef5ff)',
                               borderRadius:
                                 '8px',
                               marginTop:

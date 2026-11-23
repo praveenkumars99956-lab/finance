@@ -683,8 +683,7 @@ function AgentHistory() {
               width: '100%',
               maxWidth: '650px',
               padding: '12px 14px',
-              border:
-                '1px solid #d7e0ec',
+              border: '1px solid var(--fs-inline-border, #d7e0ec)',
               borderRadius: '10px',
               fontSize: '15px',
               boxSizing: 'border-box'
@@ -700,7 +699,7 @@ function AgentHistory() {
                 style={{
                   padding: '25px',
                   textAlign: 'center',
-                  background: '#f8fafc',
+                  background: 'var(--fs-inline-soft, #f8fafc)',
                   borderRadius: '12px'
                 }}
               >
@@ -735,8 +734,7 @@ function AgentHistory() {
 
                     <tr
                       style={{
-                        background:
-                          '#f8fafc'
+                        background: 'var(--fs-inline-soft, #f8fafc)'
                       }}
                     >
 
