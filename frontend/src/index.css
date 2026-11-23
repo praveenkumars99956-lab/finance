@@ -3917,7 +3917,7 @@ table {
   color: #edf2f8;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 640px) {
   .profile-finance-summary {
     grid-template-columns:
       repeat(2, 1fr);
@@ -4122,7 +4122,6 @@ table {
 }
 
 .daily-loan-summary {
-  margin: 0 0 20px;
   padding: 24px;
   background:
     linear-gradient(
@@ -4136,6 +4135,12 @@ table {
 
 .daily-loan-summary h2 {
   margin: 0 0 18px;
+}
+
+@media (max-width: 640px) {
+  .daily-loan-summary {
+    margin: 0 0 20px;
+  }
 }
 
 /* Live daily loans list */

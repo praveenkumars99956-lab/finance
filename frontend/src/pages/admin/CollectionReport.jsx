@@ -317,10 +317,13 @@ function CollectionReport() {
         search,
         typeFilter,
         fromDate,
-        toDate
+        toDate,
+        extraSearchFields: [
+          getFinanceTypeName(record.financeType)
+        ]
       })
     )
-  }, [records, search, typeFilter, fromDate, toDate])
+  }, [records, search, typeFilter, fromDate, toDate, t])
 
   const totalCollected =
     filteredRecords.reduce(

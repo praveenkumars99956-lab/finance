@@ -30,6 +30,12 @@ export function getLoanStatus(record, now = new Date()) {
   return 'pending'
 }
 
+export function countOverdueRecords(records, now = new Date()) {
+  return records.filter(
+    (record) => getLoanStatus(record, now) === 'overdue'
+  ).length
+}
+
 export function matchesReportFilter(record, filter, now = new Date()) {
   if (!filter || filter === 'all') return true
 
@@ -70,7 +76,8 @@ export function matchesCollectionReport(record, filters = {}) {
     search = '',
     typeFilter = 'all',
     fromDate = '',
-    toDate = ''
+    toDate = '',
+    extraSearchFields = []
   } = filters
 
   const text = String(search).trim().toLowerCase()
@@ -88,7 +95,8 @@ export function matchesCollectionReport(record, filters = {}) {
     record?.paymentDate,
     record?.paymentAmount,
     record?.balanceBefore,
-    record?.balanceAfter
+    record?.balanceAfter,
+    ...extraSearchFields
   ])
 
   const matchesSearch = !text || haystack.includes(text)

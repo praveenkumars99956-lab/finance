@@ -12,3 +12,17 @@ export function isMissingCategoryTypeColumnError(error) {
 
   return /category_type/i.test(error.message || '')
 }
+
+// Older category rows predate category_type, so derive the product from the
+// display name when the migration column is absent/empty.
+export function categoryTypeFromName(name) {
+  const value = String(name ?? '')
+    .trim()
+    .toLowerCase()
+
+  if (value.includes('interest')) return 'interest'
+  if (value.includes('weekly')) return 'weekly'
+  if (value.includes('monthly')) return 'monthly'
+  if (value.includes('daily')) return 'daily'
+  return ''
+}

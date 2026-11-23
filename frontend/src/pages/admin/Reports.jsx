@@ -2,8 +2,8 @@ import { formatMoney as formatMoneyValue } from '../../utils/money'
 import { normalizeFinanceType } from '../../utils/financeType'
 import {
   buildReportSearchText,
+  countOverdueRecords,
   getLoanStatus,
-  isDateOverdue,
   matchesReportFilter
 } from '../../utils/reportFilters'
 import { notify } from '../../utils/notify'
@@ -144,9 +144,7 @@ function Reports() {
     0
   )
 
-  const overdueCount = filteredRecords.filter(
-    (record) => isDateOverdue(record.next_due_date)
-  ).length
+  const overdueCount = countOverdueRecords(filteredRecords)
 
   const getReportName = () => {
     if (filter === 'daily') {

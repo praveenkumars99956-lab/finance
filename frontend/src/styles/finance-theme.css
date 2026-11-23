@@ -1257,7 +1257,9 @@ textarea:focus-visible,
 :root[data-theme='dark'] .login-card,
 :root[data-theme='dark'] .auth-flow-card,
 :root[data-theme='dark'] .client-payment-card,
-:root[data-theme='dark'] .settings-card {
+:root[data-theme='dark'] .settings-card,
+:root[data-theme='dark'] .daily-loan-list-section,
+:root[data-theme='dark'] .loan-list-section {
   background: rgba(21, 11, 40, 0.9) !important;
   border-color: rgba(201, 182, 255, 0.14) !important;
 }
@@ -1295,7 +1297,6 @@ textarea:focus-visible,
 :root[data-theme='dark'] [style*='--fs-inline-soft'],
 :root[data-theme='dark'] [style*='--fs-inline-tint'] {
   color: var(--fs-ink) !important;
-  border-color: var(--fs-border-soft) !important;
 }
 
 /* Inline text colours on dark surfaces need to follow the dark ink palette.

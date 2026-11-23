@@ -1239,7 +1239,7 @@ function AgentCollection() {
 
           <form onSubmit={recordCollection} noValidate>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-              <div style={{ background: 'var(--fs-inline-card, #ffffff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
+              <div style={{ background: 'var(--fs-inline-card, #fff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <label style={{ display: 'block', fontWeight: 700, color: '#351078' }}>{t('collectionDate')} *</label>
                   {!collectionDateUnavailable && (
@@ -1268,7 +1268,7 @@ function AgentCollection() {
                 )}
               </div>
 
-              <div style={{ background: 'var(--fs-inline-card, #ffffff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
+              <div style={{ background: 'var(--fs-inline-card, #fff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem' }}>
                   {String(finance.finance_type || '').toLowerCase() === 'interest_only'
                     ? `${t('interestPaymentAmount')} *`
@@ -1305,7 +1305,7 @@ function AgentCollection() {
               )}
             </div>
 
-            <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, background: 'var(--fs-inline-soft, #f8fafc)' }}>
+            <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, background: 'var(--fs-inline-soft, #fcfcff)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '0.35rem' }}>{t('collectionEvidence')}</h3>
               {settingsLoading ? (
                 <p style={{ margin: '0 0 0.75rem' }}>{t('loadingCollectionRequirements')}</p>
@@ -1322,7 +1322,7 @@ function AgentCollection() {
               {settingsLoadError && <p role="alert">{settingsLoadError}</p>}
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-                <div style={{ background: 'var(--fs-inline-card, #ffffff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
+                <div style={{ background: 'var(--fs-inline-card, #fff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                   <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{t('gps')}</div>
                   <button
                     type="button"
@@ -1343,7 +1343,7 @@ function AgentCollection() {
                   )}
                 </div>
 
-                <div style={{ background: 'var(--fs-inline-card, #ffffff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
+                <div style={{ background: 'var(--fs-inline-card, #fff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                   <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>
                     {t('collectionProofPhoto')} {requireCollectionProof ? '*' : `(${t('optional')})`}
                   </label>

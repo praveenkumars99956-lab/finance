@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
+import { categoryTypeFromName } from '../../utils/categoryType'
 import SelectMenu from '../../components/SelectMenu'
 import {
   ensureInterestOnlyLoanCategory,
@@ -102,7 +103,7 @@ function AgentAssignments() {
 
       const { data, error } = await supabase
         .from('collection_categories')
-        .select('id, category_name, status, category_type')
+        .select('*')
         .eq('status', 'active')
         .order('category_name')
 
@@ -110,7 +111,14 @@ function AgentAssignments() {
         throw error
       }
 
-      setCategories(data || [])
+      setCategories(
+        (data || []).map((category) => ({
+          ...category,
+          category_type:
+            category.category_type ||
+            categoryTypeFromName(category.category_name)
+        }))
+      )
     } catch (error) {
       console.error(error)
       notify(

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { isMissingCategoryTypeColumnError } from './categoryType'
+import {
+  categoryTypeFromName,
+  isMissingCategoryTypeColumnError
+} from './categoryType'
 
 describe('isMissingCategoryTypeColumnError', () => {
   it('recognizes the PGRST204 error returned by INSERT/UPDATE payloads', () => {
@@ -35,5 +38,20 @@ describe('isMissingCategoryTypeColumnError', () => {
         message: "Could not find the 'description' column"
       })
     ).toBe(false)
+  })
+})
+
+describe('categoryTypeFromName', () => {
+  it('derives the stored type from legacy category names', () => {
+    expect(categoryTypeFromName('Daily')).toBe('daily')
+    expect(categoryTypeFromName('Weekly Collection')).toBe('weekly')
+    expect(categoryTypeFromName('monthly loans')).toBe('monthly')
+    expect(categoryTypeFromName('Interest Only')).toBe('interest')
+  })
+
+  it('returns an empty string for unknown or empty names', () => {
+    expect(categoryTypeFromName('')).toBe('')
+    expect(categoryTypeFromName(null)).toBe('')
+    expect(categoryTypeFromName('General')).toBe('')
   })
 })

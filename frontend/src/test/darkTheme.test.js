@@ -11,6 +11,10 @@ const themeCss = readFileSync(
   path.join(frontendRoot, 'src/styles/finance-theme.css'),
   'utf8'
 )
+const appCss = readFileSync(
+  path.join(frontendRoot, 'src/index.css'),
+  'utf8'
+)
 
 describe('dark theme bootstrap', () => {
   it('applies the saved theme before any stylesheet loads', () => {
@@ -18,10 +22,26 @@ describe('dark theme bootstrap', () => {
     expect(html).toMatch(/dataset\.theme = 'dark'/)
 
     const themeScript = html.indexOf("localStorage.getItem('finance-theme')")
+    const firstInlineStyle = html.indexOf('<style>')
     const firstStylesheet = html.indexOf('<link href="https://fonts.googleapis.com')
 
     expect(themeScript).toBeGreaterThan(-1)
+    expect(firstInlineStyle).toBeGreaterThan(themeScript)
     expect(firstStylesheet).toBeGreaterThan(themeScript)
+    expect(html).toMatch(
+      /:root\[data-theme='dark'\] body \{[^}]*background-color:\s*#0b0714/
+    )
+  })
+
+  it('keeps loan list sections readable in dark mode', () => {
+    expect(appCss).toMatch(/\.daily-loan-list-section[\s\S]*?background:\s*white/)
+    expect(appCss).toMatch(/\.loan-list-section[\s\S]*?background:\s*white/)
+    expect(themeCss).toMatch(
+      /:root\[data-theme='dark'\] \.daily-loan-list-section/
+    )
+    expect(themeCss).toMatch(
+      /:root\[data-theme='dark'\] \.loan-list-section/
+    )
   })
 
   it('defines surface tokens for both light and dark themes', () => {
