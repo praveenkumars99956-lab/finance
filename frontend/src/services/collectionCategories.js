@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { isMissingCategoryTypeColumnError } from '../utils/categoryType'
 
 async function loadCollectionCategories() {
   const { data, error } = await supabase
@@ -22,11 +23,7 @@ async function insertLoanCategory(payload) {
 
   // The category_type column is added by a recent migration. Until it has
   // been applied, fall back to a plain insert so loan creation still works.
-  if (
-    error &&
-    error.code === '42703' &&
-    /category_type/i.test(error.message || '')
-  ) {
+  if (isMissingCategoryTypeColumnError(error)) {
     const payloadWithoutType = { ...payload }
     delete payloadWithoutType.category_type
 

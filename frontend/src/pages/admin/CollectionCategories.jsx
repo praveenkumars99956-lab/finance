@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import SelectMenu from '../../components/SelectMenu'
+import { isMissingCategoryTypeColumnError } from '../../utils/categoryType'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 
 function CollectionCategories() {
@@ -47,11 +48,6 @@ function CollectionCategories() {
 
   // Until the category type migration is applied, PostgREST rejects writes
   // that mention category_type. Retry without it so editing still works.
-  const isMissingTypeColumnError = (error) =>
-    Boolean(error) &&
-    error.code === '42703' &&
-    /category_type/i.test(error.message || '')
-
   const omitTypeFrom = (payload) => {
     const next = { ...payload }
     delete next.category_type
@@ -185,7 +181,7 @@ function CollectionCategories() {
       if (
         error &&
         !omitType &&
-        isMissingTypeColumnError(error)
+        isMissingCategoryTypeColumnError(error)
       ) {
         setTypeColumnMissing(true)
 
@@ -238,7 +234,7 @@ function CollectionCategories() {
       if (
         error &&
         !omitType &&
-        isMissingTypeColumnError(error)
+        isMissingCategoryTypeColumnError(error)
       ) {
         setTypeColumnMissing(true)
 

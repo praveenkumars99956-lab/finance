@@ -78,7 +78,7 @@ describe('CollectionCategories edit', () => {
     query.eq
       .mockResolvedValueOnce({
         error: {
-          code: '42703',
+          code: 'PGRST204',
           message: "Could not find the 'category_type' column of 'collection_categories' in the schema cache"
         }
       })
@@ -105,7 +105,7 @@ describe('CollectionCategories edit', () => {
     query.insert
       .mockResolvedValueOnce({
         error: {
-          code: '42703',
+          code: 'PGRST204',
           message:
             "Could not find the 'category_type' column of 'collection_categories' in the schema cache"
         }

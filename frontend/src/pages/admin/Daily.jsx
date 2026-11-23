@@ -10,6 +10,7 @@ import { supabase } from '../../services/supabase'
 import { getCurrentWorkspaceId } from '../../services/workspaces'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import { isValidPhone, normalizePhone } from '../../utils/phone'
+import { isMissingCategoryTypeColumnError } from '../../utils/categoryType'
 import { generateCustomerId } from '../../utils/customerId'
 import {
   normalizeInterestInput,
@@ -702,11 +703,7 @@ function Daily() {
 
         // Until the category_type migration is applied, keep Daily entry
         // working with every active category instead of an empty list.
-        if (
-          result.error &&
-          result.error.code === '42703' &&
-          /category_type/i.test(result.error.message || '')
-        ) {
+        if (isMissingCategoryTypeColumnError(result.error)) {
           result = await supabase
             .from(
               'collection_categories'
