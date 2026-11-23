@@ -5,6 +5,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { getCurrentWorkspaceId } from '../../services/workspaces'
+import { normalizeFinanceType } from '../../services/agentAssignments'
+import { loadAccessContext } from '../../services/access'
 import { EvidenceHistory } from '../../components/CollectionEvidence'
 import CalendarDatePicker from '../../components/CalendarDatePicker'
 import {
@@ -186,12 +188,8 @@ function AgentCollection() {
       throw new Error(t('agentLoginSessionEnded'))
     }
     const user = userData.user
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('id', user.id)
-      .single()
-    if (profileError || String(profile?.role || '').trim().toLowerCase() !== 'agent') {
+    const { access, error: accessError } = await loadAccessContext()
+    if (accessError || access?.role !== 'agent') {
       throw new Error(t('unableVerifyAgentLogin'))
     }
     const { data: agent, error: agentError } = await supabase
@@ -225,10 +223,10 @@ function AgentCollection() {
       .eq('status', 'active')
       .limit(100)
     const hasTypeAssignment = (assignments || []).some((assignment) => {
-      const assignedType = String(assignment.collection_type || '').trim().toLowerCase()
+      const assignedType = normalizeFinanceType(assignment.collection_type)
       return !assignedType ||
         assignedType === 'all' ||
-        assignedType === String(record.finance_type || '').trim().toLowerCase()
+        assignedType === normalizeFinanceType(record.finance_type)
     })
     if (assignmentError || !hasTypeAssignment) {
       throw new Error(t('collectionAssignmentInactive'))
@@ -624,6 +622,7 @@ function AgentCollection() {
       // =========================================
 
       const {
+        data: paymentResult,
         error
       } = await supabase.rpc(
         rpcName,
@@ -673,41 +672,25 @@ function AgentCollection() {
       paymentRecorded = true
 
       // =========================================
-      // FIND NEW PAYMENT
+      // NEW PAYMENT ID
       // =========================================
 
-      const {
-        data: newPayment,
-        error: paymentFindError
-      } = await supabase
-        .from('finance_payments')
-        .select('*')
-        .eq(
-          'finance_record_id',
-          financeRecordId
-        )
-        .eq(
-          'payment_date',
-          submittedPaymentDate
-        )
-        .eq(
-          'payment_amount',
-          amount
-        )
-        .order(
-          'created_at',
-          {
-            ascending: false
-          }
-        )
-        .limit(1)
-        .maybeSingle()
+      // The RPC returns the id of the row it just inserted. Guessing by
+      // date/amount can attach evidence to the wrong payment when two
+      // identical collections are recorded on the same day.
+      const returnedPayment =
+        Array.isArray(paymentResult)
+          ? paymentResult[0]
+          : paymentResult
 
-      if (paymentFindError) {
-        console.error(
-          'PAYMENT FIND ERROR:',
-          paymentFindError
-        )
+      const paymentId =
+        returnedPayment &&
+        typeof returnedPayment === 'object'
+          ? (returnedPayment.payment_id ?? returnedPayment.id ?? null)
+          : null
+
+      if (!paymentId) {
+        console.warn('[agent-collection] payment RPC did not return a payment id')
       }
 
       // =========================================
@@ -715,6 +698,7 @@ function AgentCollection() {
       // =========================================
 
       let proofPath = null
+      let auxiliaryFailed = false
 
       if (proofFile) {
         const workspaceId =
@@ -729,7 +713,7 @@ function AgentCollection() {
           extension.toLowerCase()
 
         const filePath =
-          `workspaces/${workspaceId}/finance-${financeId}/payment-${newPayment?.id || Date.now()}-${Date.now()}.${safeExtension}`
+          `workspaces/${workspaceId}/finance-${financeId}/payment-${paymentId || Date.now()}-${Date.now()}.${safeExtension}`
 
         const {
           error: uploadError
@@ -747,6 +731,8 @@ function AgentCollection() {
           )
 
         if (uploadError) {
+          auxiliaryFailed = true
+
           console.error(
             'PROOF UPLOAD ERROR:',
             uploadError
@@ -773,6 +759,7 @@ function AgentCollection() {
         proofPath
       ) {
         const {
+          data: savedEvidence,
           error: evidenceError
         } = await supabase
           .from('collection_evidence')
@@ -781,7 +768,7 @@ function AgentCollection() {
               financeRecordId,
 
             payment_id:
-              newPayment?.id || null,
+              paymentId,
 
             agent_id:
               access.agent.id,
@@ -804,16 +791,22 @@ function AgentCollection() {
             created_by:
               access.user.id
           })
+          .select('id')
+          .single()
 
-        if (evidenceError) {
+        if (evidenceError || !savedEvidence?.id) {
+          auxiliaryFailed = true
+
           console.error(
             'EVIDENCE ERROR:',
-            evidenceError
+            evidenceError || 'Evidence insert returned no row'
           )
 
           notify(
             t('collectionRecordedEvidenceSaveFailed', {
-              message: evidenceError.message
+              message:
+                evidenceError?.message ||
+                'unknown'
             })
           )
         }
@@ -823,9 +816,13 @@ function AgentCollection() {
       // SUCCESS
       // =========================================
 
-      notify(
-        t('collectionRecordedSuccessfully')
-      )
+      // The specific failure notices above already explain the partial save.
+      // Do not follow them with a blanket "success" message.
+      if (!auxiliaryFailed) {
+        notify(
+          t('collectionRecordedSuccessfully')
+        )
+      }
 
       setPaymentAmount('')
 
@@ -907,9 +904,70 @@ function AgentCollection() {
   const status =
     getCollectionStatus()
 
+  const financeType = String(finance.finance_type || '').toLowerCase()
+  const isInterestOnlyLoan =
+    financeType === 'interest_only' || financeType === 'interest-only'
+
   const pendingForDate = getPendingForDate(finance, paymentDate)
   const paymentLimitForDate = getPaymentLimitForDate(finance, paymentDate)
-  const totalAmount = Number(finance.paid || 0) + pendingForDate
+  const paidAmount = Number(finance.paid || 0)
+  const totalAmount = paidAmount + pendingForDate
+  const principalAmount = Number(finance.principal_amount ?? finance.amount ?? 0)
+  // Interest accrual is cumulative; the outstanding principal and the
+  // per-period interest must be derived separately for payoff figures.
+  const principalOutstanding = Number(
+    finance.principal_outstanding ?? principalAmount
+  )
+  const interestRate = Number(finance.interest_rate ?? 0)
+  const interestAmount = Number(
+    finance.interest_amount ??
+      finance.interest_accrual ??
+      finance.interest_due ??
+      0
+  )
+  const interestPer30Days = Math.round(
+    principalOutstanding * interestRate / 100 * 100
+  ) / 100
+  const totalRepayment = isInterestOnlyLoan
+    ? Number(finance.total_amount ?? principalOutstanding + interestPer30Days)
+    : Number(finance.total_amount ?? totalAmount)
+  const startDateValue =
+    finance.start_date ||
+    finance.payment_date ||
+    finance.entry_date ||
+    ''
+  const endingDateValue = finance.ending_date || ''
+  const installmentAmount = Number(
+    finance.daily_amount ??
+      finance.weekly_amount ??
+      finance.monthly_amount ??
+      finance.installment_amount ??
+      0
+  )
+  const durationCount =
+    finance.number_of_days ??
+    finance.number_of_weeks ??
+    finance.number_of_months ??
+    finance.duration ??
+    finance.days ??
+    finance.weeks ??
+    finance.months ??
+    ''
+  const durationLabel = financeType === 'daily'
+    ? t('numberOfDays', 'Number of Days')
+    : financeType === 'weekly'
+      ? t('numberOfWeeks', 'Number of Weeks')
+      : financeType === 'monthly'
+        ? t('numberOfMonths', 'Number of Months')
+        : null
+  const installmentLabel = financeType === 'daily'
+    ? t('dailyAmount', 'Daily Amount')
+    : financeType === 'weekly'
+      ? t('weeklyAmount', 'Weekly Amount')
+      : financeType === 'monthly'
+        ? t('monthlyAmount', 'Monthly Amount')
+        : null
+  const collectionMonthValue = finance.collection_month || finance.collectionMonth || ''
 
   // =========================================
   // UI
@@ -1047,116 +1105,119 @@ function AgentCollection() {
 
       </div>
 
-      {/* SUMMARY */}
-
-      <div className="daily-manage-summary">
-
-        <div>
-          <span>
-            {t('loanType')}
-          </span>
-
-          <strong>
-            {getLoanName(
-              finance.finance_type
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            {t('totalAmount')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(
-              totalAmount
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            {t('collected')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(
-              finance.paid
-            )}
-          </strong>
-        </div>
-
-        <div>
-          <span>
-            {t('pending')}
-          </span>
-
-          <strong>
-            ₹{formatMoney(
-              pendingForDate
-            )}
-          </strong>
-        </div>
-
-      </div>
-
-      {/* FINANCE DETAILS */}
+      {/* LOAN SUMMARY */}
 
       <div className="daily-manage-section">
 
         <h2>
-          {t('financeDetails')}
+          {t('loanSummary', 'Loan Summary')}
         </h2>
 
         <div className="daily-info-grid">
 
           <div>
-            <span>
-              {t('principal')}
-            </span>
-
-            <strong>
-              ₹{formatMoney(
-                finance.principal_amount ||
-                finance.amount
-              )}
-            </strong>
+            <span>{t('loanType', 'Loan Type')}</span>
+            <strong>{getLoanName(finance.finance_type)}</strong>
           </div>
 
           <div>
-            <span>
-              {t('nextDueDate')}
-            </span>
-
-            <strong>
-              {formatDate(
-                finance.next_due_date
-              )}
-            </strong>
+            <span>{t('principal', 'Principal')}</span>
+            <strong>₹{formatMoney(principalAmount)}</strong>
           </div>
 
           <div>
-            <span>
-              {t('status')}
-            </span>
+            <span>{t('interestRate', 'Interest Rate')}</span>
+            <strong>{interestRate}%</strong>
+          </div>
 
-            <strong>
-              {t(status)}
-            </strong>
+          {isInterestOnlyLoan ? (
+            <div>
+              <span>{t('interestPer30Days', 'Interest per 30 days')}</span>
+              <strong>₹{formatMoney(interestPer30Days)}</strong>
+            </div>
+          ) : (
+            <div>
+              <span>{t('interest', 'Interest')}</span>
+              <strong>₹{formatMoney(interestAmount)}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{t('totalRepayment', 'Total Repayment')}</span>
+            <strong>₹{formatMoney(totalRepayment)}</strong>
+          </div>
+
+          {isInterestOnlyLoan && (
+            <div>
+              <span>{t('principalDueAtPayoff', 'Principal Due At Payoff')}</span>
+              <strong>₹{formatMoney(principalOutstanding)}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{t('collected', 'Collected')}</span>
+            <strong>₹{formatMoney(paidAmount)}</strong>
           </div>
 
           <div>
-            <span>
-              Loan Status
-            </span>
+            <span>{isInterestOnlyLoan ? t('balanceDue', 'Balance Due') : t('pending', 'Pending')}</span>
+            <strong>₹{formatMoney(pendingForDate)}</strong>
+          </div>
 
+          {!isInterestOnlyLoan && installmentLabel && (
+            <div>
+              <span>{installmentLabel}</span>
+              <strong>₹{formatMoney(installmentAmount)}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{t('startDate', 'Start Date')}</span>
+            <strong>{formatDate(startDateValue)}</strong>
+          </div>
+
+          {!isInterestOnlyLoan && durationLabel && (
+            <div>
+              <span>{durationLabel}</span>
+              <strong>{durationCount || 0}</strong>
+            </div>
+          )}
+
+          {!isInterestOnlyLoan && (
+            <div>
+              <span>{t('endingDate', 'Ending Date')}</span>
+              <strong>{formatDate(endingDateValue)}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{isInterestOnlyLoan ? t('nextInterestDue', 'Next Interest Due') : t('nextDueDate', 'Next Due Date')}</span>
+            <strong>{formatDate(finance.next_due_date)}</strong>
+          </div>
+
+          {financeType === 'monthly' && (
+            <div>
+              <span>{t('collectionMonth', 'Collection Month')}</span>
+              <strong>{collectionMonthValue || t('notSelected', 'Not Selected')}</strong>
+            </div>
+          )}
+
+          <div>
+            <span>{t('collectionCategory', 'Collection Category')}</span>
+            <strong>{categoryName}</strong>
+          </div>
+
+          <div>
+            <span>{t('status', 'Status')}</span>
+            <strong>{t(status)}</strong>
+          </div>
+
+          <div>
+            <span>{t('loanStatus', 'Loan Status')}</span>
             <strong>
-              {
-                ['active', 'closed'].includes(String(finance.loan_status || 'active').toLowerCase())
-                  ? t(String(finance.loan_status || 'active').toLowerCase())
-                  : finance.loan_status || '-'
-              }
+              {['active', 'closed'].includes(String(finance.loan_status || 'active').toLowerCase())
+                ? t(String(finance.loan_status || 'active').toLowerCase())
+                : (finance.loan_status || '-')}
             </strong>
           </div>
 

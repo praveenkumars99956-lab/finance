@@ -1,9 +1,11 @@
 import { notify } from '../../utils/notify'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
+import { isValidPhone, normalizePhone } from '../../utils/phone'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import CustomSelect from '../../components/CustomSelect'
 
 function Agents() {
@@ -16,6 +18,11 @@ function Agents() {
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    showForm,
+    formSectionRef
+  )
   const [loginEmails, setLoginEmails] = useState({})
 
   const [form, setForm] = useState({
@@ -90,7 +97,7 @@ function Agents() {
 
     setForm((previous) => ({
       ...previous,
-      [name]: value
+      [name]: name === 'phone' ? normalizePhone(value) : value
     }))
   }
 
@@ -119,10 +126,18 @@ function Agents() {
     clearForm()
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -167,12 +182,7 @@ function Agents() {
     // PHONE VALIDATION
     // -----------------------------------------
 
-    if (
-      form.phone &&
-      !/^[0-9]{10}$/.test(
-        form.phone.trim()
-      )
-    ) {
+    if (!isValidPhone(form.phone)) {
       notify(
         t('agentPhoneMustBeTenDigits')
       )
@@ -248,6 +258,7 @@ function Agents() {
 
       if (editingId) {
         const {
+          data: updatedAgent,
           error: updateError
         } = await supabase
           .from('agents')
@@ -256,7 +267,7 @@ function Agents() {
               form.full_name.trim(),
 
             phone:
-              form.phone.trim(),
+              normalizePhone(form.phone),
 
             email:
               form.email
@@ -276,15 +287,19 @@ function Agents() {
             'id',
             editingId
           )
+          .select('id')
+          .single()
 
-        if (updateError) {
+        if (updateError || !updatedAgent?.id) {
           console.error(
             'UPDATE AGENT ERROR:',
-            updateError
+            updateError || 'Update returned no row'
           )
 
           throw new Error(
-            t('agentUpdateFailed', { message: updateError.message })
+            t('agentUpdateFailed', {
+              message: updateError?.message || 'no row updated'
+            })
           )
         }
 
@@ -323,7 +338,7 @@ function Agents() {
                   form.full_name.trim(),
 
                 phone:
-                  form.phone.trim(),
+                  normalizePhone(form.phone),
 
                 email:
                   form.email
@@ -467,7 +482,7 @@ function Agents() {
         agent.full_name || '',
 
       phone:
-        agent.phone || '',
+        normalizePhone(agent.phone),
 
       email:
         agent.email || '',
@@ -481,10 +496,18 @@ function Agents() {
         agent.status || 'active'
     })
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -511,6 +534,7 @@ function Agents() {
       }
 
       const {
+        data: deactivatedAgent,
         error
       } = await supabase
         .from('agents')
@@ -524,15 +548,19 @@ function Agents() {
           'id',
           agent.id
         )
+        .select('id')
+        .single()
 
-      if (error) {
+      if (error || !deactivatedAgent?.id) {
         console.error(
           'DEACTIVATE ERROR:',
-          error
+          error || 'Update returned no row'
         )
 
         notify(
-          t('agentDeactivateFailed', { message: error.message })
+          t('agentDeactivateFailed', {
+            message: error?.message || 'no row updated'
+          })
         )
 
         return
@@ -759,7 +787,10 @@ function Agents() {
 
       {showForm && (
 
-      <div className="agents-form-section daily-manage-section">
+      <div
+        ref={formSectionRef}
+        className="agents-form-section daily-manage-section"
+      >
 
         <h2>
           {

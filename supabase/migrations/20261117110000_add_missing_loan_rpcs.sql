@@ -65,6 +65,7 @@ begin
         return jsonb_build_object('finance_record_id', p_finance_record_id, 'installments', installment_count, 'already_generated', false);
       end;
       $body$;
+    $fn$;
     execute 'grant execute on function public.generate_daily_schedule(bigint) to authenticated';
   end if;
 
@@ -120,6 +121,7 @@ begin
         return jsonb_build_object('finance_record_id', p_finance_record_id, 'installments', installment_count, 'already_generated', false);
       end;
       $body$;
+    $fn$;
     execute 'grant execute on function public.generate_weekly_schedule(bigint) to authenticated';
   end if;
 
@@ -172,6 +174,7 @@ begin
         return jsonb_build_object('finance_record_id', p_finance_record_id, 'installments', installment_count, 'already_generated', false);
       end;
       $body$;
+    $fn$;
     execute 'grant execute on function public.generate_monthly_schedule(bigint) to authenticated';
   end if;
 end
@@ -202,6 +205,7 @@ begin
         return result;
       end;
       $body$;
+    $fn$;
     execute 'grant execute on function public.record_daily_payment(bigint, numeric, date) to authenticated';
   end if;
 
@@ -224,6 +228,7 @@ begin
         return result;
       end;
       $body$;
+    $fn$;
     execute 'grant execute on function public.record_weekly_payment(bigint, numeric, date) to authenticated';
   end if;
 
@@ -246,6 +251,7 @@ begin
         return result;
       end;
       $body$;
+    $fn$;
     execute 'grant execute on function public.record_monthly_payment(bigint, numeric, date) to authenticated';
   end if;
 end

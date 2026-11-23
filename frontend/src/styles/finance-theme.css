@@ -781,6 +781,16 @@ button[type='submit']:hover {
   color: var(--fs-ink-muted) !important;
 }
 
+/* Keep the Add Daily Finance button label/icon readable on the primary fill. */
+.daily-loan-header .daily-add-button span {
+  color: var(--color-on-primary, #ffffff) !important;
+}
+
+/* Shared Add buttons on Weekly / Monthly / Interest-Only headers. */
+.loan-add-button span {
+  color: var(--color-on-primary, #ffffff) !important;
+}
+
 /* Selects show a single native arrow.
    Previously a custom chevron was drawn here with background-image, but the
    native arrow was never suppressed (no `appearance: none`), so both arrows
@@ -1838,4 +1848,160 @@ table td,
   background: linear-gradient(135deg, #2E1065 0%, #4C1D95 100%) !important;
   color: #ffffff !important;
   border: 1px solid rgba(255,255,255,0.12) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Mobile-only polish
+   --------------------------------------------------------------------------
+   Every rule below lives inside a max-width media query, so the desktop /
+   system layout is completely unchanged. The same UI, components, colours and
+   labels are kept - these rules only make that UI fit and behave correctly on
+   a phone.
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  /* Very narrow phones must not force a page-wide horizontal scrollbar. */
+  html,
+  body {
+    min-width: 0 !important;
+  }
+
+  /* List search fields fill the row instead of overflowing a small screen. */
+  .daily-loan-list-header input[type='search'],
+  .loan-list-header input[type='search'],
+  .payments-search input,
+  .finance-reports-search input {
+    min-width: 0 !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* iOS Safari zooms the whole page when a focused field is under 16px. */
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Remove the old 300ms tap delay without changing any visual styling. */
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  /* When Add scrolls a form into view inside .admin-content, leave a little
+     breathing room at the top so the first field is never clipped. */
+  .admin-content form,
+  .daily-manage-section {
+    scroll-margin-top: 0.75rem;
+  }
+
+  /* On a phone the header wraps, putting the Add button directly above Loan
+     Summary. Give the wrapped header breathing room below it. */
+  .daily-page .daily-header,
+  .daily-page .daily-loan-header {
+    margin: 0 0 1rem !important;
+  }
+
+  /* Keep momentum scrolling when a wide data table is swiped sideways. */
+  .daily-list-table-wrap,
+  .loan-list-table-wrap,
+  .payment-table-wrapper,
+  .reports-table-wrapper {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Top bar: the desktop bar has eight controls and cannot fit a phone.
+     Keep the brand, language, theme and logout; hide the secondary ones. */
+  .app-navbar > div {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    gap: 8px !important;
+  }
+
+  .app-navbar .sync-status,
+  .app-navbar .voice-language-select-wrap,
+  .app-navbar .app-nav-icon:not([role='switch']),
+  .app-navbar .pl-space-sm {
+    display: none !important;
+  }
+}
+
+/* Very small phones: shorten the brand label and the language pill so the
+   remaining controls still fit without wrapping. */
+@media (max-width: 360px) {
+  .app-navbar .app-brand-mark + div,
+  .app-navbar .select-menu--pill .select-menu__value,
+  .app-navbar .select-menu--pill .select-menu__chevron {
+    display: none !important;
+  }
+
+  .app-navbar .select-menu--pill .select-menu__trigger {
+    padding: 0.35rem !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Agent portal on phones
+
+   The agent shell has its own sticky header in addition to the global navbar.
+   Keep both (same UI as system) but stack them so neither is clipped. The
+   240px sidebar becomes a drawer like the admin shell, and inline minmax()
+   card grids are allowed to shrink. Nothing here applies above 640px.
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .agent-portal > .agent-header {
+    top: 4rem !important;
+  }
+
+  .agent-portal .mobile-nav-toggle {
+    display: inline-flex;
+    top: 8.25rem !important;
+  }
+
+  .agent-portal .agent-sidebar {
+    position: fixed !important;
+    top: 8rem !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: min(17rem, 84vw) !important;
+    height: auto !important;
+    z-index: 55 !important;
+    transform: translateX(-105%);
+    transition: transform 220ms ease;
+    box-shadow: var(--fs-shadow);
+  }
+
+  .agent-portal .agent-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .agent-portal .sidebar-scrim {
+    inset: 8rem 0 0 !important;
+  }
+
+  .agent-portal .sidebar-scrim.is-visible {
+    display: block;
+  }
+
+  .agent-portal .agent-main {
+    padding: 0 !important;
+  }
+
+  .agent-portal .customer-profile-page {
+    padding-top: 8.75rem !important;
+  }
+
+  /* Inline minmax() widths cannot shrink on a narrow phone. */
+  .agent-portal .agent-main [style*='minmax('] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Between a phone and the admin breakpoint the sidebar still fits, so the
+   drawer toggle is not needed on agent pages. */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .agent-portal .mobile-nav-toggle {
+    display: none !important;
+  }
 }

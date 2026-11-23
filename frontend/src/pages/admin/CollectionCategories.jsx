@@ -1,9 +1,11 @@
 import { notify } from '../../utils/notify'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import SelectMenu from '../../components/SelectMenu'
+import { isMissingCategoryTypeColumnError } from '../../utils/categoryType'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 
 function CollectionCategories() {
   const navigate = useNavigate()
@@ -17,11 +19,40 @@ function CollectionCategories() {
 
   const [search, setSearch] = useState('')
 
+  const [isFormOpen, setIsFormOpen] = useState(false)
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    isFormOpen,
+    formSectionRef
+  )
+
   const [categoryName, setCategoryName] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState('active')
+  const [categoryType, setCategoryType] = useState('daily')
+  const [typeColumnMissing, setTypeColumnMissing] = useState(false)
 
   const [editingId, setEditingId] = useState(null)
+
+  const categoryTypeOptions = [
+    { value: 'daily', label: t('dailyCategoryType') },
+    { value: 'weekly', label: t('weekly') },
+    { value: 'monthly', label: t('monthly') },
+    { value: 'interest', label: t('interest') }
+  ]
+
+  const getCategoryTypeLabel = (value) =>
+    categoryTypeOptions.find(
+      (option) => option.value === value
+    )?.label || value || '-'
+
+  // Until the category type migration is applied, PostgREST rejects writes
+  // that mention category_type. Retry without it so editing still works.
+  const omitTypeFrom = (payload) => {
+    const next = { ...payload }
+    delete next.category_type
+    return next
+  }
 
   useEffect(() => {
     loadCategories()
@@ -67,7 +98,26 @@ function CollectionCategories() {
     setCategoryName('')
     setDescription('')
     setStatus('active')
+    setCategoryType('daily')
     setEditingId(null)
+  }
+
+  // Toggle the add form. Opening it always starts a fresh entry,
+  // discarding any unfinished edit.
+  const openAddForm = () => {
+    if (isFormOpen && !editingId) {
+      setIsFormOpen(false)
+      return
+    }
+
+    clearForm()
+    setIsFormOpen(true)
+    revealForm()
+  }
+
+  const closeForm = () => {
+    clearForm()
+    setIsFormOpen(false)
   }
 
   // =========================================
@@ -98,19 +148,64 @@ function CollectionCategories() {
 
     setSaving(true)
 
+    const omitType =
+      typeColumnMissing
+
+    const basePayload = {
+      category_name: cleanName,
+      description:
+        description.trim(),
+      status,
+      ...(omitType
+        ? {}
+        : { category_type: categoryType })
+    }
+
+    const updatePayload = {
+      ...basePayload,
+      updated_at: new Date().toISOString()
+    }
+
     // UPDATE
     if (editingId) {
-      const { error } = await supabase
+      // Request the updated row back so a silent RLS denial (zero rows
+      // affected, no error) cannot be reported as a successful edit.
+      let result = await supabase
         .from('collection_categories')
-        .update({
-          category_name: cleanName,
-          description:
-            description.trim(),
-          status,
-          updated_at:
-            new Date().toISOString()
-        })
+        .update(updatePayload)
+        .select('id')
         .eq('id', editingId)
+
+      let { error, data: updatedRows } = result
+
+      if (
+        error &&
+        !omitType &&
+        isMissingCategoryTypeColumnError(error)
+      ) {
+        setTypeColumnMissing(true)
+
+        result = await supabase
+          .from('collection_categories')
+          .update(
+            omitTypeFrom(updatePayload)
+          )
+          .select('id')
+          .eq('id', editingId)
+
+        error = result.error
+        updatedRows = result.data
+      }
+
+      if (
+        !error &&
+        Array.isArray(updatedRows) &&
+        updatedRows.length === 0
+      ) {
+        error = new Error(
+          t('categoryUpdateNoRows')
+        )
+      }
 
       if (error) {
         console.error(error)
@@ -129,15 +224,29 @@ function CollectionCategories() {
 
     // CREATE
     else {
-      const { error } = await supabase
+      let { error } = await supabase
         .from('collection_categories')
         .insert({
-          category_name: cleanName,
-          description:
-            description.trim(),
-          status,
+          ...basePayload,
           created_by: user.id
         })
+
+      if (
+        error &&
+        !omitType &&
+        isMissingCategoryTypeColumnError(error)
+      ) {
+        setTypeColumnMissing(true)
+
+        const retry = await supabase
+          .from('collection_categories')
+          .insert({
+            ...omitTypeFrom(basePayload),
+            created_by: user.id
+          })
+
+        error = retry.error
+      }
 
       if (error) {
         console.error(error)
@@ -162,6 +271,7 @@ function CollectionCategories() {
     }
 
     clearForm()
+    setIsFormOpen(false)
     await loadCategories()
     setSaving(false)
   }
@@ -181,11 +291,23 @@ function CollectionCategories() {
     setStatus(
       category.status || 'active'
     )
+    setCategoryType(
+      category.category_type || 'daily'
+    )
+    setIsFormOpen(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -235,7 +357,7 @@ function CollectionCategories() {
   const filteredCategories =
     categories.filter((category) => {
       const text =
-        `${category.category_name || ''} ${category.description || ''} ${category.status || ''}`
+        `${category.category_name || ''} ${category.description || ''} ${category.status || ''} ${getCategoryTypeLabel(category.category_type)}`
           .toLowerCase()
 
       return text.includes(
@@ -335,9 +457,32 @@ function CollectionCategories() {
 
       </div>
 
+      {/* ADD CATEGORY BUTTON */}
+
+      <div className="collection-category-actions">
+
+        <button
+          type="button"
+          className="collection-category-add-button"
+          aria-expanded={isFormOpen}
+          aria-controls="collection-category-form"
+          onClick={openAddForm}
+        >
+          <span aria-hidden="true">＋</span>
+          {t('addCollectionCategory')}
+        </button>
+
+      </div>
+
       {/* ADD / EDIT */}
 
-      <div className="daily-manage-section">
+      {isFormOpen && (
+
+      <div
+        ref={formSectionRef}
+        id="collection-category-form"
+        className="daily-manage-section"
+      >
 
         <h2>
           {editingId
@@ -387,6 +532,26 @@ function CollectionCategories() {
 
           <div>
             <label>
+              {t('categoryType')}
+            </label>
+
+            <SelectMenu
+              value={categoryType}
+              onChange={setCategoryType}
+              ariaLabel={t('categoryType')}
+              options={categoryTypeOptions}
+              disabled={typeColumnMissing}
+            />
+
+            {typeColumnMissing && (
+              <small className="collection-category-type-hint">
+                {t('categoryTypeUnavailable')}
+              </small>
+            )}
+          </div>
+
+          <div>
+            <label>
               {t('status')}
             </label>
 
@@ -417,7 +582,7 @@ function CollectionCategories() {
             <button
               type="button"
               className="back-button"
-              onClick={clearForm}
+              onClick={closeForm}
               disabled={saving}
             >
               {t('cancelEdit')}
@@ -428,7 +593,9 @@ function CollectionCategories() {
 
       </div>
 
-      {/* CATEGORY LIST */}
+      )}
+
+      {/* CATEGORY LIST - always visible */}
 
       <div className="daily-manage-section">
 
@@ -487,6 +654,7 @@ function CollectionCategories() {
                   <th>#</th>
                   <th>{t('categoryName')}</th>
                   <th>{t('description')}</th>
+                  <th>{t('categoryType')}</th>
                   <th>{t('status')}</th>
                   <th>{t('actions')}</th>
                 </tr>
@@ -512,6 +680,12 @@ function CollectionCategories() {
                       <td>
                         {category.description ||
                           '-'}
+                      </td>
+
+                      <td>
+                        {getCategoryTypeLabel(
+                          category.category_type
+                        )}
                       </td>
 
                       <td>

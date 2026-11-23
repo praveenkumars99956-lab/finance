@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { generateCustomerId } from '../../utils/customerId'
+import { isValidPhone, normalizePhone } from '../../utils/phone'
 import VoiceInputButton from '../../components/VoiceInputButton'
 import SelectMenu from '../../components/SelectMenu'
 import { getLocalId } from '../../services/offlineDb'
@@ -125,6 +126,11 @@ function Customers() {
       return
     }
 
+    if (!isValidPhone(phone)) {
+      notify(t('agentPhoneMustBeTenDigits'))
+      return
+    }
+
     // getSession reads the cached session, so a customer can still be entered
     // when the device is offline. getUser() would require the network.
     const {
@@ -140,7 +146,7 @@ function Customers() {
     const customerData = {
       customer_id: customerId.trim(),
       full_name: fullName.trim(),
-      phone: phone.trim() || null,
+      phone: normalizePhone(phone),
       address: address.trim() || null,
       status
     }
@@ -235,7 +241,7 @@ function Customers() {
     setEditingId(customer.id)
     setCustomerId(customer.customer_id || '')
     setFullName(customer.full_name || '')
-    setPhone(customer.phone || '')
+    setPhone(normalizePhone(customer.phone))
     setAddress(customer.address || '')
     setStatus(customer.status || 'active')
     setShowForm(true)
@@ -437,17 +443,17 @@ function Customers() {
               <div className="voice-field">
                 <input
                   type="tel"
-                  placeholder={t('enterPhoneNumber')}
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  onChange={(e) => setPhone(normalizePhone(e.target.value))}
+                  maxLength={10}
+                  inputMode="numeric"
+                  placeholder={t('tenDigitPhoneNumber')}
                   className="w-full px-space-md py-space-sm pr-12 rounded-DEFAULT bg-surface-container-lowest border border-outline-variant/40 text-on-surface focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                 />
                 <VoiceInputButton
                   className="voice-field-button"
                   onResult={(text) =>
-                    setPhone((previous) =>
-                      [previous, text].filter(Boolean).join(' ')
-                    )
+                    setPhone((previous) => normalizePhone(`${previous}${text}`))
                   }
                 />
               </div>

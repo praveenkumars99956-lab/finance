@@ -236,7 +236,6 @@ export default {
         }
 
         if (
-          phone &&
           !/^[0-9]{10}$/.test(phone)
         ) {
           return jsonResponse(

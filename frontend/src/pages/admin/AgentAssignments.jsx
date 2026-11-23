@@ -1,9 +1,10 @@
 import { notify } from '../../utils/notify'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import SelectMenu from '../../components/SelectMenu'
 import {
   ensureInterestOnlyLoanCategory,
@@ -25,14 +26,32 @@ function AgentAssignments() {
 
   const [editingId, setEditingId] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    showForm,
+    formSectionRef
+  )
 
   const [categoryId, setCategoryId] = useState('')
-  const [collectionType, setCollectionType] = useState('daily')
+  const [collectionType, setCollectionType] = useState('all')
   const [agentId, setAgentId] = useState('')
   const [assignedDate, setAssignedDate] = useState(
     new Date().toISOString().split('T')[0]
   )
   const [status, setStatus] = useState('active')
+
+  // Keep the original assignment selectable while editing, even if its
+  // category or agent is no longer active/available.
+  const currentAssignment = editingId
+    ? assignments.find((assignment) => assignment.id === editingId)
+    : null
+  // The bypass only applies while editing the assignment unchanged. Flipping
+  // an inactive assignment to active must still validate the agent.
+  const isExistingAssignmentAgent = Boolean(
+    currentAssignment &&
+      String(currentAssignment.agent_id) === String(agentId) &&
+      String(currentAssignment.status) === String(status)
+  )
 
   useEffect(() => {
     loadPage()
@@ -83,7 +102,7 @@ function AgentAssignments() {
 
       const { data, error } = await supabase
         .from('collection_categories')
-        .select('id, category_name, status')
+        .select('id, category_name, status, category_type')
         .eq('status', 'active')
         .order('category_name')
 
@@ -175,16 +194,56 @@ function AgentAssignments() {
     setStatus('active')
   }
 
+  // A category already declares which loan product it belongs to. Keep the
+  // collection type in sync with it so an assignment cannot silently hide every
+  // loan in that category from the agent. "interest" is stored on categories
+  // while finance records use "interest_only".
+  const collectionTypeForCategory = (category) => {
+    const categoryType = String(category?.category_type || '')
+      .trim()
+      .toLowerCase()
+
+    if (categoryType === 'interest') {
+      return 'interest_only'
+    }
+
+    return ['daily', 'weekly', 'monthly'].includes(categoryType)
+      ? categoryType
+      : 'all'
+  }
+
+  const handleCategoryChange = (value) => {
+    setCategoryId(value)
+
+    const selectedCategory = categories.find(
+      (category) => String(category.id) === String(value)
+    )
+
+    if (selectedCategory?.category_type) {
+      setCollectionType(
+        collectionTypeForCategory(selectedCategory)
+      )
+    }
+  }
+
   // Same interaction pattern as Customers and Agents: the header button
   // opens the assignment form, which keeps one Assign Agent create action.
   const openAssignAgent = () => {
     clearForm()
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -218,12 +277,19 @@ function AgentAssignments() {
       return
     }
 
-    if (!selectedAgent.auth_user_id && (!editingId || status === 'active')) {
+    if (
+      !selectedAgent.auth_user_id &&
+      (!editingId || (status === 'active' && !isExistingAssignmentAgent))
+    ) {
       notify(t('agentAssignmentLoginRequired'))
       return
     }
 
-    if (selectedAgent.status !== 'active' && status === 'active') {
+    if (
+      selectedAgent.status !== 'active' &&
+      status === 'active' &&
+      !isExistingAssignmentAgent
+    ) {
       notify(t('agentAssignmentActiveRequired'))
       return
     }
@@ -308,7 +374,7 @@ function AgentAssignments() {
     // =====================================
 
     if (editingId) {
-      const { error } = await supabase
+      const { data: updatedAssignment, error } = await supabase
         .from('category_agent_assignments')
         .update({
           category_id: Number(categoryId),
@@ -319,17 +385,21 @@ function AgentAssignments() {
           updated_at: new Date().toISOString()
         })
         .eq('id', editingId)
+        .select('id')
+        .single()
 
-      if (error) {
-        console.error(error)
+      if (error || !updatedAssignment?.id) {
+        console.error(error || 'Update returned no row')
 
-        if (error.code === '23505') {
+        if (error?.code === '23505') {
           notify(
             t('categoryAlreadyAssignedToAgent')
           )
         } else {
           notify(
-            t('assignmentUpdateFailed', { message: error.message })
+            t('assignmentUpdateFailed', {
+              message: error?.message || 'no row updated'
+            })
           )
         }
 
@@ -375,7 +445,7 @@ function AgentAssignments() {
         return
       }
 
-      const { error } = existing?.length
+      const { data: savedAssignment, error } = existing?.length
         ? await supabase
           .from('category_agent_assignments')
           .update({
@@ -384,18 +454,24 @@ function AgentAssignments() {
             updated_at: new Date().toISOString()
           })
           .eq('id', existing[0].id)
+          .select('id')
+          .single()
         : await supabase
         .from('category_agent_assignments')
         .insert(assignmentData)
+        .select('id')
+        .single()
 
-      if (error) {
-        console.error(error)
+      if (error || !savedAssignment?.id) {
+        console.error(error || 'Save returned no row')
 
-        if (error.code === '23505') {
+        if (error?.code === '23505') {
           notify(t('collectionTypeAlreadyAssigned'))
         } else {
           notify(
-            t('assignmentCreateFailed', { message: error.message })
+            t('assignmentCreateFailed', {
+              message: error?.message || 'no row saved'
+            })
           )
         }
 
@@ -409,7 +485,7 @@ function AgentAssignments() {
       await writeAuditLog({
         action: existing?.length ? 'assignment.reactivated' : 'assignment.created',
         entityType: 'category_agent_assignment',
-        entityId: existing?.[0]?.id || null,
+        entityId: savedAssignment?.id || existing?.[0]?.id || null,
         details: { categoryId: assignmentData.category_id, agentId: assignmentData.agent_id, collectionType: assignmentData.collection_type, status: assignmentData.status }
       })
     }
@@ -447,10 +523,18 @@ function AgentAssignments() {
       assignment.status || 'active'
     )
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -472,16 +556,20 @@ function AgentAssignments() {
 
     if (!confirmed) return
 
-    const { error } = await supabase
+    const { data: deletedAssignment, error } = await supabase
       .from('category_agent_assignments')
       .delete()
       .eq('id', assignment.id)
+      .select('id')
+      .maybeSingle()
 
-    if (error) {
-      console.error(error)
+    if (error || !deletedAssignment?.id) {
+      console.error(error || 'Delete returned no row')
 
       notify(
-        t('assignmentDeleteFailed', { message: error.message })
+        t('assignmentDeleteFailed', {
+          message: error?.message || 'no row deleted'
+        })
       )
 
       return
@@ -679,7 +767,10 @@ function AgentAssignments() {
 
       {showForm && (
 
-      <div className="assignment-form-section daily-manage-section">
+      <div
+        ref={formSectionRef}
+        className="assignment-form-section daily-manage-section"
+      >
 
         <h2>
           {editingId
@@ -699,13 +790,27 @@ function AgentAssignments() {
 
             <SelectMenu
               value={categoryId}
-              onChange={setCategoryId}
+              onChange={handleCategoryChange}
               ariaLabel={t('collectionCategory')}
               placeholder={t('selectCategory')}
-              options={activeCategories.map((category) => ({
-                value: String(category.id),
-                label: category.category_name
-              }))}
+              options={[
+                ...activeCategories.map((category) => ({
+                  value: String(category.id),
+                  label: category.category_name
+                })),
+                ...(currentAssignment &&
+                !activeCategories.some(
+                  (category) =>
+                    String(category.id) ===
+                    String(currentAssignment.category_id)
+                )
+                  ? [{
+                      value: String(currentAssignment.category_id),
+                      label: currentAssignment.collection_categories?.category_name ||
+                        t('collectionCategory')
+                    }]
+                  : [])
+              ]}
             />
           </div>
 
