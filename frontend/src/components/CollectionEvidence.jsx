@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../services/supabase'
 import { getCurrentWorkspaceId } from '../services/workspaces'
+import { loadAccessContext } from '../services/access'
 
 
 async function withTimeout(request, label) {
@@ -313,26 +314,12 @@ export function useCollectionEvidence(financeId) {
         )
       }
 
-      const {
-        data: profile,
-        error: profileError
-      } = await withTimeout(
-        supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', auth.user.id)
-          .single(),
+      const { access, error: accessError } = await withTimeout(
+        loadAccessContext(),
         'Verifying Admin role'
       )
 
-      if (
-        profileError ||
-        String(
-          profile?.role || ''
-        )
-          .trim()
-          .toLowerCase() !== 'admin'
-      ) {
+      if (accessError || access?.role !== 'admin') {
         throw new Error(
           'An Admin login is required for this payment form.'
         )

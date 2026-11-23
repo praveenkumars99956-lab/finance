@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { getCurrentWorkspaceId } from '../../services/workspaces'
 import { normalizeFinanceType } from '../../services/agentAssignments'
+import { loadAccessContext } from '../../services/access'
 import { EvidenceHistory } from '../../components/CollectionEvidence'
 import CalendarDatePicker from '../../components/CalendarDatePicker'
 import {
@@ -187,12 +188,8 @@ function AgentCollection() {
       throw new Error(t('agentLoginSessionEnded'))
     }
     const user = userData.user
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, role')
-      .eq('id', user.id)
-      .single()
-    if (profileError || String(profile?.role || '').trim().toLowerCase() !== 'agent') {
+    const { access, error: accessError } = await loadAccessContext()
+    if (accessError || access?.role !== 'agent') {
       throw new Error(t('unableVerifyAgentLogin'))
     }
     const { data: agent, error: agentError } = await supabase

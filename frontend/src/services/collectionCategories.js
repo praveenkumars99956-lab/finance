@@ -1,5 +1,6 @@
 import { supabase } from './supabase'
 import { isMissingCategoryTypeColumnError } from '../utils/categoryType'
+import { loadAccessContext } from './access'
 
 async function loadCollectionCategories() {
   const { data, error } = await supabase
@@ -68,17 +69,13 @@ async function ensureLoanCategory(
     )
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', createdBy)
-    .maybeSingle()
+  const { access, error: accessError } = await loadAccessContext()
 
-  if (profileError) {
-    throw profileError
+  if (accessError) {
+    throw accessError
   }
 
-  if (profile?.role !== 'admin') {
+  if (access?.role !== 'admin') {
     throw new Error(
       `Only an admin can create the default ${loanName} collection category.`
     )
