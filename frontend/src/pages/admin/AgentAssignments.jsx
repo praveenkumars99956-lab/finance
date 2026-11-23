@@ -1,9 +1,10 @@
 import { notify } from '../../utils/notify'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import SelectMenu from '../../components/SelectMenu'
 import {
   ensureInterestOnlyLoanCategory,
@@ -25,6 +26,11 @@ function AgentAssignments() {
 
   const [editingId, setEditingId] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    showForm,
+    formSectionRef
+  )
 
   const [categoryId, setCategoryId] = useState('')
   const [collectionType, setCollectionType] = useState('daily')
@@ -194,10 +200,18 @@ function AgentAssignments() {
     clearForm()
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -467,10 +481,18 @@ function AgentAssignments() {
       assignment.status || 'active'
     )
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -699,7 +721,10 @@ function AgentAssignments() {
 
       {showForm && (
 
-      <div className="assignment-form-section daily-manage-section">
+      <div
+        ref={formSectionRef}
+        className="assignment-form-section daily-manage-section"
+      >
 
         <h2>
           {editingId

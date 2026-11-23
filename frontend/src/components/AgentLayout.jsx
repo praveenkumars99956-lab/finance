@@ -30,6 +30,7 @@ export default function AgentLayout() {
   const [agent, setAgent] = useState(null)
   const [status, setStatus] = useState('checking') // checking | online | offline | error
   const [lastValidatedAt, setLastValidatedAt] = useState(null)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const role = auth?.access?.role || 'agent'
   const displayName = agent?.full_name || auth?.profile?.fullName || auth?.user?.email || t('agent', 'Agent')
@@ -86,6 +87,11 @@ export default function AgentLayout() {
     return t('checking', 'Checking...')
   }, [status, t])
 
+  // Close the phone drawer whenever the route changes, like the admin shell.
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [location.pathname])
+
   const logout = async () => {
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' })
@@ -115,7 +121,27 @@ export default function AgentLayout() {
 
   return (
     <div className="agent-portal" style={{ minHeight: '100vh', background: 'var(--fs-bg, #f6f2ff)' }}>
+      <button
+        type="button"
+        className="mobile-nav-toggle"
+        aria-label={t('openMenu', 'Open menu')}
+        aria-expanded={sidebarOpen}
+        aria-controls="agent-sidebar"
+        onClick={() => setSidebarOpen((open) => !open)}
+      >
+        <span className="material-symbols-outlined text-[22px]">
+          {sidebarOpen ? 'close' : 'menu'}
+        </span>
+      </button>
+
+      <div
+        className={`sidebar-scrim ${sidebarOpen ? 'is-visible' : ''}`}
+        aria-hidden="true"
+        onClick={() => setSidebarOpen(false)}
+      />
+
       <header
+        className="agent-header"
         style={{
           position: 'sticky',
           top: 0,
@@ -167,6 +193,8 @@ export default function AgentLayout() {
 
       <div style={{ display: 'flex', minHeight: 'calc(100vh - 57px)' }}>
         <aside
+          id="agent-sidebar"
+          className={`agent-sidebar ${sidebarOpen ? 'is-open' : ''}`}
           style={{
             width: 240,
             flexShrink: 0,
@@ -228,7 +256,7 @@ export default function AgentLayout() {
           </div>
         </aside>
 
-        <main style={{ flex: 1, minWidth: 0, padding: '1rem', boxSizing: 'border-box' }}>
+        <main className="agent-main" style={{ flex: 1, minWidth: 0, padding: '1rem', boxSizing: 'border-box' }}>
           <Outlet />
         </main>
       </div>

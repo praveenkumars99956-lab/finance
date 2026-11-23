@@ -1,10 +1,11 @@
 import { notify } from '../../utils/notify'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
 import { isValidPhone, normalizePhone } from '../../utils/phone'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import CustomSelect from '../../components/CustomSelect'
 
 function Agents() {
@@ -17,6 +18,11 @@ function Agents() {
   const [search, setSearch] = useState('')
   const [editingId, setEditingId] = useState(null)
   const [showForm, setShowForm] = useState(false)
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    showForm,
+    formSectionRef
+  )
   const [loginEmails, setLoginEmails] = useState({})
 
   const [form, setForm] = useState({
@@ -120,10 +126,18 @@ function Agents() {
     clearForm()
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -477,10 +491,18 @@ function Agents() {
         agent.status || 'active'
     })
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -755,7 +777,10 @@ function Agents() {
 
       {showForm && (
 
-      <div className="agents-form-section daily-manage-section">
+      <div
+        ref={formSectionRef}
+        className="agents-form-section daily-manage-section"
+      >
 
         <h2>
           {

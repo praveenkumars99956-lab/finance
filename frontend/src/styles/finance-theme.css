@@ -1940,3 +1940,68 @@ table td,
     padding: 0.35rem !important;
   }
 }
+
+/* --------------------------------------------------------------------------
+   Agent portal on phones
+
+   The agent shell has its own sticky header in addition to the global navbar.
+   Keep both (same UI as system) but stack them so neither is clipped. The
+   240px sidebar becomes a drawer like the admin shell, and inline minmax()
+   card grids are allowed to shrink. Nothing here applies above 640px.
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  .agent-portal > .agent-header {
+    top: 4rem !important;
+  }
+
+  .agent-portal .mobile-nav-toggle {
+    display: inline-flex;
+    top: 8.25rem !important;
+  }
+
+  .agent-portal .agent-sidebar {
+    position: fixed !important;
+    top: 8rem !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    width: min(17rem, 84vw) !important;
+    height: auto !important;
+    z-index: 55 !important;
+    transform: translateX(-105%);
+    transition: transform 220ms ease;
+    box-shadow: var(--fs-shadow);
+  }
+
+  .agent-portal .agent-sidebar.is-open {
+    transform: translateX(0);
+  }
+
+  .agent-portal .sidebar-scrim {
+    inset: 8rem 0 0 !important;
+  }
+
+  .agent-portal .sidebar-scrim.is-visible {
+    display: block;
+  }
+
+  .agent-portal .agent-main {
+    padding: 0 !important;
+  }
+
+  .agent-portal .customer-profile-page {
+    padding-top: 8.75rem !important;
+  }
+
+  /* Inline minmax() widths cannot shrink on a narrow phone. */
+  .agent-portal .agent-main [style*='minmax('] {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Between a phone and the admin breakpoint the sidebar still fits, so the
+   drawer toggle is not needed on agent pages. */
+@media (min-width: 641px) and (max-width: 1023px) {
+  .agent-portal .mobile-nav-toggle {
+    display: none !important;
+  }
+}
