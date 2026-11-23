@@ -152,12 +152,15 @@ async function ensureLoanCategory(
   }
 }
 
-export async function ensureWeeklyLoanCategory(createdBy) {
+export async function ensureWeeklyLoanCategory(
+  createdBy,
+  reactivateInactive = true
+) {
   const { categories, loanCategory } =
     await ensureLoanCategory(
       createdBy,
       'Weekly Loan',
-      false,
+      reactivateInactive,
       'weekly'
     )
 

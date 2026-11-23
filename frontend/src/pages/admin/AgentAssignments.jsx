@@ -33,7 +33,7 @@ function AgentAssignments() {
   )
 
   const [categoryId, setCategoryId] = useState('')
-  const [collectionType, setCollectionType] = useState('daily')
+  const [collectionType, setCollectionType] = useState('all')
   const [agentId, setAgentId] = useState('')
   const [assignedDate, setAssignedDate] = useState(
     new Date().toISOString().split('T')[0]
@@ -102,7 +102,7 @@ function AgentAssignments() {
 
       const { data, error } = await supabase
         .from('collection_categories')
-        .select('id, category_name, status')
+        .select('id, category_name, status, category_type')
         .eq('status', 'active')
         .order('category_name')
 
@@ -192,6 +192,38 @@ function AgentAssignments() {
       new Date().toISOString().split('T')[0]
     )
     setStatus('active')
+  }
+
+  // A category already declares which loan product it belongs to. Keep the
+  // collection type in sync with it so an assignment cannot silently hide every
+  // loan in that category from the agent. "interest" is stored on categories
+  // while finance records use "interest_only".
+  const collectionTypeForCategory = (category) => {
+    const categoryType = String(category?.category_type || '')
+      .trim()
+      .toLowerCase()
+
+    if (categoryType === 'interest') {
+      return 'interest_only'
+    }
+
+    return ['daily', 'weekly', 'monthly'].includes(categoryType)
+      ? categoryType
+      : 'all'
+  }
+
+  const handleCategoryChange = (value) => {
+    setCategoryId(value)
+
+    const selectedCategory = categories.find(
+      (category) => String(category.id) === String(value)
+    )
+
+    if (selectedCategory?.category_type) {
+      setCollectionType(
+        collectionTypeForCategory(selectedCategory)
+      )
+    }
   }
 
   // Same interaction pattern as Customers and Agents: the header button
@@ -758,7 +790,7 @@ function AgentAssignments() {
 
             <SelectMenu
               value={categoryId}
-              onChange={setCategoryId}
+              onChange={handleCategoryChange}
               ariaLabel={t('collectionCategory')}
               placeholder={t('selectCategory')}
               options={[

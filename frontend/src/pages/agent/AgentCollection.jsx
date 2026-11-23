@@ -5,6 +5,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { getCurrentWorkspaceId } from '../../services/workspaces'
+import { normalizeFinanceType } from '../../services/agentAssignments'
 import { EvidenceHistory } from '../../components/CollectionEvidence'
 import CalendarDatePicker from '../../components/CalendarDatePicker'
 import {
@@ -225,10 +226,10 @@ function AgentCollection() {
       .eq('status', 'active')
       .limit(100)
     const hasTypeAssignment = (assignments || []).some((assignment) => {
-      const assignedType = String(assignment.collection_type || '').trim().toLowerCase()
+      const assignedType = normalizeFinanceType(assignment.collection_type)
       return !assignedType ||
         assignedType === 'all' ||
-        assignedType === String(record.finance_type || '').trim().toLowerCase()
+        assignedType === normalizeFinanceType(record.finance_type)
     })
     if (assignmentError || !hasTypeAssignment) {
       throw new Error(t('collectionAssignmentInactive'))
