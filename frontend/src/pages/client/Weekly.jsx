@@ -8,6 +8,7 @@ import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
 import { useToast } from '../../components/Toast'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
+import { isValidPhone, normalizePhone } from '../../utils/phone'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import {
   normalizeInterestInput,
@@ -52,6 +53,8 @@ function Weekly() {
   const [customerName, setCustomerName] = useState(
     providedCustomer?.full_name || ''
   )
+
+  const [newCustomerPhone, setNewCustomerPhone] = useState('')
 
   const existingCustomerNames = customerOptions
     .map((option) => String(option.full_name || '').trim())
@@ -795,6 +798,11 @@ function Weekly() {
       return
     }
 
+    if (!activeCustomer && !isValidPhone(newCustomerPhone)) {
+      showToast(t('agentPhoneMustBeTenDigits'), 'error')
+      return
+    }
+
     if (!activeCustomer) {
       setCustomerName(trimmedCustomerName)
     }
@@ -929,7 +937,7 @@ function Weekly() {
               .insert({
                 customer_id: generateCustomerId(),
                 full_name: trimmedCustomerName,
-                phone: '',
+                phone: normalizePhone(newCustomerPhone),
                 address: '',
                 status: 'active',
                 created_by: user.id,
@@ -1470,6 +1478,26 @@ function Weekly() {
                   }
                 />
               </div>
+
+              {!activeCustomer && (
+                <div style={{ gridColumn: '1 / -1' }}>
+                  <label>
+                    {t('phoneNumber', 'Phone Number')} *
+                  </label>
+
+                  <input
+                    type="tel"
+                    value={newCustomerPhone}
+                    onChange={(event) =>
+                      setNewCustomerPhone(normalizePhone(event.target.value))
+                    }
+                    maxLength={10}
+                    inputMode="numeric"
+                    placeholder={t('tenDigitPhoneNumber')}
+                    autoComplete="tel"
+                  />
+                </div>
+              )}
             </div>
           )}
 
