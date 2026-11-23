@@ -1,5 +1,11 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
 import { normalizeFinanceType } from '../../utils/financeType'
+import {
+  buildReportSearchText,
+  getLoanStatus,
+  isDateOverdue,
+  matchesReportFilter
+} from '../../utils/reportFilters'
 import { notify } from '../../utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -99,78 +105,12 @@ function Reports() {
       : parsedDate.toLocaleDateString(locale)
   }
 
-  const isOverdue = (record) => {
-    if (Number(record.pending || 0) <= 0) {
-      return false
-    }
-
-    if (!record.next_due_date) {
-      return false
-    }
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const dueDate = new Date(
-      `${record.next_due_date}T00:00:00`
-    )
-
-    return dueDate < today
-  }
-
-  const getStatus = (record) => {
-    const pending = Number(record.pending || 0)
-
-    if (pending <= 0) {
-      return 'paid'
-    }
-
-    if (isOverdue(record)) {
-      return 'overdue'
-    }
-
-    return 'pending'
-  }
 
   const filteredRecords = useMemo(() => {
     const searchText = search.trim().toLowerCase()
 
     return records.filter((record) => {
-      const pending = Number(record.pending || 0)
-      const recordType = normalizeFinanceType(record.finance_type)
-
-      let matchesFilter = true
-
-      if (filter === 'daily') {
-        matchesFilter = recordType === 'daily'
-      }
-
-      if (filter === 'weekly') {
-        matchesFilter = recordType === 'weekly'
-      }
-
-      if (filter === 'monthly') {
-        matchesFilter = recordType === 'monthly'
-      }
-
-      if (filter === 'interest_only') {
-        matchesFilter = recordType === 'interest_only'
-      }
-
-      if (filter === 'pending') {
-        matchesFilter =
-          pending > 0 && !isOverdue(record)
-      }
-
-      if (filter === 'overdue') {
-        matchesFilter = isOverdue(record)
-      }
-
-      if (filter === 'paid') {
-        matchesFilter = pending <= 0
-      }
-
-      if (!matchesFilter) {
+      if (!matchesReportFilter(record, filter)) {
         return false
       }
 
@@ -178,24 +118,11 @@ function Reports() {
         return true
       }
 
-      const customerName =
-        getCustomerName(record).toLowerCase()
-
-      const customerId =
-        getCustomerId(record).toLowerCase()
-
-      const categoryName =
-        getCategoryName(record).toLowerCase()
-
-      const loanName =
-        getLoanName(record.finance_type).toLowerCase()
-
-      return (
-        customerName.includes(searchText) ||
-        customerId.includes(searchText) ||
-        categoryName.includes(searchText) ||
-        loanName.includes(searchText)
-      )
+      return buildReportSearchText(record, [
+        getCustomerName(record),
+        getCategoryName(record),
+        getLoanName(record.finance_type)
+      ]).includes(searchText)
     })
   }, [records, filter, search, i18n.resolvedLanguage])
 
@@ -218,7 +145,7 @@ function Reports() {
   )
 
   const overdueCount = filteredRecords.filter(
-    (record) => isOverdue(record)
+    (record) => isDateOverdue(record.next_due_date)
   ).length
 
   const getReportName = () => {
@@ -329,7 +256,7 @@ function Reports() {
         Number(record.paid || 0),
         Number(record.pending || 0),
         record.next_due_date || '',
-        t(getStatus(record))
+        t(getLoanStatus(record))
       ]
     )
 
@@ -413,7 +340,7 @@ function Reports() {
         `₹${formatMoney(record.paid)}`,
         `₹${formatMoney(record.pending)}`,
         formatDate(record.next_due_date),
-        t(getStatus(record))
+        t(getLoanStatus(record))
       ]
     )
 
@@ -582,6 +509,25 @@ function Reports() {
             }}
           >
             {t('collectionReport')}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilter('all')
+              setSearch('')
+            }}
+            style={{
+              background: 'var(--primary-100, #EDE9FE)',
+              color: 'var(--primary-800, #3B1A82)',
+              border: '1px solid var(--primary-100, #EDE9FE)',
+              borderRadius: '10px',
+              padding: '0.5rem 0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            {t('clearFilters', 'Clear filters')}
           </button>
         </div>
 
@@ -770,9 +716,9 @@ function Reports() {
                       </td>
 
                       <td style={{ padding: '12px', verticalAlign: 'top' }}>
-                        {getStatus(record) === 'overdue' ? '🔴 ' : getStatus(record) === 'paid' ? '🟢 ' : '🟡 '}
+                        {getLoanStatus(record) === 'overdue' ? '🔴 ' : getLoanStatus(record) === 'paid' ? '🟢 ' : '🟡 '}
                         <strong>
-                          {t(getStatus(record))}
+                          {t(getLoanStatus(record))}
                         </strong>
                       </td>
                     </tr>

@@ -1,5 +1,6 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
 import { normalizeFinanceType } from '../../utils/financeType'
+import { matchesCollectionReport } from '../../utils/reportFilters'
 import { notify } from '../../utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -297,24 +298,7 @@ function CollectionReport() {
             'Not Assigned',
 
           agentCode:
-            agent?.agent_id || '-',
-
-          searchText: [
-            customer.full_name || '-',
-            customer.customer_id || '-',
-            customer.phone || '-',
-            agent?.full_name || 'Not Assigned',
-            agent?.agent_id || '-',
-            category.category_name || 'Not Assigned',
-            getFinanceTypeName(finance.finance_type),
-            finance.finance_type || '-',
-            payment.payment_date || '',
-            payment.payment_amount || 0,
-            payment.balance_before || 0,
-            payment.balance_after || 0
-          ]
-            .join(' ')
-            .toLowerCase()
+            agent?.agent_id || '-'
         }
       }
     )
@@ -327,59 +311,16 @@ function CollectionReport() {
   // FILTER
   // =========================================
 
-  const filteredRecords =
-    useMemo(() => {
-      return records.filter(
-        (record) => {
-          const text =
-            search
-              .trim()
-              .toLowerCase()
-
-          const matchesSearch =
-            !text ||
-            (record.searchText ||
-              [
-                record.customerName,
-                record.customerId,
-                record.agentName,
-                record.agentCode,
-                record.category
-              ]
-                .join(' ')
-                .toLowerCase()
-            ).includes(text)
-
-          const matchesType =
-            typeFilter === 'all' ||
-            normalizeFinanceType(record.financeType) ===
-              normalizeFinanceType(typeFilter)
-
-          const matchesFrom =
-            !fromDate ||
-            record.paymentDate >=
-              fromDate
-
-          const matchesTo =
-            !toDate ||
-            record.paymentDate <=
-              toDate
-
-          return (
-            matchesSearch &&
-            matchesType &&
-            matchesFrom &&
-            matchesTo
-          )
-        }
-      )
-    }, [
-      records,
-      search,
-      typeFilter,
-      fromDate,
-      toDate
-    ])
+  const filteredRecords = useMemo(() => {
+    return records.filter((record) =>
+      matchesCollectionReport(record, {
+        search,
+        typeFilter,
+        fromDate,
+        toDate
+      })
+    )
+  }, [records, search, typeFilter, fromDate, toDate])
 
   const totalCollected =
     filteredRecords.reduce(
@@ -766,17 +707,31 @@ function CollectionReport() {
 
         </div>
 
-        {/* CLOSE FILTERS WITHOUT RESETTING APPLIED VALUES */}
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            className="collection-report-filters-cancel-button back-button"
+            onClick={() => {
+              setSearch('')
+              setTypeFilter('all')
+              setFromDate('')
+              setToDate('')
+            }}
+          >
+            {t('clearFilters', 'Clear filters')}
+          </button>
 
-        <button
-          type="button"
-          className="collection-report-filters-cancel-button back-button"
-          onClick={() =>
-            setShowFilters(false)
-          }
-        >
-          {t('cancel')}
-        </button>
+          {/* CLOSE FILTERS WITHOUT RESETTING APPLIED VALUES */}
+          <button
+            type="button"
+            className="collection-report-filters-cancel-button back-button"
+            onClick={() =>
+              setShowFilters(false)
+            }
+          >
+            {t('cancel')}
+          </button>
+        </div>
 
       </div>
 

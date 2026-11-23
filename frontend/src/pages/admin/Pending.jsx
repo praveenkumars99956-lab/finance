@@ -1,5 +1,6 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
 import { normalizeFinanceType } from '../../utils/financeType'
+import { toDateKey } from '../../utils/reportFilters'
 import { notify } from '../../utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -128,13 +129,14 @@ function Pending() {
   // =========================================
 
   const getStatus = (record) => {
-    if (!record.next_due_date) return 'pending'
+    const dueDateKey = toDateKey(record.next_due_date)
+    if (!dueDateKey) return 'pending'
 
     const today = new Date()
     today.setHours(0, 0, 0, 0)
 
-    const dueDate = new Date(`${record.next_due_date}T00:00:00`)
-    dueDate.setHours(0, 0, 0, 0)
+    const dueDate = new Date(`${dueDateKey}T00:00:00`)
+    if (Number.isNaN(dueDate.getTime())) return 'pending'
 
     const graceLimit = new Date(dueDate)
     graceLimit.setDate(graceLimit.getDate() + Number(overdueGraceDays || 0))
