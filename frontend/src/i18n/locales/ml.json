@@ -1107,5 +1107,16 @@
   "open": "തുറക്കുക",
   "profile": "പ്രൊഫൈൽ",
   "savedOfflineWillSync": "ഈ ഉപകരണത്തിൽ സൂക്ഷിച്ചു. കണക്ഷൻ തിരിച്ചെത്തുമ്പോൾ ഇത് സ്വയം സമന്വയിപ്പിക്കും.",
-  "totalLoans": "വസൂലിലുള്ള ആകെ ലോണുകൾ"
+  "totalLoans": "വസൂലിലുള്ള ആകെ ലോണുകൾ",
+  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "businessNameHint": "Identifies this workspace in your settings.",
+  "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
+  "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",
+  "overdueGraceDaysHint": "Extra days allowed before a repayment is treated as overdue.",
+  "resetToDefaults": "Reset to Defaults",
+  "settingsResetNotice": "Form reset to defaults. Click Save Settings to apply.",
+  "workspaceInformation": "Workspace Information",
+  "workspaceId": "Workspace ID",
+  "lastUpdated": "Last Updated",
+  "notAvailable": "Not available"
 }

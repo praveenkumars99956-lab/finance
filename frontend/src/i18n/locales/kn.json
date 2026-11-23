@@ -1107,5 +1107,16 @@
   "open": "ತೆರೆಯಿರಿ",
   "profile": "ಪ್ರೊಫೈಲ್",
   "savedOfflineWillSync": "ಈ ಸಾಧನದಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ. ಸಂಪರ್ಕ ಮರಳಿದಾಗ ಇದು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಸಿಂಕ್ ಆಗುತ್ತದೆ.",
-  "totalLoans": "ವಸೂಲಿಯಲ್ಲಿರುವ ಒಟ್ಟು ಸಾಲಗಳು"
+  "totalLoans": "ವಸೂಲಿಯಲ್ಲಿರುವ ಒಟ್ಟು ಸಾಲಗಳು",
+  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "businessNameHint": "Identifies this workspace in your settings.",
+  "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
+  "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",
+  "overdueGraceDaysHint": "Extra days allowed before a repayment is treated as overdue.",
+  "resetToDefaults": "Reset to Defaults",
+  "settingsResetNotice": "Form reset to defaults. Click Save Settings to apply.",
+  "workspaceInformation": "Workspace Information",
+  "workspaceId": "Workspace ID",
+  "lastUpdated": "Last Updated",
+  "notAvailable": "Not available"
 }

@@ -1107,5 +1107,16 @@
   "open": "తెరవండి",
   "profile": "ప్రొఫైల్",
   "savedOfflineWillSync": "ఈ పరికరంలో భద్రపరచబడింది. కనెక్షన్ తిరిగి వచ్చినప్పుడు ఇది స్వయంగా సింక్ అవుతుంది.",
-  "totalLoans": "వసూలులో ఉన్న మొత్తం రుణాలు"
+  "totalLoans": "వసూలులో ఉన్న మొత్తం రుణాలు",
+  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "businessNameHint": "Identifies this workspace in your settings.",
+  "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
+  "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",
+  "overdueGraceDaysHint": "Extra days allowed before a repayment is treated as overdue.",
+  "resetToDefaults": "Reset to Defaults",
+  "settingsResetNotice": "Form reset to defaults. Click Save Settings to apply.",
+  "workspaceInformation": "Workspace Information",
+  "workspaceId": "Workspace ID",
+  "lastUpdated": "Last Updated",
+  "notAvailable": "Not available"
 }

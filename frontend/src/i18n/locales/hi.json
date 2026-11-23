@@ -1107,5 +1107,16 @@
   "open": "खोलें",
   "profile": "प्रोफ़ाइल",
   "savedOfflineWillSync": "इस डिवाइस पर सहेजा गया। कनेक्शन वापस आने पर यह स्वतः सिंक हो जाएगा।",
-  "totalLoans": "संग्रह में कुल ऋण"
+  "totalLoans": "संग्रह में कुल ऋण",
+  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "businessNameHint": "Identifies this workspace in your settings.",
+  "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
+  "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",
+  "overdueGraceDaysHint": "Extra days allowed before a repayment is treated as overdue.",
+  "resetToDefaults": "Reset to Defaults",
+  "settingsResetNotice": "Form reset to defaults. Click Save Settings to apply.",
+  "workspaceInformation": "Workspace Information",
+  "workspaceId": "Workspace ID",
+  "lastUpdated": "Last Updated",
+  "notAvailable": "Not available"
 }
