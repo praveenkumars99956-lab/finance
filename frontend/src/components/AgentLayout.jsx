@@ -120,7 +120,7 @@ export default function AgentLayout() {
   }
 
   return (
-    <div className="agent-portal" style={{ minHeight: '100vh', background: 'var(--fs-agent-bg, #f6f2ff)', color: 'var(--fs-agent-heading, #1a0a3b)' }}>
+    <div className="agent-portal" style={{ minHeight: '100vh', background: 'transparent', color: 'var(--fs-agent-heading, #1a0a3b)' }}>
       <button
         type="button"
         className="mobile-nav-toggle"

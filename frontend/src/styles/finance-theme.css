@@ -26,7 +26,6 @@
   --fs-white: #ffffff;
 
   /* Agent portal shell (keeps the existing light UI exactly as-is) */
-  --fs-agent-bg: #f6f2ff;
   --fs-agent-header-bg: rgba(255, 255, 255, 0.92);
   --fs-agent-sidebar-bg: rgba(255, 255, 255, 0.75);
   --fs-agent-border: rgba(53, 16, 120, 0.12);
@@ -189,8 +188,17 @@ body::before {
 .modern-loan-manage,
 .settings-page,
 .client-dashboard,
-.agent-dashboard-page {
+.agent-dashboard-page,
+.agent-portal {
   background-color: transparent;
+}
+
+/* The agent shell used to paint an opaque background that hid the shared
+   themed wallpaper (gradient + finance-bg.svg). Keep it transparent exactly
+   like the admin .page-bg shell so both light and dark themes show through. */
+.agent-portal {
+  background: transparent !important;
+  background-image: none !important;
 }
 
 .page-bg,
@@ -1115,7 +1123,6 @@ textarea:focus-visible,
   --fs-line-soft: #211239;
 
   /* Agent portal shell follows the dark palette */
-  --fs-agent-bg: #0c0618;
   --fs-agent-header-bg: rgba(17, 9, 34, 0.94);
   --fs-agent-sidebar-bg: rgba(21, 11, 40, 0.92);
   --fs-agent-border: rgba(201, 182, 255, 0.16);
