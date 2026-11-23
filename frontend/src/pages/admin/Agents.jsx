@@ -258,6 +258,7 @@ function Agents() {
 
       if (editingId) {
         const {
+          data: updatedAgent,
           error: updateError
         } = await supabase
           .from('agents')
@@ -266,7 +267,7 @@ function Agents() {
               form.full_name.trim(),
 
             phone:
-              form.phone.trim(),
+              normalizePhone(form.phone),
 
             email:
               form.email
@@ -286,15 +287,19 @@ function Agents() {
             'id',
             editingId
           )
+          .select('id')
+          .single()
 
-        if (updateError) {
+        if (updateError || !updatedAgent?.id) {
           console.error(
             'UPDATE AGENT ERROR:',
-            updateError
+            updateError || 'Update returned no row'
           )
 
           throw new Error(
-            t('agentUpdateFailed', { message: updateError.message })
+            t('agentUpdateFailed', {
+              message: updateError?.message || 'no row updated'
+            })
           )
         }
 
@@ -333,7 +338,7 @@ function Agents() {
                   form.full_name.trim(),
 
                 phone:
-                  form.phone.trim(),
+                  normalizePhone(form.phone),
 
                 email:
                   form.email
@@ -529,6 +534,7 @@ function Agents() {
       }
 
       const {
+        data: deactivatedAgent,
         error
       } = await supabase
         .from('agents')
@@ -542,15 +548,19 @@ function Agents() {
           'id',
           agent.id
         )
+        .select('id')
+        .single()
 
-      if (error) {
+      if (error || !deactivatedAgent?.id) {
         console.error(
           'DEACTIVATE ERROR:',
-          error
+          error || 'Update returned no row'
         )
 
         notify(
-          t('agentDeactivateFailed', { message: error.message })
+          t('agentDeactivateFailed', {
+            message: error?.message || 'no row updated'
+          })
         )
 
         return

@@ -342,7 +342,7 @@ function AgentAssignments() {
     // =====================================
 
     if (editingId) {
-      const { error } = await supabase
+      const { data: updatedAssignment, error } = await supabase
         .from('category_agent_assignments')
         .update({
           category_id: Number(categoryId),
@@ -353,17 +353,21 @@ function AgentAssignments() {
           updated_at: new Date().toISOString()
         })
         .eq('id', editingId)
+        .select('id')
+        .single()
 
-      if (error) {
-        console.error(error)
+      if (error || !updatedAssignment?.id) {
+        console.error(error || 'Update returned no row')
 
-        if (error.code === '23505') {
+        if (error?.code === '23505') {
           notify(
             t('categoryAlreadyAssignedToAgent')
           )
         } else {
           notify(
-            t('assignmentUpdateFailed', { message: error.message })
+            t('assignmentUpdateFailed', {
+              message: error?.message || 'no row updated'
+            })
           )
         }
 
@@ -409,7 +413,7 @@ function AgentAssignments() {
         return
       }
 
-      const { error } = existing?.length
+      const { data: savedAssignment, error } = existing?.length
         ? await supabase
           .from('category_agent_assignments')
           .update({
@@ -418,18 +422,24 @@ function AgentAssignments() {
             updated_at: new Date().toISOString()
           })
           .eq('id', existing[0].id)
+          .select('id')
+          .single()
         : await supabase
         .from('category_agent_assignments')
         .insert(assignmentData)
+        .select('id')
+        .single()
 
-      if (error) {
-        console.error(error)
+      if (error || !savedAssignment?.id) {
+        console.error(error || 'Save returned no row')
 
-        if (error.code === '23505') {
+        if (error?.code === '23505') {
           notify(t('collectionTypeAlreadyAssigned'))
         } else {
           notify(
-            t('assignmentCreateFailed', { message: error.message })
+            t('assignmentCreateFailed', {
+              message: error?.message || 'no row saved'
+            })
           )
         }
 
@@ -443,7 +453,7 @@ function AgentAssignments() {
       await writeAuditLog({
         action: existing?.length ? 'assignment.reactivated' : 'assignment.created',
         entityType: 'category_agent_assignment',
-        entityId: existing?.[0]?.id || null,
+        entityId: savedAssignment?.id || existing?.[0]?.id || null,
         details: { categoryId: assignmentData.category_id, agentId: assignmentData.agent_id, collectionType: assignmentData.collection_type, status: assignmentData.status }
       })
     }
@@ -514,16 +524,20 @@ function AgentAssignments() {
 
     if (!confirmed) return
 
-    const { error } = await supabase
+    const { data: deletedAssignment, error } = await supabase
       .from('category_agent_assignments')
       .delete()
       .eq('id', assignment.id)
+      .select('id')
+      .maybeSingle()
 
-    if (error) {
-      console.error(error)
+    if (error || !deletedAssignment?.id) {
+      console.error(error || 'Delete returned no row')
 
       notify(
-        t('assignmentDeleteFailed', { message: error.message })
+        t('assignmentDeleteFailed', {
+          message: error?.message || 'no row deleted'
+        })
       )
 
       return

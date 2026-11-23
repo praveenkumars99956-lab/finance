@@ -624,6 +624,7 @@ function AgentCollection() {
       // =========================================
 
       const {
+        data: paymentResult,
         error
       } = await supabase.rpc(
         rpcName,
@@ -673,41 +674,25 @@ function AgentCollection() {
       paymentRecorded = true
 
       // =========================================
-      // FIND NEW PAYMENT
+      // NEW PAYMENT ID
       // =========================================
 
-      const {
-        data: newPayment,
-        error: paymentFindError
-      } = await supabase
-        .from('finance_payments')
-        .select('*')
-        .eq(
-          'finance_record_id',
-          financeRecordId
-        )
-        .eq(
-          'payment_date',
-          submittedPaymentDate
-        )
-        .eq(
-          'payment_amount',
-          amount
-        )
-        .order(
-          'created_at',
-          {
-            ascending: false
-          }
-        )
-        .limit(1)
-        .maybeSingle()
+      // The RPC returns the id of the row it just inserted. Guessing by
+      // date/amount can attach evidence to the wrong payment when two
+      // identical collections are recorded on the same day.
+      const returnedPayment =
+        Array.isArray(paymentResult)
+          ? paymentResult[0]
+          : paymentResult
 
-      if (paymentFindError) {
-        console.error(
-          'PAYMENT FIND ERROR:',
-          paymentFindError
-        )
+      const paymentId =
+        returnedPayment &&
+        typeof returnedPayment === 'object'
+          ? (returnedPayment.payment_id ?? returnedPayment.id ?? null)
+          : null
+
+      if (!paymentId) {
+        console.warn('[agent-collection] payment RPC did not return a payment id')
       }
 
       // =========================================
@@ -715,6 +700,7 @@ function AgentCollection() {
       // =========================================
 
       let proofPath = null
+      let auxiliaryFailed = false
 
       if (proofFile) {
         const workspaceId =
@@ -729,7 +715,7 @@ function AgentCollection() {
           extension.toLowerCase()
 
         const filePath =
-          `workspaces/${workspaceId}/finance-${financeId}/payment-${newPayment?.id || Date.now()}-${Date.now()}.${safeExtension}`
+          `workspaces/${workspaceId}/finance-${financeId}/payment-${paymentId || Date.now()}-${Date.now()}.${safeExtension}`
 
         const {
           error: uploadError
@@ -747,6 +733,8 @@ function AgentCollection() {
           )
 
         if (uploadError) {
+          auxiliaryFailed = true
+
           console.error(
             'PROOF UPLOAD ERROR:',
             uploadError
@@ -773,6 +761,7 @@ function AgentCollection() {
         proofPath
       ) {
         const {
+          data: savedEvidence,
           error: evidenceError
         } = await supabase
           .from('collection_evidence')
@@ -781,7 +770,7 @@ function AgentCollection() {
               financeRecordId,
 
             payment_id:
-              newPayment?.id || null,
+              paymentId,
 
             agent_id:
               access.agent.id,
@@ -804,16 +793,22 @@ function AgentCollection() {
             created_by:
               access.user.id
           })
+          .select('id')
+          .single()
 
-        if (evidenceError) {
+        if (evidenceError || !savedEvidence?.id) {
+          auxiliaryFailed = true
+
           console.error(
             'EVIDENCE ERROR:',
-            evidenceError
+            evidenceError || 'Evidence insert returned no row'
           )
 
           notify(
             t('collectionRecordedEvidenceSaveFailed', {
-              message: evidenceError.message
+              message:
+                evidenceError?.message ||
+                'unknown'
             })
           )
         }
@@ -823,9 +818,13 @@ function AgentCollection() {
       // SUCCESS
       // =========================================
 
-      notify(
-        t('collectionRecordedSuccessfully')
-      )
+      // The specific failure notices above already explain the partial save.
+      // Do not follow them with a blanket "success" message.
+      if (!auxiliaryFailed) {
+        notify(
+          t('collectionRecordedSuccessfully')
+        )
+      }
 
       setPaymentAmount('')
 

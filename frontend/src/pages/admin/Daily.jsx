@@ -681,10 +681,7 @@ function Daily() {
       try {
         setCategoryLoading(true)
 
-        const {
-          data,
-          error
-        } = await supabase
+        let result = await supabase
           .from(
             'collection_categories'
           )
@@ -695,9 +692,41 @@ function Daily() {
             'status',
             'active'
           )
+          .eq(
+            'category_type',
+            'daily'
+          )
           .order(
             'category_name'
           )
+
+        // Until the category_type migration is applied, keep Daily entry
+        // working with every active category instead of an empty list.
+        if (
+          result.error &&
+          result.error.code === '42703' &&
+          /category_type/i.test(result.error.message || '')
+        ) {
+          result = await supabase
+            .from(
+              'collection_categories'
+            )
+            .select(
+              'id, category_name, status'
+            )
+            .eq(
+              'status',
+              'active'
+            )
+            .order(
+              'category_name'
+            )
+        }
+
+        const {
+          data,
+          error
+        } = result
 
         if (error) {
           console.error(
