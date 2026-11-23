@@ -24,12 +24,43 @@
   --fs-line: #e0d6f7;
   --fs-line-soft: #ede5ff;
   --fs-white: #ffffff;
+
+  /* Inline-styled surfaces use these so dark mode can override them */
+  --fs-surface-card: #ffffff;
+  --fs-surface-soft: #f8fafc;
+  --fs-surface-tint: #f5f3ff;
+  --fs-border-soft: #e5e7eb;
+
+  /* Agent portal shell (keeps the existing light UI exactly as-is) */
+  --fs-agent-header-bg: rgba(255, 255, 255, 0.92);
+  --fs-agent-sidebar-bg: rgba(255, 255, 255, 0.75);
+  --fs-agent-border: rgba(53, 16, 120, 0.12);
+  --fs-agent-sidebar-border: rgba(53, 16, 120, 0.1);
+  --fs-agent-icon: #351078;
+  --fs-agent-heading: #1a0a3b;
+  --fs-agent-muted: #6b5c86;
+  --fs-agent-link: #3b2a5a;
+  --fs-agent-link-active: #351078;
+  --fs-agent-link-active-bg: rgba(53, 16, 120, 0.1);
+  --fs-agent-logout-bg: #fff1f2;
+  --fs-agent-logout-color: #be123c;
+  --fs-agent-logout-border: #fecdd3;
+  --fs-agent-online-bg: rgba(16, 185, 129, 0.12);
+  --fs-agent-online-fg: #047857;
+  --fs-agent-offline-bg: rgba(245, 158, 11, 0.14);
+  --fs-agent-offline-fg: #92400e;
+  --fs-agent-error-bg: rgba(239, 68, 68, 0.12);
+  --fs-agent-error-fg: #b91c1c;
+
   --fs-success: #0f7a53;
   --fs-success-bg: #e7f7ef;
+  --fs-success-border: #99f6e4;
   --fs-warning: #a45a00;
   --fs-warning-bg: #fff4e2;
+  --fs-warning-border: #fde68a;
   --fs-danger: #a51d33;
   --fs-danger-bg: #ffe9ee;
+  --fs-danger-border: #fecaca;
 
   --fs-radius-sm: 10px;
   --fs-radius: 16px;
@@ -166,8 +197,17 @@ body::before {
 .modern-loan-manage,
 .settings-page,
 .client-dashboard,
-.agent-dashboard-page {
+.agent-dashboard-page,
+.agent-portal {
   background-color: transparent;
+}
+
+/* The agent shell used to paint an opaque background that hid the shared
+   themed wallpaper (gradient + finance-bg.svg). Keep it transparent exactly
+   like the admin .page-bg shell so both light and dark themes show through. */
+.agent-portal {
+  background: transparent !important;
+  background-image: none !important;
 }
 
 .page-bg,
@@ -1091,6 +1131,61 @@ textarea:focus-visible,
   --fs-line: #2c1b4d;
   --fs-line-soft: #211239;
 
+  --fs-success: #6ee7b7;
+  --fs-success-bg: rgba(16, 185, 129, 0.16);
+  --fs-success-border: rgba(16, 185, 129, 0.3);
+  --fs-warning: #fcd34d;
+  --fs-warning-bg: rgba(245, 158, 11, 0.16);
+  --fs-warning-border: rgba(245, 158, 11, 0.3);
+  --fs-danger: #fca5a5;
+  --fs-danger-bg: rgba(239, 68, 68, 0.16);
+  --fs-danger-border: rgba(239, 68, 68, 0.3);
+
+  /* Inline-styled surfaces follow the dark palette */
+  --fs-surface-card: #150b28;
+  --fs-surface-soft: #140b26;
+  --fs-surface-tint: #1d1038;
+  --fs-border-soft: #2c1b4d;
+
+  /* Dark-only fallbacks: JSX keeps each original light colour in the inline
+     style, so the light UI is pixel-identical while these values take over in
+     dark mode. */
+  --fs-inline-card: #150b28;
+  --fs-inline-soft: #140b26;
+  --fs-inline-tint: #1d1038;
+  --fs-inline-tint-deep: #150a2b;
+  --fs-inline-border: #2c1b4d;
+  --fs-inline-ink: #f3edff;
+  --fs-inline-success: #6ee7b7;
+  --fs-inline-success-bg: rgba(16, 185, 129, 0.16);
+  --fs-inline-success-border: rgba(16, 185, 129, 0.3);
+  --fs-inline-warning: #fcd34d;
+  --fs-inline-warning-bg: rgba(245, 158, 11, 0.16);
+  --fs-inline-warning-border: rgba(245, 158, 11, 0.3);
+  --fs-inline-danger: #fca5a5;
+  --fs-inline-danger-bg: rgba(239, 68, 68, 0.16);
+
+  /* Agent portal shell follows the dark palette */
+  --fs-agent-header-bg: rgba(17, 9, 34, 0.94);
+  --fs-agent-sidebar-bg: rgba(21, 11, 40, 0.92);
+  --fs-agent-border: rgba(201, 182, 255, 0.16);
+  --fs-agent-sidebar-border: rgba(201, 182, 255, 0.14);
+  --fs-agent-icon: #c9b6ff;
+  --fs-agent-heading: #f3edff;
+  --fs-agent-muted: #a596c8;
+  --fs-agent-link: #d5c8f2;
+  --fs-agent-link-active: #c9b6ff;
+  --fs-agent-link-active-bg: rgba(201, 182, 255, 0.14);
+  --fs-agent-logout-bg: rgba(165, 29, 51, 0.2);
+  --fs-agent-logout-color: #ff9aa9;
+  --fs-agent-logout-border: rgba(255, 154, 169, 0.3);
+  --fs-agent-online-bg: rgba(16, 185, 129, 0.18);
+  --fs-agent-online-fg: #6ee7b7;
+  --fs-agent-offline-bg: rgba(245, 158, 11, 0.18);
+  --fs-agent-offline-fg: #fcd34d;
+  --fs-agent-error-bg: rgba(239, 68, 68, 0.18);
+  --fs-agent-error-fg: #fca5a5;
+
   --fin-primary: #c9b6ff;
   --fin-bg: #0c0618;
   --fin-surface: #150b28;
@@ -1101,6 +1196,12 @@ textarea:focus-visible,
   --fin-text-primary: #f3edff;
   --fin-text-secondary: #d5c8f2;
   --fin-text-muted: #a596c8;
+
+  /* Stitch utility backgrounds still need a deep purple so white button labels
+     stay readable; text/icons below use the light royal token instead. */
+  --color-primary: #5b21b6;
+  --color-primary-hover: #6d28d9;
+  --color-primary-light: #1d1038;
 
   --brand: #c9b6ff;
   --brand-dark: #b39cf5;
@@ -1188,13 +1289,70 @@ textarea:focus-visible,
   background: rgba(21, 11, 40, 0.7);
 }
 
+/* Surfaces that switched to theme tokens also need readable foregrounds/borders
+   in dark mode (buttons with hardcoded purple text would otherwise disappear). */
+:root[data-theme='dark'] [style*='--fs-inline-card'],
+:root[data-theme='dark'] [style*='--fs-inline-soft'],
+:root[data-theme='dark'] [style*='--fs-inline-tint'] {
+  color: var(--fs-ink) !important;
+  border-color: var(--fs-border-soft) !important;
+}
+
+/* Inline text colours on dark surfaces need to follow the dark ink palette.
+   These target the rgb() form React writes into the style attribute, so only
+   hardcoded light-mode text changes - coloured buttons keep their own colours. */
+:root[data-theme='dark'] [style*='color: rgb(53, 16, 120)'],
+:root[data-theme='dark'] [style*='color: rgb(109, 40, 217)'],
+:root[data-theme='dark'] [style*='color: rgb(67, 56, 202)'],
+:root[data-theme='dark'] [style*='color: rgb(26, 10, 59)'],
+:root[data-theme='dark'] [style*='color: rgb(31, 41, 55)'],
+:root[data-theme='dark'] [style*='color: rgb(17, 24, 39)'],
+:root[data-theme='dark'] [style*='color: rgb(15, 23, 42)'],
+:root[data-theme='dark'] [style*='color: rgb(55, 65, 81)'],
+:root[data-theme='dark'] [style*='color: rgb(75, 85, 99)'],
+:root[data-theme='dark'] [style*='color: rgb(107, 114, 128)'],
+:root[data-theme='dark'] [style*='color: rgb(71, 85, 105)'],
+:root[data-theme='dark'] [style*='color: rgb(100, 116, 139)'],
+:root[data-theme='dark'] [style*='color: rgb(91, 75, 117)'],
+:root[data-theme='dark'] [style*='color: rgb(91, 100, 114)'],
+:root[data-theme='dark'] [style*='color: rgb(82, 101, 122)'] {
+  color: var(--fs-ink) !important;
+}
+
+:root[data-theme='dark'] [style*='color: rgb(22, 101, 52)'],
+:root[data-theme='dark'] [style*='color: rgb(21, 128, 61)'],
+:root[data-theme='dark'] [style*='color: rgb(6, 118, 71)'],
+:root[data-theme='dark'] [style*='color: rgb(17, 131, 86)'] {
+  color: #86efac !important;
+}
+
+:root[data-theme='dark'] [style*='color: rgb(21, 94, 117)'],
+:root[data-theme='dark'] [style*='color: rgb(15, 118, 110)'] {
+  color: #67e8f9 !important;
+}
+
+:root[data-theme='dark'] [style*='color: rgb(180, 35, 24)'],
+:root[data-theme='dark'] [style*='color: rgb(180, 83, 9)'] {
+  color: #fca5a5 !important;
+}
+
+/* Inline table backgrounds on reports/agent screens must not stay white. */
+:root[data-theme='dark'] table,
+:root[data-theme='dark'] table tbody tr,
+:root[data-theme='dark'] table tbody td {
+  background-color: #150b28 !important;
+  color: var(--fs-ink) !important;
+  border-color: var(--fs-line) !important;
+}
+
 :root[data-theme='dark'] table thead th {
-  background: linear-gradient(180deg, #1d1038 0%, #150b28 100%);
-  color: var(--fs-royal);
+  background: #1d1038 !important;
+  color: var(--fs-royal) !important;
+  border-color: var(--fs-line) !important;
 }
 
 :root[data-theme='dark'] table tbody tr:hover {
-  background: rgba(201, 182, 255, 0.08);
+  background: rgba(201, 182, 255, 0.08) !important;
 }
 
 :root[data-theme='dark'] .lang-select-wrap {
@@ -1205,6 +1363,22 @@ textarea:focus-visible,
 :root[data-theme='dark'] .lang-select option {
   background: #150b28;
   color: var(--fs-ink);
+}
+
+/* The dark primary token is deep for button contrast; icons and labels that use
+   the Stitch text utility need the light royal shade instead. */
+:root[data-theme='dark'] .text-primary {
+  color: var(--fs-royal) !important;
+}
+
+:root[data-theme='dark'] .hover\:bg-surface-container-high:hover,
+:root[data-theme='dark'] .hover\:bg-surface-container-low:hover,
+:root[data-theme='dark'] .hover\:bg-surface-container-lowest:hover {
+  background-color: #1d1038 !important;
+}
+
+:root[data-theme='dark'] .hover\:text-on-surface:hover {
+  color: var(--fs-ink) !important;
 }
 
 /* --------------------------------------------------------------------------
@@ -1834,6 +2008,11 @@ table td,
   background: rgba(255, 255, 255, 0.92) !important;
   border: 1px solid rgba(139, 92, 246, 0.25) !important;
   color: #1f2937 !important;
+}
+:root[data-theme='dark'] .finance-reports-search input {
+  background: rgba(10, 5, 20, 0.75) !important;
+  border-color: var(--fs-line) !important;
+  color: var(--fs-ink) !important;
 }
 .finance-reports-search input:focus {
   outline: none !important;

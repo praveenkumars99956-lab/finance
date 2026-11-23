@@ -3915,7 +3915,9 @@ table {
 
 :root[data-theme='dark'] .login-card h1 {
   color: #edf2f8;
+}
 
+@media (max-width: 700px) {
   .profile-finance-summary {
     grid-template-columns:
       repeat(2, 1fr);

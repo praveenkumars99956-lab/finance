@@ -781,7 +781,7 @@ export function EvidenceCapture({
       style={{
         gridColumn: '1 / -1',
         padding: '18px',
-        background: '#f5f8fc',
+        background: 'var(--fs-inline-soft, #f5f8fc)',
         borderRadius: '12px'
       }}
     >

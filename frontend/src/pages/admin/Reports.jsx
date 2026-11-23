@@ -1,5 +1,11 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
 import { normalizeFinanceType } from '../../utils/financeType'
+import {
+  buildReportSearchText,
+  getLoanStatus,
+  isDateOverdue,
+  matchesReportFilter
+} from '../../utils/reportFilters'
 import { notify } from '../../utils/notify'
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
@@ -99,78 +105,12 @@ function Reports() {
       : parsedDate.toLocaleDateString(locale)
   }
 
-  const isOverdue = (record) => {
-    if (Number(record.pending || 0) <= 0) {
-      return false
-    }
-
-    if (!record.next_due_date) {
-      return false
-    }
-
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-
-    const dueDate = new Date(
-      `${record.next_due_date}T00:00:00`
-    )
-
-    return dueDate < today
-  }
-
-  const getStatus = (record) => {
-    const pending = Number(record.pending || 0)
-
-    if (pending <= 0) {
-      return 'paid'
-    }
-
-    if (isOverdue(record)) {
-      return 'overdue'
-    }
-
-    return 'pending'
-  }
 
   const filteredRecords = useMemo(() => {
     const searchText = search.trim().toLowerCase()
 
     return records.filter((record) => {
-      const pending = Number(record.pending || 0)
-      const recordType = normalizeFinanceType(record.finance_type)
-
-      let matchesFilter = true
-
-      if (filter === 'daily') {
-        matchesFilter = recordType === 'daily'
-      }
-
-      if (filter === 'weekly') {
-        matchesFilter = recordType === 'weekly'
-      }
-
-      if (filter === 'monthly') {
-        matchesFilter = recordType === 'monthly'
-      }
-
-      if (filter === 'interest_only') {
-        matchesFilter = recordType === 'interest_only'
-      }
-
-      if (filter === 'pending') {
-        matchesFilter =
-          pending > 0 && !isOverdue(record)
-      }
-
-      if (filter === 'overdue') {
-        matchesFilter = isOverdue(record)
-      }
-
-      if (filter === 'paid') {
-        matchesFilter = pending <= 0
-      }
-
-      if (!matchesFilter) {
+      if (!matchesReportFilter(record, filter)) {
         return false
       }
 
@@ -178,24 +118,11 @@ function Reports() {
         return true
       }
 
-      const customerName =
-        getCustomerName(record).toLowerCase()
-
-      const customerId =
-        getCustomerId(record).toLowerCase()
-
-      const categoryName =
-        getCategoryName(record).toLowerCase()
-
-      const loanName =
-        getLoanName(record.finance_type).toLowerCase()
-
-      return (
-        customerName.includes(searchText) ||
-        customerId.includes(searchText) ||
-        categoryName.includes(searchText) ||
-        loanName.includes(searchText)
-      )
+      return buildReportSearchText(record, [
+        getCustomerName(record),
+        getCategoryName(record),
+        getLoanName(record.finance_type)
+      ]).includes(searchText)
     })
   }, [records, filter, search, i18n.resolvedLanguage])
 
@@ -218,7 +145,7 @@ function Reports() {
   )
 
   const overdueCount = filteredRecords.filter(
-    (record) => isOverdue(record)
+    (record) => isDateOverdue(record.next_due_date)
   ).length
 
   const getReportName = () => {
@@ -329,7 +256,7 @@ function Reports() {
         Number(record.paid || 0),
         Number(record.pending || 0),
         record.next_due_date || '',
-        t(getStatus(record))
+        t(getLoanStatus(record))
       ]
     )
 
@@ -413,7 +340,7 @@ function Reports() {
         `₹${formatMoney(record.paid)}`,
         `₹${formatMoney(record.pending)}`,
         formatDate(record.next_due_date),
-        t(getStatus(record))
+        t(getLoanStatus(record))
       ]
     )
 
@@ -520,9 +447,9 @@ function Reports() {
         onClick={() => navigate('/admin')}
         style={{
           marginBottom: '20px',
-          background: '#ffffff',
+          background: 'var(--fs-inline-card, #ffffff)',
           color: '#351078',
-          border: '1px solid #c4b5fd',
+          border: '1px solid var(--fs-inline-border, #c4b5fd)',
           borderRadius: '10px',
           padding: '0.55rem 0.9rem',
           fontWeight: 600,
@@ -535,7 +462,7 @@ function Reports() {
       <div className="weekly-summary finance-reports-card">
         <h2>{t('financeReports')}</h2>
 
-        <div className="report-filters" style={{ background: 'var(--primary-50, #F5F3FF)' }}>
+        <div className="report-filters" style={{ background: 'var(--fs-inline-tint, #F5F3FF)' }}>
           {[
             { key: 'all', label: t('all') },
             { key: 'daily', label: t('dailyLoan') },
@@ -553,8 +480,8 @@ function Reports() {
                 type="button"
                 onClick={() => setFilter(key)}
                 style={{
-                  background: active ? 'var(--primary-800, #3B1A82)' : '#ffffff',
-                  color: active ? '#ffffff' : 'var(--primary-800, #3B1A82)',
+                  background: active ? 'var(--primary-800, #3B1A82)' : 'var(--fs-inline-card, #ffffff)',
+                  color: active ? '#ffffff' : 'var(--fs-inline-ink, #3B1A82)',
                   border: `1px solid ${active ? 'var(--primary-800, #3B1A82)' : 'var(--primary-100, #EDE9FE)'}`,
                   borderRadius: '10px',
                   padding: '0.5rem 0.85rem',
@@ -583,6 +510,25 @@ function Reports() {
           >
             {t('collectionReport')}
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setFilter('all')
+              setSearch('')
+            }}
+            style={{
+              background: 'var(--primary-100, #EDE9FE)',
+              color: 'var(--primary-800, #3B1A82)',
+              border: '1px solid var(--primary-100, #EDE9FE)',
+              borderRadius: '10px',
+              padding: '0.5rem 0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+          >
+            {t('clearFilters', 'Clear filters')}
+          </button>
         </div>
 
         <div className="finance-reports-search" style={{ marginTop: '18px' }}>
@@ -594,7 +540,7 @@ function Reports() {
               setSearch(e.target.value)
             }
             style={{
-              background: 'rgba(255,255,255,0.92)',
+              background: 'var(--fs-inline-card, rgba(255,255,255,0.92))',
               border: '1px solid rgba(139, 92, 246, 0.25)',
               color: '#1f2937'
             }}
@@ -703,14 +649,14 @@ function Reports() {
                   width: '100%',
                   minWidth: '900px',
                   borderCollapse: 'collapse',
-                  background: '#ffffff',
-                  border: '1px solid #e5e7eb',
+                  background: 'var(--fs-inline-card, #ffffff)',
+                  border: '1px solid var(--fs-inline-border, #e5e7eb)',
                   borderRadius: '12px',
                   overflow: 'hidden'
                 }}
               >
                 <thead>
-                  <tr style={{ background: '#f5f3ff' }}>
+                  <tr style={{ background: 'var(--fs-inline-tint, #f5f3ff)' }}>
                     <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('customer')}</th>
                     <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('collectionCategory')}</th>
                     <th style={{ textAlign: 'left', padding: '12px', color: '#351078', whiteSpace: 'nowrap' }}>{t('loanType')}</th>
@@ -770,9 +716,9 @@ function Reports() {
                       </td>
 
                       <td style={{ padding: '12px', verticalAlign: 'top' }}>
-                        {getStatus(record) === 'overdue' ? '🔴 ' : getStatus(record) === 'paid' ? '🟢 ' : '🟡 '}
+                        {getLoanStatus(record) === 'overdue' ? '🔴 ' : getLoanStatus(record) === 'paid' ? '🟢 ' : '🟡 '}
                         <strong>
-                          {t(getStatus(record))}
+                          {t(getLoanStatus(record))}
                         </strong>
                       </td>
                     </tr>

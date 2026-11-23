@@ -104,7 +104,7 @@ function AdminCreate() {
                 marginBottom: 18,
                 padding: '12px 14px',
                 borderRadius: 8,
-                background: '#ecfdf3',
+                background: 'var(--fs-inline-soft, #ecfdf3)',
                 color: '#067647'
               }}
             >
@@ -181,8 +181,8 @@ function AdminCreate() {
                     marginBottom: 12,
                     padding: '10px 12px',
                     borderRadius: 8,
-                    background: '#fff2f2',
-                    color: '#b42318'
+                    background: 'var(--fs-inline-danger-bg, #fff2f2)',
+                    color: 'var(--fs-inline-danger, #b42318)'
                   }}
                 >
                   {errorMessage}

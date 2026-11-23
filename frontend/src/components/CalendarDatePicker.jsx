@@ -196,10 +196,10 @@ function CalendarDatePicker({
   const calendarStyle = {
     width: '100%',
     maxWidth: '360px',
-    border: '1px solid #ddd6fe',
+    border: '1px solid var(--fs-inline-border, #ddd6fe)',
     borderRadius: '12px',
     padding: '12px',
-    background: '#ffffff',
+    background: 'var(--fs-inline-card, #ffffff)',
     boxSizing: 'border-box',
     boxShadow: '0 4px 14px rgba(53, 16, 120, 0.06)'
   }
@@ -208,8 +208,8 @@ function CalendarDatePicker({
     marginBottom: '10px',
     padding: '10px 12px',
     borderRadius: '10px',
-    background: 'linear-gradient(180deg, #f5f3ff 0%, #ede9fe 100%)',
-    border: '1px solid #ddd6fe'
+    background: 'linear-gradient(180deg, var(--fs-inline-tint, #f5f3ff) 0%, var(--fs-inline-tint-deep, #ede9fe) 100%)',
+    border: '1px solid var(--fs-inline-border, #ddd6fe)'
   }
 
   const toolbarStyle = {
@@ -222,9 +222,9 @@ function CalendarDatePicker({
 
   const navButtonStyle = {
     height: '36px',
-    border: '1px solid #c4b5fd',
+    border: '1px solid var(--fs-inline-border, #c4b5fd)',
     borderRadius: '8px',
-    background: '#ffffff',
+    background: 'var(--fs-inline-card, #ffffff)',
     cursor: 'pointer',
     fontSize: '16px',
     color: '#351078',
@@ -335,8 +335,8 @@ function CalendarDatePicker({
               boxSizing: 'border-box',
               padding: '7px 10px',
               borderRadius: 8,
-              border: '1px solid #c4b5fd',
-              background: '#ffffff',
+              border: '1px solid var(--fs-inline-border, #c4b5fd)',
+              background: 'var(--fs-inline-card, #ffffff)',
               color: '#1f2937',
               fontSize: '14px'
             }}
@@ -430,12 +430,12 @@ function CalendarDatePicker({
                         ...dayButtonStyle,
                         color: '#cbd5e1',
                         cursor: 'not-allowed',
-                        background: '#f8fafc'
+                        background: 'var(--fs-inline-soft, #f8fafc)'
                       }
                     : {
                         ...dayButtonStyle,
                         borderColor: isToday ? '#a78bfa' : 'transparent',
-                        background: isToday ? '#f5f3ff' : 'transparent',
+                        background: isToday ? 'var(--fs-inline-tint, #f5f3ff)' : 'transparent',
                         fontWeight: isToday ? 700 : 400
                       }
               }
@@ -446,12 +446,14 @@ function CalendarDatePicker({
               }}
               onMouseEnter={(e) => {
                 if (!isSelected && !isDisabled) {
-                  e.currentTarget.style.background = '#eef2ff'
+                  e.currentTarget.style.background = 'var(--fs-inline-tint, #eef2ff)'
                 }
               }}
               onMouseLeave={(e) => {
                 if (!isSelected && !isDisabled) {
-                  e.currentTarget.style.background = isToday ? '#f5f3ff' : 'transparent'
+                  e.currentTarget.style.background = isToday
+                    ? 'var(--fs-inline-tint, #f5f3ff)'
+                    : 'transparent'
                 }
               }}
             >

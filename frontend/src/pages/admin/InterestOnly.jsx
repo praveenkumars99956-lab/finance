@@ -1876,7 +1876,7 @@ function InterestOnly() {
             style={{
               marginTop: '15px',
               padding: '12px',
-              background: '#f7f8fa',
+              background: 'var(--fs-inline-soft, #f7f8fa)',
               borderRadius: '8px'
             }}
           >
@@ -1901,7 +1901,7 @@ function InterestOnly() {
               style={{
                 marginTop: '10px',
                 padding: '12px',
-                background: '#f7f8fa',
+                background: 'var(--fs-inline-soft, #f7f8fa)',
                 borderRadius: '8px'
               }}
             >

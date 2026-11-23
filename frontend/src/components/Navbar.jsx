@@ -25,6 +25,12 @@ function Navbar() {
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
+
+    const themeColor = document.querySelector('meta[name="theme-color"]')
+    if (themeColor) {
+      themeColor.setAttribute('content', theme === 'dark' ? '#0c0618' : '#351078')
+    }
+
     try {
       window.localStorage.setItem('finance-theme', theme)
     } catch {

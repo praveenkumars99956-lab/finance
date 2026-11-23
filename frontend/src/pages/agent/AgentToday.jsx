@@ -614,8 +614,7 @@ function AgentToday() {
               width: '100%',
               maxWidth: '600px',
               padding: '12px 14px',
-              border:
-                '1px solid #d7e0ec',
+              border: '1px solid var(--fs-inline-border, #d7e0ec)',
               borderRadius: '10px',
               fontSize: '15px',
               boxSizing: 'border-box'
@@ -633,7 +632,7 @@ function AgentToday() {
                 style={{
                   padding: '25px',
                   textAlign: 'center',
-                  background: '#f8fafc',
+                  background: 'var(--fs-inline-soft, #f8fafc)',
                   borderRadius: '12px'
                 }}
               >
@@ -694,10 +693,8 @@ function AgentToday() {
                         <div
                           key={record.id}
                           style={{
-                            background:
-                              '#ffffff',
-                            border:
-                              '1px solid #d7e0ec',
+                            background: 'var(--fs-inline-card, #ffffff)',
+                            border: '1px solid var(--fs-inline-border, #d7e0ec)',
                             borderRadius:
                               '14px',
                             padding:
@@ -743,8 +740,7 @@ function AgentToday() {
 
                           <div
                             style={{
-                              background:
-                                '#eef5ff',
+                              background: 'var(--fs-inline-soft, #eef5ff)',
                               padding:
                                 '10px',
                               borderRadius:

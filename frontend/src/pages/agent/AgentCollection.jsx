@@ -1,4 +1,9 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
+import {
+  getCollectedAmount,
+  getInstallmentAmount,
+  getPeriodCount
+} from '../../utils/loanSummary'
 import { notify } from '../../utils/notify'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -910,7 +915,7 @@ function AgentCollection() {
 
   const pendingForDate = getPendingForDate(finance, paymentDate)
   const paymentLimitForDate = getPaymentLimitForDate(finance, paymentDate)
-  const paidAmount = Number(finance.paid || 0)
+  const paidAmount = getCollectedAmount(finance, payments)
   const totalAmount = paidAmount + pendingForDate
   const principalAmount = Number(finance.principal_amount ?? finance.amount ?? 0)
   // Interest accrual is cumulative; the outstanding principal and the
@@ -937,22 +942,8 @@ function AgentCollection() {
     finance.entry_date ||
     ''
   const endingDateValue = finance.ending_date || ''
-  const installmentAmount = Number(
-    finance.daily_amount ??
-      finance.weekly_amount ??
-      finance.monthly_amount ??
-      finance.installment_amount ??
-      0
-  )
-  const durationCount =
-    finance.number_of_days ??
-    finance.number_of_weeks ??
-    finance.number_of_months ??
-    finance.duration ??
-    finance.days ??
-    finance.weeks ??
-    finance.months ??
-    ''
+  const installmentAmount = getInstallmentAmount(finance)
+  const durationCount = getPeriodCount(finance)
   const durationLabel = financeType === 'daily'
     ? t('numberOfDays', 'Number of Days')
     : financeType === 'weekly'
@@ -999,7 +990,7 @@ function AgentCollection() {
         <button
           type="button"
           onClick={() => navigate('/agent')}
-          style={{ background: '#ffffff', color: '#351078', border: '1px solid #c4b5fd', borderRadius: 10, padding: '0.5rem 0.9rem', fontWeight: 600, cursor: 'pointer' }}
+          style={{ background: 'var(--fs-inline-card, #ffffff)', color: '#351078', border: '1px solid var(--fs-inline-border, #c4b5fd)', borderRadius: 10, padding: '0.5rem 0.9rem', fontWeight: 600, cursor: 'pointer' }}
         >
           ← {t('agentDashboard')}
         </button>
@@ -1083,7 +1074,7 @@ function AgentCollection() {
 
         <div
           style={{
-            background: '#eef5ff',
+            background: 'var(--fs-inline-soft, #eef5ff)',
             padding: '16px',
             borderRadius: '12px'
           }}
@@ -1238,7 +1229,7 @@ function AgentCollection() {
                 : t('collectionEasyHint', 'Easy steps: choose date, enter amount, add GPS/photo if required, then record.')}
             </p>
           </div>
-          <div style={{ background: '#f5f3ff', border: '1px solid #ddd6fe', borderRadius: 12, padding: '0.6rem 0.9rem', minWidth: 180 }}>
+          <div style={{ background: 'var(--fs-inline-tint, #f5f3ff)', border: '1px solid var(--fs-inline-border, #ddd6fe)', borderRadius: 12, padding: '0.6rem 0.9rem', minWidth: 180 }}>
             <div style={{ fontSize: '0.8rem', color: '#6d28d9', fontWeight: 600 }}>{t('currentPending')}</div>
             <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#1f2937' }}>₹{formatMoney(pendingForDate)}</div>
           </div>
@@ -1248,7 +1239,7 @@ function AgentCollection() {
 
           <form onSubmit={recordCollection} noValidate>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-              <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem' }}>
+              <div style={{ background: 'var(--fs-inline-card, #ffffff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <label style={{ display: 'block', fontWeight: 700, color: '#351078' }}>{t('collectionDate')} *</label>
                   {!collectionDateUnavailable && (
@@ -1258,7 +1249,7 @@ function AgentCollection() {
                   )}
                 </div>
                 {collectionDateUnavailable ? (
-                  <p role="alert" style={{ margin: 0, color: '#b45309', background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 10, padding: '0.75rem' }}>
+                  <p role="alert" style={{ margin: 0, color: 'var(--fs-inline-warning, #b45309)', background: 'var(--fs-inline-warning-bg, #fffbeb)', border: '1px solid var(--fs-inline-warning-border, #fde68a)', borderRadius: 10, padding: '0.75rem' }}>
                     {t('collectionNotAvailableUntil', 'Collections cannot be recorded until {{date}}.', { date: minimumPaymentDate })}
                   </p>
                 ) : (
@@ -1277,7 +1268,7 @@ function AgentCollection() {
                 )}
               </div>
 
-              <div style={{ background: '#ffffff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem' }}>
+              <div style={{ background: 'var(--fs-inline-card, #ffffff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem' }}>
                   {String(finance.finance_type || '').toLowerCase() === 'interest_only'
                     ? `${t('interestPaymentAmount')} *`
@@ -1292,7 +1283,7 @@ function AgentCollection() {
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   required
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.7rem 0.8rem', borderRadius: 10, border: '1px solid #cbd5e1', fontSize: '1rem' }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '0.7rem 0.8rem', borderRadius: 10, border: '1px solid var(--fs-inline-border, #cbd5e1)', fontSize: '1rem' }}
                 />
                 <small style={{ display: 'block', marginTop: '0.35rem', color: '#6b7280' }}>
                   {String(finance.finance_type || '').toLowerCase() === 'interest_only'
@@ -1302,19 +1293,19 @@ function AgentCollection() {
               </div>
 
               {String(finance.finance_type || '').toLowerCase() === 'interest_only' ? (
-                <div style={{ background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: 12, padding: '0.9rem' }}>
+                <div style={{ background: 'var(--fs-inline-soft, #ecfeff)', border: '1px solid var(--fs-inline-border, #a5f3fc)', borderRadius: 12, padding: '0.9rem' }}>
                   <span style={{ display: 'block', color: '#155e75', fontWeight: 600 }}>{t('interestDueOnCollectionDate')}</span>
                   <strong style={{ fontSize: '1.25rem', color: '#0f172a' }}>₹{formatMoney(paymentLimitForDate)}</strong>
                 </div>
               ) : (
-                <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 12, padding: '0.9rem' }}>
+                <div style={{ background: 'var(--fs-inline-soft, #f0fdf4)', border: '1px solid var(--fs-inline-border, #bbf7d0)', borderRadius: 12, padding: '0.9rem' }}>
                   <span style={{ display: 'block', color: '#166534', fontWeight: 600 }}>{t('status')}</span>
                   <strong style={{ fontSize: '1.1rem', color: '#0f172a' }}>{t(status)}</strong>
                 </div>
               )}
             </div>
 
-            <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid #e5e7eb', borderRadius: 12, background: '#fcfcff' }}>
+            <div style={{ marginTop: '1rem', padding: '1rem', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, background: 'var(--fs-inline-soft, #f8fafc)' }}>
               <h3 style={{ marginTop: 0, marginBottom: '0.35rem' }}>{t('collectionEvidence')}</h3>
               {settingsLoading ? (
                 <p style={{ margin: '0 0 0.75rem' }}>{t('loadingCollectionRequirements')}</p>
@@ -1331,7 +1322,7 @@ function AgentCollection() {
               {settingsLoadError && <p role="alert">{settingsLoadError}</p>}
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1rem' }}>
-                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem' }}>
+                <div style={{ background: 'var(--fs-inline-card, #ffffff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                   <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>{t('gps')}</div>
                   <button
                     type="button"
@@ -1343,7 +1334,7 @@ function AgentCollection() {
                   </button>
 
                   {latitude !== null && longitude !== null && (
-                    <div style={{ marginTop: '12px', padding: '12px', background: '#ecfdf5', borderRadius: 10, border: '1px solid #bbf7d0' }}>
+                    <div style={{ marginTop: '12px', padding: '12px', background: 'var(--fs-inline-soft, #ecfdf5)', borderRadius: 10, border: '1px solid var(--fs-inline-border, #bbf7d0)' }}>
                       <strong>✅ {t('gpsCaptured')}</strong>
                       <p style={{ margin: '0.35rem 0 0' }}>{t('latitude')}: {Number(latitude).toFixed(6)}</p>
                       <p style={{ margin: '0.2rem 0 0' }}>{t('longitude')}: {Number(longitude).toFixed(6)}</p>
@@ -1352,7 +1343,7 @@ function AgentCollection() {
                   )}
                 </div>
 
-                <div style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem' }}>
+                <div style={{ background: 'var(--fs-inline-card, #ffffff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                   <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.5rem' }}>
                     {t('collectionProofPhoto')} {requireCollectionProof ? '*' : `(${t('optional')})`}
                   </label>
@@ -1366,7 +1357,7 @@ function AgentCollection() {
                   />
 
                   {proofFile && (
-                    <div style={{ marginTop: '12px', padding: '10px', background: '#eff6ff', borderRadius: 10, border: '1px solid #bfdbfe' }}>
+                    <div style={{ marginTop: '12px', padding: '10px', background: 'var(--fs-inline-soft, #eff6ff)', borderRadius: 10, border: '1px solid var(--fs-inline-border, #bfdbfe)' }}>
                       <strong>✅ {t('proofSelected')}</strong>
                       <p style={{ margin: '0.25rem 0 0', wordBreak: 'break-word' }}>{proofFile.name}</p>
                     </div>
@@ -1376,14 +1367,14 @@ function AgentCollection() {
                     <img
                       src={proofPreview}
                       alt={t('collectionProofPreview')}
-                      style={{ display: 'block', marginTop: '12px', width: '100%', maxWidth: '320px', maxHeight: '260px', objectFit: 'cover', borderRadius: 12, border: '1px solid #e5e7eb' }}
+                      style={{ display: 'block', marginTop: '12px', width: '100%', maxWidth: '320px', maxHeight: '260px', objectFit: 'cover', borderRadius: 12, border: '1px solid var(--fs-inline-border, #e5e7eb)' }}
                     />
                   )}
                 </div>
               </div>
             </div>
 
-            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between', background: '#f8fafc', border: '1px solid #e5e7eb', borderRadius: 12, padding: '0.9rem 1rem' }}>
+            <div style={{ marginTop: '1rem', display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between', background: 'var(--fs-inline-soft, #f8fafc)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem 1rem' }}>
               <div>
                 <div style={{ color: '#475569', fontSize: '0.9rem' }}>{t('readyToRecord', 'Ready to record')}</div>
                 <div style={{ fontWeight: 700, color: '#1f2937' }}>
@@ -1401,7 +1392,7 @@ function AgentCollection() {
           </form>
 
         ) : (
-          <div style={{ padding: '16px', background: '#ecfdf5', border: '1px solid #bbf7d0', borderRadius: 12 }}>
+          <div style={{ padding: '16px', background: 'var(--fs-inline-soft, #ecfdf5)', border: '1px solid var(--fs-inline-border, #bbf7d0)', borderRadius: 12 }}>
             <strong style={{ color: '#166534' }}>✅ {t('collectionCompleted')}</strong>
           </div>
         )}

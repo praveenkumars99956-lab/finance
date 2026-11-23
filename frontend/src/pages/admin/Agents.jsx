@@ -1066,8 +1066,7 @@ function Agents() {
             style={{
               padding: '10px 12px',
               minWidth: '240px',
-              border:
-                '1px solid #d7e0ec',
+              border: '1px solid var(--fs-inline-border, #d7e0ec)',
               borderRadius: '8px'
             }}
           />

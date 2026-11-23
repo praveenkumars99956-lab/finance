@@ -601,8 +601,7 @@ function AgentPending() {
               width: '100%',
               maxWidth: '600px',
               padding: '12px 14px',
-              border:
-                '1px solid #d7e0ec',
+              border: '1px solid var(--fs-inline-border, #d7e0ec)',
               borderRadius: '10px',
               fontSize: '15px',
               boxSizing: 'border-box'
@@ -618,7 +617,7 @@ function AgentPending() {
                 style={{
                   padding: '25px',
                   textAlign: 'center',
-                  background: '#f8fafc',
+                  background: 'var(--fs-inline-soft, #f8fafc)',
                   borderRadius: '12px'
                 }}
               >
@@ -674,8 +673,7 @@ function AgentPending() {
                         <div
                           key={record.id}
                           style={{
-                            background:
-                              '#ffffff',
+                            background: 'var(--fs-inline-card, #ffffff)',
                             border:
                               overdue
                                 ? '1px solid #ef4444'
@@ -727,8 +725,7 @@ function AgentPending() {
                             style={{
                               padding:
                                 '10px',
-                              background:
-                                '#eef5ff',
+                              background: 'var(--fs-inline-soft, #eef5ff)',
                               borderRadius:
                                 '8px',
                               margin:
