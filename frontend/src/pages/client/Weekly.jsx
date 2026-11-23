@@ -8,6 +8,7 @@ import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
 import { useToast } from '../../components/Toast'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import {
   normalizeInterestInput,
   rateFromInterestAmount
@@ -112,6 +113,11 @@ function Weekly() {
   // The header button opens the form. When this page is opened from a customer
   // profile, the form is already needed.
   const [showForm, setShowForm] = useState(Boolean(providedCustomer))
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    showForm,
+    formSectionRef
+  )
 
   // =========================================
   // LIVE WEEKLY LOANS LIST
@@ -327,10 +333,18 @@ function Weekly() {
     resetForm()
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   const closeForm = () => {
@@ -1402,7 +1416,11 @@ function Weekly() {
 
       {showForm && (
 
-      <form onSubmit={saveWeeklyFinance} noValidate>
+      <form
+        ref={formSectionRef}
+        onSubmit={saveWeeklyFinance}
+        noValidate
+      >
 
         {/* =================================
             CUSTOMER

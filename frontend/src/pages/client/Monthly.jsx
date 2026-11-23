@@ -8,6 +8,7 @@ import { getCurrentWorkspaceId } from '../../services/workspaces'
 import { ensureMonthlyLoanCategory } from '../../services/collectionCategories'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import {
   normalizeInterestInput,
   rateFromInterestAmount
@@ -95,6 +96,11 @@ function Monthly() {
   // customer profile, the form is already needed.
   const [showForm, setShowForm] =
     useState(Boolean(providedCustomer))
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    showForm,
+    formSectionRef
+  )
 
   const [monthlyLoans, setMonthlyLoans] =
     useState([])
@@ -859,10 +865,18 @@ function Monthly() {
     resetForm()
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   const closeForm = () => {
@@ -1937,6 +1951,7 @@ function Monthly() {
       {showForm && (
 
       <form
+        ref={formSectionRef}
         onSubmit={
           saveMonthlyFinance
         }

@@ -12,6 +12,7 @@ import CustomerAutocomplete, {
 } from '../../components/CustomerAutocomplete'
 import { ensureInterestOnlyLoanCategory } from '../../services/collectionCategories'
 import { generateCustomerId } from '../../utils/customerId'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import {
   normalizeInterestInput,
   rateFromInterestAmount
@@ -239,6 +240,11 @@ function InterestOnly() {
   // profile, the form is already needed.
   const [showForm, setShowForm] =
     useState(Boolean(customer))
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    showForm,
+    formSectionRef
+  )
 
   const isEditingLoan = Boolean(editingFinanceId)
 
@@ -697,10 +703,18 @@ function InterestOnly() {
     resetForm()
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   const closeForm = () => {
@@ -1577,6 +1591,7 @@ function InterestOnly() {
       {showForm && (
 
       <form
+        ref={formSectionRef}
         className="daily-loan-form"
         onSubmit={saveInterestOnly}
         noValidate

@@ -1,9 +1,10 @@
 import { notify } from '../../utils/notify'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import SelectMenu from '../../components/SelectMenu'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 
 function CollectionCategories() {
   const navigate = useNavigate()
@@ -18,6 +19,11 @@ function CollectionCategories() {
   const [search, setSearch] = useState('')
 
   const [isFormOpen, setIsFormOpen] = useState(false)
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    isFormOpen,
+    formSectionRef
+  )
 
   const [categoryName, setCategoryName] = useState('')
   const [description, setDescription] = useState('')
@@ -110,6 +116,7 @@ function CollectionCategories() {
 
     clearForm()
     setIsFormOpen(true)
+    revealForm()
   }
 
   const closeForm = () => {
@@ -293,10 +300,18 @@ function CollectionCategories() {
     )
     setIsFormOpen(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -468,6 +483,7 @@ function CollectionCategories() {
       {isFormOpen && (
 
       <div
+        ref={formSectionRef}
         id="collection-category-form"
         className="daily-manage-section"
       >

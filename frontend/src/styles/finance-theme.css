@@ -1888,6 +1888,20 @@ table td,
     touch-action: manipulation;
   }
 
+  /* When Add scrolls a form into view inside .admin-content, leave a little
+     breathing room at the top so the first field is never clipped. */
+  .admin-content form,
+  .daily-manage-section {
+    scroll-margin-top: 0.75rem;
+  }
+
+  /* On a phone the header wraps, putting the Add button directly above Loan
+     Summary. Give the wrapped header breathing room below it. */
+  .daily-page .daily-header,
+  .daily-page .daily-loan-header {
+    margin: 0 0 1rem !important;
+  }
+
   /* Keep momentum scrolling when a wide data table is swiped sideways. */
   .daily-list-table-wrap,
   .loan-list-table-wrap,
@@ -1895,5 +1909,34 @@ table td,
   .reports-table-wrapper {
     max-width: 100%;
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Top bar: the desktop bar has eight controls and cannot fit a phone.
+     Keep the brand, language, theme and logout; hide the secondary ones. */
+  .app-navbar > div {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+    gap: 8px !important;
+  }
+
+  .app-navbar .sync-status,
+  .app-navbar .voice-language-select-wrap,
+  .app-navbar .app-nav-icon:not([role='switch']),
+  .app-navbar .pl-space-sm {
+    display: none !important;
+  }
+}
+
+/* Very small phones: shorten the brand label and the language pill so the
+   remaining controls still fit without wrapping. */
+@media (max-width: 360px) {
+  .app-navbar .app-brand-mark + div,
+  .app-navbar .select-menu--pill .select-menu__value,
+  .app-navbar .select-menu--pill .select-menu__chevron {
+    display: none !important;
+  }
+
+  .app-navbar .select-menu--pill .select-menu__trigger {
+    padding: 0.35rem !important;
   }
 }

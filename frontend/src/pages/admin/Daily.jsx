@@ -8,6 +8,7 @@ import {
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { getCurrentWorkspaceId } from '../../services/workspaces'
+import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import { generateCustomerId } from '../../utils/customerId'
 import {
   normalizeInterestInput,
@@ -284,6 +285,11 @@ function Daily() {
   // When this page is opened from a customer profile, the form is already needed.
   const [showForm, setShowForm] =
     useState(Boolean(customer))
+  const formSectionRef = useRef(null)
+  const revealForm = useMobileFormReveal(
+    showForm,
+    formSectionRef
+  )
 
   // =========================================
   // LIVE DAILY LOANS LIST
@@ -516,10 +522,18 @@ function Daily() {
     resetForm()
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   const closeForm = () => {
@@ -1719,6 +1733,7 @@ function Daily() {
       {showForm && (
 
       <form
+        ref={formSectionRef}
         className="daily-loan-form"
         onSubmit={saveDailyLoan}
       >
