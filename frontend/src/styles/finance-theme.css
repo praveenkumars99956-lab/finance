@@ -24,6 +24,29 @@
   --fs-line: #e0d6f7;
   --fs-line-soft: #ede5ff;
   --fs-white: #ffffff;
+
+  /* Agent portal shell (keeps the existing light UI exactly as-is) */
+  --fs-agent-bg: #f6f2ff;
+  --fs-agent-header-bg: rgba(255, 255, 255, 0.92);
+  --fs-agent-sidebar-bg: rgba(255, 255, 255, 0.75);
+  --fs-agent-border: rgba(53, 16, 120, 0.12);
+  --fs-agent-sidebar-border: rgba(53, 16, 120, 0.1);
+  --fs-agent-icon: #351078;
+  --fs-agent-heading: #1a0a3b;
+  --fs-agent-muted: #6b5c86;
+  --fs-agent-link: #3b2a5a;
+  --fs-agent-link-active: #351078;
+  --fs-agent-link-active-bg: rgba(53, 16, 120, 0.1);
+  --fs-agent-logout-bg: #fff1f2;
+  --fs-agent-logout-color: #be123c;
+  --fs-agent-logout-border: #fecdd3;
+  --fs-agent-online-bg: rgba(16, 185, 129, 0.12);
+  --fs-agent-online-fg: #047857;
+  --fs-agent-offline-bg: rgba(245, 158, 11, 0.14);
+  --fs-agent-offline-fg: #92400e;
+  --fs-agent-error-bg: rgba(239, 68, 68, 0.12);
+  --fs-agent-error-fg: #b91c1c;
+
   --fs-success: #0f7a53;
   --fs-success-bg: #e7f7ef;
   --fs-warning: #a45a00;
@@ -1090,6 +1113,28 @@ textarea:focus-visible,
   --fs-ink-muted: #a596c8;
   --fs-line: #2c1b4d;
   --fs-line-soft: #211239;
+
+  /* Agent portal shell follows the dark palette */
+  --fs-agent-bg: #0c0618;
+  --fs-agent-header-bg: rgba(17, 9, 34, 0.94);
+  --fs-agent-sidebar-bg: rgba(21, 11, 40, 0.92);
+  --fs-agent-border: rgba(201, 182, 255, 0.16);
+  --fs-agent-sidebar-border: rgba(201, 182, 255, 0.14);
+  --fs-agent-icon: #c9b6ff;
+  --fs-agent-heading: #f3edff;
+  --fs-agent-muted: #a596c8;
+  --fs-agent-link: #d5c8f2;
+  --fs-agent-link-active: #c9b6ff;
+  --fs-agent-link-active-bg: rgba(201, 182, 255, 0.14);
+  --fs-agent-logout-bg: rgba(165, 29, 51, 0.2);
+  --fs-agent-logout-color: #ff9aa9;
+  --fs-agent-logout-border: rgba(255, 154, 169, 0.3);
+  --fs-agent-online-bg: rgba(16, 185, 129, 0.18);
+  --fs-agent-online-fg: #6ee7b7;
+  --fs-agent-offline-bg: rgba(245, 158, 11, 0.18);
+  --fs-agent-offline-fg: #fcd34d;
+  --fs-agent-error-bg: rgba(239, 68, 68, 0.18);
+  --fs-agent-error-fg: #fca5a5;
 
   --fin-primary: #c9b6ff;
   --fin-bg: #0c0618;
