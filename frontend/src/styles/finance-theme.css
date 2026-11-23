@@ -1849,3 +1849,51 @@ table td,
   color: #ffffff !important;
   border: 1px solid rgba(255,255,255,0.12) !important;
 }
+
+/* --------------------------------------------------------------------------
+   Mobile-only polish
+   --------------------------------------------------------------------------
+   Every rule below lives inside a max-width media query, so the desktop /
+   system layout is completely unchanged. The same UI, components, colours and
+   labels are kept - these rules only make that UI fit and behave correctly on
+   a phone.
+   -------------------------------------------------------------------------- */
+@media (max-width: 640px) {
+  /* Very narrow phones must not force a page-wide horizontal scrollbar. */
+  html,
+  body {
+    min-width: 0 !important;
+  }
+
+  /* List search fields fill the row instead of overflowing a small screen. */
+  .daily-loan-list-header input[type='search'],
+  .loan-list-header input[type='search'],
+  .payments-search input,
+  .finance-reports-search input {
+    min-width: 0 !important;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* iOS Safari zooms the whole page when a focused field is under 16px. */
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Remove the old 300ms tap delay without changing any visual styling. */
+  button,
+  a {
+    touch-action: manipulation;
+  }
+
+  /* Keep momentum scrolling when a wide data table is swiped sideways. */
+  .daily-list-table-wrap,
+  .loan-list-table-wrap,
+  .payment-table-wrapper,
+  .reports-table-wrapper {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+  }
+}
