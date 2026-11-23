@@ -1,4 +1,9 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
+import {
+  getCollectedAmount,
+  getInstallmentAmount,
+  getPeriodCount
+} from '../../utils/loanSummary'
 import { notify } from '../../utils/notify'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -910,7 +915,7 @@ function AgentCollection() {
 
   const pendingForDate = getPendingForDate(finance, paymentDate)
   const paymentLimitForDate = getPaymentLimitForDate(finance, paymentDate)
-  const paidAmount = Number(finance.paid || 0)
+  const paidAmount = getCollectedAmount(finance, payments)
   const totalAmount = paidAmount + pendingForDate
   const principalAmount = Number(finance.principal_amount ?? finance.amount ?? 0)
   // Interest accrual is cumulative; the outstanding principal and the
@@ -937,22 +942,8 @@ function AgentCollection() {
     finance.entry_date ||
     ''
   const endingDateValue = finance.ending_date || ''
-  const installmentAmount = Number(
-    finance.daily_amount ??
-      finance.weekly_amount ??
-      finance.monthly_amount ??
-      finance.installment_amount ??
-      0
-  )
-  const durationCount =
-    finance.number_of_days ??
-    finance.number_of_weeks ??
-    finance.number_of_months ??
-    finance.duration ??
-    finance.days ??
-    finance.weeks ??
-    finance.months ??
-    ''
+  const installmentAmount = getInstallmentAmount(finance)
+  const durationCount = getPeriodCount(finance)
   const durationLabel = financeType === 'daily'
     ? t('numberOfDays', 'Number of Days')
     : financeType === 'weekly'
