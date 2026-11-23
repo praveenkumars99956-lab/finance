@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { writeAuditLog } from '../../services/auditLog'
+import { isValidPhone, normalizePhone } from '../../utils/phone'
 import CustomSelect from '../../components/CustomSelect'
 
 function Agents() {
@@ -90,7 +91,7 @@ function Agents() {
 
     setForm((previous) => ({
       ...previous,
-      [name]: value
+      [name]: name === 'phone' ? normalizePhone(value) : value
     }))
   }
 
@@ -167,12 +168,7 @@ function Agents() {
     // PHONE VALIDATION
     // -----------------------------------------
 
-    if (
-      form.phone &&
-      !/^[0-9]{10}$/.test(
-        form.phone.trim()
-      )
-    ) {
+    if (!isValidPhone(form.phone)) {
       notify(
         t('agentPhoneMustBeTenDigits')
       )
@@ -467,7 +463,7 @@ function Agents() {
         agent.full_name || '',
 
       phone:
-        agent.phone || '',
+        normalizePhone(agent.phone),
 
       email:
         agent.email || '',

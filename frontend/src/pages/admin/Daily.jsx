@@ -9,6 +9,7 @@ import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { getCurrentWorkspaceId } from '../../services/workspaces'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
+import { isValidPhone, normalizePhone } from '../../utils/phone'
 import { generateCustomerId } from '../../utils/customerId'
 import {
   normalizeInterestInput,
@@ -574,7 +575,7 @@ function Daily() {
     setNewCustomerName(
       loan.name || loanCustomer?.full_name || ''
     )
-    setNewCustomerPhone(loanCustomer?.phone || '')
+    setNewCustomerPhone(normalizePhone(loanCustomer?.phone))
     setNewCustomerAddress(loanCustomer?.address || '')
     setNewCustomerId(loanCustomer?.customer_id || '')
     setCustomerNameError(false)
@@ -903,6 +904,11 @@ function Daily() {
         return
       }
 
+      if (!activeCustomer && !isValidPhone(newCustomerPhone)) {
+        notify(t('agentPhoneMustBeTenDigits'))
+        return
+      }
+
       if (!activeCustomer) {
         setCustomerName(trimmedCustomerName)
         setNewCustomerName(trimmedCustomerName)
@@ -1100,7 +1106,7 @@ function Daily() {
               .insert({
                 customer_id: candidateCustomerId,
                 full_name: newCustomerName.trim(),
-                phone: newCustomerPhone.trim(),
+                phone: newCustomerPhone,
                 address: newCustomerAddress.trim(),
                 status: 'active',
                 created_by: user.id,
@@ -1847,8 +1853,11 @@ function Daily() {
                     type="tel"
                     value={newCustomerPhone}
                     onChange={(event) =>
-                      setNewCustomerPhone(event.target.value)
+                      setNewCustomerPhone(normalizePhone(event.target.value))
                     }
+                    maxLength={10}
+                    inputMode="numeric"
+                    placeholder={t('tenDigitPhoneNumber')}
                     autoComplete="tel"
                   />
                 </div>

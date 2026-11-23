@@ -13,6 +13,7 @@ import CustomerAutocomplete, {
 import { ensureInterestOnlyLoanCategory } from '../../services/collectionCategories'
 import { generateCustomerId } from '../../utils/customerId'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
+import { isValidPhone, normalizePhone } from '../../utils/phone'
 import {
   normalizeInterestInput,
   rateFromInterestAmount
@@ -756,7 +757,7 @@ function InterestOnly() {
 
     setCustomerName(name)
     setNewCustomerName(name)
-    setNewCustomerPhone(loanCustomer?.phone || '')
+    setNewCustomerPhone(normalizePhone(loanCustomer?.phone))
     setNewCustomerAddress(loanCustomer?.address || '')
     setNewCustomerId(loanCustomer?.customer_id || '')
     setCustomerNameError(false)
@@ -841,6 +842,18 @@ function InterestOnly() {
           'dailyCustomerNameRequired',
           'Enter the customer name to create an Interest-Only Finance account.'
         )
+      )
+
+      return
+    }
+
+    if (
+      !activeCustomer &&
+      !activeCustomerDbId &&
+      !isValidPhone(newCustomerPhone)
+    ) {
+      notify(
+        t('agentPhoneMustBeTenDigits')
       )
 
       return
@@ -996,7 +1009,7 @@ function InterestOnly() {
             .insert({
               customer_id: candidateCustomerId,
               full_name: newCustomerName.trim(),
-              phone: newCustomerPhone.trim(),
+              phone: newCustomerPhone,
               address: newCustomerAddress.trim(),
               status: 'active',
               created_by: user.id,
@@ -1681,7 +1694,12 @@ function InterestOnly() {
                 <input
                   type="tel"
                   value={newCustomerPhone}
-                  onChange={(event) => setNewCustomerPhone(event.target.value)}
+                  onChange={(event) =>
+                    setNewCustomerPhone(normalizePhone(event.target.value))
+                  }
+                  maxLength={10}
+                  inputMode="numeric"
+                  placeholder={t('tenDigitPhoneNumber')}
                   autoComplete="tel"
                 />
               </div>
