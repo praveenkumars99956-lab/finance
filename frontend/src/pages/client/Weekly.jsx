@@ -489,7 +489,12 @@ function Weekly() {
             data.default_interest_rate
           )
 
-          if (!editingFinanceIdRef.current) {
+          // A late settings response must not replace a rate the user just
+          // derived by typing an Interest Amount.
+          if (
+            !editingFinanceIdRef.current &&
+            !interestAmountEdited.current
+          ) {
             setInterestRate(
               defaultInterestRateRef.current
             )

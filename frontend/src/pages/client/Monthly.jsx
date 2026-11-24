@@ -439,7 +439,12 @@ function Monthly() {
             data.default_interest_rate
           )
 
-          if (!editingLoanRef.current) {
+          // A late settings response must not replace a rate the user just
+          // derived by typing an Interest Amount.
+          if (
+            !editingLoanRef.current &&
+            !interestAmountEdited.current
+          ) {
             setInterestRate(
               defaultInterestRateRef.current
             )
@@ -2415,11 +2420,22 @@ function Monthly() {
                 value={
                   principal
                 }
-                onChange={(e) =>
-                  setPrincipal(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => {
+                  const value = e.target.value
+                  setPrincipal(value)
+
+                  // If the amount was entered first, keep the rate in sync
+                  // as soon as its principal is available.
+                  if (interestAmountEdited.current) {
+                    setInterestRate(
+                      rateFromInterestAmount(
+                        interestAmount,
+                        value,
+                        numberOfMonths
+                      )
+                    )
+                  }
+                }}
                 placeholder={
                   t(
                     'principalExample',
@@ -2573,11 +2589,21 @@ function Monthly() {
                 value={
                   numberOfMonths
                 }
-                onChange={(e) =>
-                  setNumberOfMonths(
-                    e.target.value
-                  )
-                }
+                onChange={(e) => {
+                  const value = e.target.value
+                  setNumberOfMonths(value)
+
+                  // The month count is part of the amount-to-rate inverse.
+                  if (interestAmountEdited.current) {
+                    setInterestRate(
+                      rateFromInterestAmount(
+                        interestAmount,
+                        principal,
+                        value
+                      )
+                    )
+                  }
+                }}
                 placeholder={
                   t(
                     'monthsExample',

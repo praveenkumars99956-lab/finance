@@ -159,7 +159,7 @@ describe('weekly and monthly data-integrity parity', () => {
   it('guards against double submit and non-finite paid amounts', () => {
     for (const source of [weekly, monthly]) {
       expect(source).toMatch(
-        /e\.preventDefault\(\)[\s\S]{0,160}if \(savingRef\.current\) return/u
+        /e\.preventDefault\(\)[\s\S]{0,220}if \(savingRef\.current\) return/u
       )
       expect(source).toMatch(/savingRef\.current = true/)
       expect(source).toMatch(

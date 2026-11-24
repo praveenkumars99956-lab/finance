@@ -88,6 +88,15 @@
   animation: select-menu-in 120ms ease-out;
 }
 
+/* An animated form section creates its own stacking context. Lift only the
+   section that currently holds an open menu so the popup paints above later
+   sections, without moving or restyling the form at rest. */
+.daily-form-section:has(.select-menu.is-open),
+.daily-manage-section:has(.select-menu.is-open) {
+  position: relative;
+  z-index: 1;
+}
+
 @keyframes select-menu-in {
   from {
     opacity: 0;

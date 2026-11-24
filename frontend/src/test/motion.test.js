@@ -26,6 +26,8 @@ describe('subtle motion polish', () => {
     expect(motionCss).not.toMatch(
       /(?:^|\n)\s*(width|height|margin|padding):/
     )
+    expect(motionCss).toMatch(/animation:[^;]*backwards/)
+    expect(motionCss).not.toMatch(/animation:[^;]*\bboth\b/)
   })
 
   it('covers admin, agent, auth and the mobile drawer scrim', () => {
