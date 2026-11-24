@@ -20,7 +20,7 @@ import {
 } from '../../services/interestOnly'
 
 function getPendingForDate(finance, date) {
-  if (String(finance?.finance_type || '').toLowerCase() === 'interest_only') {
+  if (normalizeFinanceType(finance?.finance_type) === 'interest_only') {
     return getInterestOnlyBalance(finance, date)
   }
 
@@ -28,7 +28,7 @@ function getPendingForDate(finance, date) {
 }
 
 function getPaymentLimitForDate(finance, date) {
-  if (String(finance?.finance_type || '').toLowerCase() === 'interest_only') {
+  if (normalizeFinanceType(finance?.finance_type) === 'interest_only') {
     return getInterestOnlyInterestDue(finance, date)
   }
 
@@ -45,9 +45,7 @@ function getMinimumPaymentDate(finance) {
   const entryDate = String(
     finance?.entry_date || finance?.payment_date || ''
   ).slice(0, 10)
-  const financeType = String(finance?.finance_type || '').toLowerCase()
-
-  if (financeType === 'interest_only' || financeType === 'interest-only') {
+  if (normalizeFinanceType(finance?.finance_type) === 'interest_only') {
     return entryDate
   }
 
@@ -306,9 +304,7 @@ function AgentCollection() {
   // =========================================
 
   const getLoanName = (type) => {
-    const value =
-      String(type || '')
-        .toLowerCase()
+    const value = normalizeFinanceType(type)
 
     if (value === 'daily') {
       return t('dailyLoan')
@@ -322,10 +318,7 @@ function AgentCollection() {
       return t('monthlyLoan')
     }
 
-    if (
-      value === 'interest_only' ||
-      value === 'interest-only'
-    ) {
+    if (value === 'interest_only') {
       return t('interestOnlyLoan')
     }
 
@@ -337,8 +330,8 @@ function AgentCollection() {
   // =========================================
 
   const getPaymentRpc = () => {
-    const type = String(finance?.finance_type || '').toLowerCase()
-    return ['daily', 'weekly', 'monthly', 'interest_only', 'interest-only'].includes(type)
+    const type = normalizeFinanceType(finance?.finance_type)
+    return ['daily', 'weekly', 'monthly', 'interest_only'].includes(type)
       ? 'record_agent_payment'
       : null
   }
@@ -615,7 +608,8 @@ function AgentCollection() {
         return
       }
       const verifiedPaymentLimit = getPaymentLimitForDate(access.record, submittedPaymentDate)
-      if (access.record.finance_type !== finance.finance_type ||
+      if (normalizeFinanceType(access.record.finance_type) !==
+            normalizeFinanceType(finance.finance_type) ||
           amount > verifiedPaymentLimit) {
         notify(t('collectionFinanceChanged'))
         await loadCollection()
@@ -909,9 +903,8 @@ function AgentCollection() {
   const status =
     getCollectionStatus()
 
-  const financeType = String(finance.finance_type || '').toLowerCase()
-  const isInterestOnlyLoan =
-    financeType === 'interest_only' || financeType === 'interest-only'
+  const financeType = normalizeFinanceType(finance.finance_type)
+  const isInterestOnlyLoan = financeType === 'interest_only'
 
   const pendingForDate = getPendingForDate(finance, paymentDate)
   const paymentLimitForDate = getPaymentLimitForDate(finance, paymentDate)
@@ -1224,7 +1217,7 @@ function AgentCollection() {
           <div>
             <h2 style={{ margin: 0 }}>{t('recordCollection')}</h2>
             <p style={{ margin: '0.25rem 0 0', color: '#5b4b75' }}>
-              {String(finance.finance_type || '').toLowerCase() === 'interest_only'
+              {isInterestOnlyLoan
                 ? t('interestOnlyCollectionHint', 'Easy steps: choose date, enter interest amount, add GPS/photo if required, then record.')
                 : t('collectionEasyHint', 'Easy steps: choose date, enter amount, add GPS/photo if required, then record.')}
             </p>
@@ -1270,7 +1263,7 @@ function AgentCollection() {
 
               <div style={{ background: 'var(--fs-inline-card, #fff)', border: '1px solid var(--fs-inline-border, #e5e7eb)', borderRadius: 12, padding: '0.9rem' }}>
                 <label style={{ display: 'block', fontWeight: 600, marginBottom: '0.4rem' }}>
-                  {String(finance.finance_type || '').toLowerCase() === 'interest_only'
+                  {isInterestOnlyLoan
                     ? `${t('interestPaymentAmount')} *`
                     : `${t('collectionAmount')} *`}
                 </label>
@@ -1286,13 +1279,13 @@ function AgentCollection() {
                   style={{ width: '100%', boxSizing: 'border-box', padding: '0.7rem 0.8rem', borderRadius: 10, border: '1px solid var(--fs-inline-border, #cbd5e1)', fontSize: '1rem' }}
                 />
                 <small style={{ display: 'block', marginTop: '0.35rem', color: '#6b7280' }}>
-                  {String(finance.finance_type || '').toLowerCase() === 'interest_only'
+                  {isInterestOnlyLoan
                     ? `${t('maxAmount', 'Max')}: ₹${formatMoney(paymentLimitForDate)}`
                     : `${t('pending', 'Pending')}: ₹${formatMoney(pendingForDate)}`}
                 </small>
               </div>
 
-              {String(finance.finance_type || '').toLowerCase() === 'interest_only' ? (
+              {isInterestOnlyLoan ? (
                 <div style={{ background: 'var(--fs-inline-soft, #ecfeff)', border: '1px solid var(--fs-inline-border, #a5f3fc)', borderRadius: 12, padding: '0.9rem' }}>
                   <span style={{ display: 'block', color: '#155e75', fontWeight: 600 }}>{t('interestDueOnCollectionDate')}</span>
                   <strong style={{ fontSize: '1.25rem', color: '#0f172a' }}>₹{formatMoney(paymentLimitForDate)}</strong>
@@ -1378,7 +1371,7 @@ function AgentCollection() {
               <div>
                 <div style={{ color: '#475569', fontSize: '0.9rem' }}>{t('readyToRecord', 'Ready to record')}</div>
                 <div style={{ fontWeight: 700, color: '#1f2937' }}>
-                  {String(finance.finance_type || '').toLowerCase() === 'interest_only' ? t('interestPaymentAmount', 'Interest payment amount') : t('collectionAmount', 'Collection amount')} : ₹{formatMoney(Number(paymentAmount || 0))}
+                  {isInterestOnlyLoan ? t('interestPaymentAmount', 'Interest payment amount') : t('collectionAmount', 'Collection amount')} : ₹{formatMoney(Number(paymentAmount || 0))}
                 </div>
               </div>
               <button

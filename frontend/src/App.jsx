@@ -131,20 +131,6 @@ function App() {
             }
           />
 
-          <Route
-            path="/weekly"
-            element={
-              <Weekly />
-            }
-          />
-
-          <Route
-            path="/monthly"
-            element={
-              <Monthly />
-            }
-          />
-
           {/* =================================
               ADMIN DASHBOARD
           ================================== */}
@@ -172,6 +158,23 @@ function App() {
             path="/monthly/:financeId"
             element={
               <MonthlyManage />
+            }
+          />
+
+          {/* The loan forms share the admin shell so the full side navigation
+              stays available on /weekly and /monthly. */}
+
+          <Route
+            path="/weekly"
+            element={
+              <Weekly />
+            }
+          />
+
+          <Route
+            path="/monthly"
+            element={
+              <Monthly />
             }
           />
 

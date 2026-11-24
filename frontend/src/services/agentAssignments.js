@@ -1,3 +1,5 @@
+import { normalizeFinanceType } from '../utils/financeType'
+
 const FINANCE_TYPES = [
   'daily',
   'weekly',
@@ -5,12 +7,7 @@ const FINANCE_TYPES = [
   'interest_only'
 ]
 
-export function normalizeFinanceType(value) {
-  const type = String(value || '').trim().toLowerCase()
-  return type === 'interest-only' || type === 'interestonly'
-    ? 'interest_only'
-    : type
-}
+export { normalizeFinanceType }
 
 export function getAssignedFinanceTypes(assignments) {
   const types = new Set()

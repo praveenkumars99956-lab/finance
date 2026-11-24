@@ -1,4 +1,5 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { normalizeFinanceType } from '../../utils/financeType'
 import { notify } from '../../utils/notify'
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -38,14 +39,19 @@ function MonthlyManage() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    loadEverything()
+    let active = true
+    loadEverything(active)
+
+    return () => {
+      active = false
+    }
   }, [financeId])
 
   // =========================================
   // LOAD EVERYTHING
   // =========================================
 
-  async function loadEverything() {
+  async function loadEverything(active = true) {
     setLoading(true)
 
     // MONTHLY FINANCE
@@ -53,12 +59,28 @@ function MonthlyManage() {
       .from('finance_records')
       .select('*')
       .eq('id', financeId)
-      .eq('finance_type', 'monthly')
       .single()
+
+    if (!active) return
 
     if (financeError) {
       console.error(financeError)
       notify(financeError.message)
+      setLoading(false)
+      return
+    }
+
+    // Legacy rows can store "Monthly Loan" or "monthly-collection". The
+    // canonical value is derived in the UI instead of filtering it out.
+    if (normalizeFinanceType(financeData.finance_type) !== 'monthly') {
+      notify(t('financeTypeNotSupported', 'Finance type is not supported yet'))
+      setLoading(false)
+      return
+    }
+
+    // The query is keyed by the route param, but a slower response from the
+    // previous route must never replace the loan currently on screen.
+    if (String(financeData.id) !== String(financeId)) {
       setLoading(false)
       return
     }
@@ -73,6 +95,8 @@ function MonthlyManage() {
         .eq('id', financeData.customer_id)
         .single()
 
+      if (!active) return
+
       if (!customerError) {
         setCustomer(customerData)
       }
@@ -86,6 +110,8 @@ function MonthlyManage() {
       .order('payment_date', { ascending: false })
       .order('created_at', { ascending: false })
 
+    if (!active) return
+
     if (paymentError) {
       console.error(paymentError)
     }
@@ -98,6 +124,8 @@ function MonthlyManage() {
       .select('*')
       .eq('finance_record_id', financeId)
       .order('installment_number', { ascending: true })
+
+    if (!active) return
 
     if (scheduleError) {
       console.error(scheduleError)

@@ -203,6 +203,7 @@
   "unableToCreateWeeklyFinance": "ആഴ്ചതോറുമുള്ള ഫിനാൻസ് സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല",
   "unableToSaveWeeklyFinance": "ആഴ്ചതോറുമുള്ള ഫിനാൻസ് സേവ് ചെയ്യാൻ കഴിഞ്ഞില്ല",
   "weeklyCreatedScheduleFailed": "ആഴ്ചതോറുമുള്ള ഫിനാൻസ് സൃഷ്ടിച്ചു, പക്ഷേ ഷെഡ്യൂൾ സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല",
+  "weeklySavedScheduleFailed": "ആഴ്ചതോറുമുള്ള ഫിനാൻസ് സൂക്ഷിച്ചു, പക്ഷേ ഷെഡ്യൂൾ സൃഷ്ടിക്കാൻ കഴിഞ്ഞില്ല",
   "unableToLoadCollectionCategories": "കളക്ഷൻ വിഭാഗങ്ങൾ ലോഡ് ചെയ്യാൻ കഴിഞ്ഞില്ല",
   "weeklyCustomerMissing": "ഉപഭോക്താവിന്റെ വിവരങ്ങൾ ലഭ്യമല്ല. ഉപഭോക്തൃ പ്രൊഫൈലിൽ നിന്ന് ആഴ്ചതോറുമുള്ള വായ്പ തുറക്കുക.",
   "enterValidPrincipal": "സാധുവായ മുതൽ തുക നൽകുക",

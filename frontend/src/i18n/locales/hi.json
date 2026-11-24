@@ -234,6 +234,7 @@
   "unableToCreateWeeklyFinance": "साप्ताहिक वित्त नहीं बनाया जा सका",
   "unableToSaveWeeklyFinance": "साप्ताहिक वित्त सहेजा नहीं जा सका",
   "weeklyCreatedScheduleFailed": "साप्ताहिक वित्त बनाया गया, लेकिन भुगतान अनुसूची नहीं बन सकी",
+  "weeklySavedScheduleFailed": "साप्ताहिक वित्त सहेजा गया, लेकिन भुगतान अनुसूची नहीं बन सकी",
   "unableToLoadCollectionCategories": "संग्रह श्रेणियां लोड नहीं की जा सकीं",
   "weeklyCustomerMissing": "ग्राहक की जानकारी उपलब्ध नहीं है। ग्राहक प्रोफाइल से साप्ताहिक ऋण खोलें.",
   "enterValidPrincipal": "मान्य मूलधन राशि दर्ज करें",
