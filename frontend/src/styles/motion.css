@@ -1,0 +1,73 @@
+/* ============================================================================
+   Subtle motion polish
+   ----------------------------------------------------------------------------
+   Additive only: no colours, spacing, sizes, layout or behaviour are changed.
+   Elements finish in exactly the same visual state as before; only the way
+   they appear is animated. Reduced-motion preferences are respected.
+   ============================================================================ */
+
+@keyframes fs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Route content and auth cards ease in gently. */
+.admin-content > *,
+.agent-main > *,
+.login-page > .login-card,
+.auth-flow-card {
+  animation: fs-fade-in 220ms ease-out both;
+}
+
+/* Cards/sections fade in without moving, so hover transforms stay intact. */
+.modern-card,
+.modern-summary-card,
+.dashboard-module-card,
+.daily-form-section,
+.daily-loan-summary,
+.daily-loan-list-section,
+.loan-list-section,
+.report-filters,
+.settings-card,
+.customer-record,
+.profile-section,
+.payment-box,
+.payment-history,
+.next-payment-box,
+.calculation-preview,
+.finance-account-details,
+.finance-type-card {
+  animation: fs-fade-in 240ms ease-out both;
+}
+
+/* The mobile drawer scrim already toggles display; now it fades as it appears. */
+@media (max-width: 1023px) {
+  .sidebar-scrim.is-visible {
+    animation: fs-fade-in 160ms ease-out both;
+  }
+}
+
+/* Phones get a slightly quicker entrance so navigation still feels instant. */
+@media (max-width: 640px) {
+  .admin-content > *,
+  .agent-main > *,
+  .login-page > .login-card,
+  .auth-flow-card {
+    animation-duration: 180ms;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
