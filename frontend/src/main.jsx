@@ -14,6 +14,7 @@ import './styles/finance-theme.css'
 import './styles/palette-buttons.css'
 import './styles/offline-voice.css'
 import './styles/select-menu.css'
+import './styles/motion.css'
 
 import { initI18n } from './i18n/i18n'
 
