@@ -262,6 +262,7 @@
   "unableToCreateWeeklyFinance": "Unable to create Weekly Finance",
   "unableToSaveWeeklyFinance": "Unable to save Weekly Finance",
   "weeklyCreatedScheduleFailed": "Weekly Finance was created, but schedule generation failed",
+  "weeklySavedScheduleFailed": "Weekly Finance was saved, but schedule generation failed",
   "unableToLoadCollectionCategories": "Unable to load Collection Categories",
   "weeklyCustomerMissing": "Customer information is missing. Please open Weekly Loan from Customer Profile.",
   "enterValidPrincipal": "Enter a valid Principal Amount",

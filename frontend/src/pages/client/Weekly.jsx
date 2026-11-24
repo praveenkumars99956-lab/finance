@@ -18,8 +18,25 @@ import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
 
+// Editing must never restore balances that were posted after the loan list was
+// read. The guard is part of the UPDATE statement, so a payment committing
+// between the fresh read and the write makes the update affect no rows.
+function withRecordedBalanceGuard(query, totals) {
+  return [
+    ['paid', totals.paid],
+    ['principal_paid', totals.principal_paid],
+    ['interest_paid', totals.interest_paid]
+  ].reduce(
+    (current, [column, value]) =>
+      current.or(
+        `${column}.eq.${Number(value || 0)},${column}.is.null`
+      ),
+    query
+  )
+}
+
 function Weekly() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { showToast } = useToast()
 
   const navigate = useNavigate()
@@ -96,6 +113,10 @@ function Weekly() {
 
   const [settingsLoading, setSettingsLoading] = useState(true)
 
+  // Keep the Settings default so resetting after an edit restores it instead
+  // of leaving the rate blank.
+  const defaultInterestRateRef = useRef('')
+
   // =========================================
   // COLLECTION CATEGORY
   // =========================================
@@ -112,6 +133,11 @@ function Weekly() {
   // =========================================
 
   const [saving, setSaving] = useState(false)
+  const savingRef = useRef(false)
+
+  // If a loan was inserted but its schedule RPC failed, keep that id so the
+  // next submit retries only the schedule instead of creating a duplicate.
+  const pendingScheduleRecordIdRef = useRef(null)
 
   // The header button opens the form. When this page is opened from a customer
   // profile, the form is already needed.
@@ -311,14 +337,16 @@ function Weekly() {
 
   const resetForm = () => {
     editingFinanceIdRef.current = null
+    pendingScheduleRecordIdRef.current = null
     loadedLoanValuesRef.current = null
     setEditingFinanceId(null)
     setEditingCustomer(null)
     setCustomer(providedCustomer)
     setCustomerName(providedCustomer?.full_name || '')
     setCustomerError(false)
+    setNewCustomerPhone('')
     setPrincipal('')
-    setInterestRate('')
+    setInterestRate(defaultInterestRateRef.current)
     setAlreadyPaid('0')
     setInterestAmount(0)
     interestAmountEdited.current = false
@@ -399,6 +427,7 @@ function Weekly() {
       loan.name || loanCustomer?.full_name || ''
     )
     setCustomerError(false)
+    setNewCustomerPhone(normalizePhone(loanCustomer?.phone))
 
     setPrincipal(nextPrincipal)
     setInterestRate(nextInterestRate)
@@ -408,15 +437,25 @@ function Weekly() {
     setNumberOfWeeks(nextWeeks)
     setStartDate(nextStartDate)
     setCollectionCategoryId(
-      loan.collection_category_id || ''
+      loan.collection_category_id ||
+        weeklyCategoryId ||
+        ''
     )
     setCategoryError(false)
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // =========================================
@@ -443,13 +482,18 @@ function Weekly() {
         }
 
         if (
-          !editingFinanceIdRef.current &&
           data?.default_interest_rate !== null &&
           data?.default_interest_rate !== undefined
         ) {
-          setInterestRate(
-            String(data.default_interest_rate)
+          defaultInterestRateRef.current = String(
+            data.default_interest_rate
           )
+
+          if (!editingFinanceIdRef.current) {
+            setInterestRate(
+              defaultInterestRateRef.current
+            )
+          }
         }
       } catch (error) {
         console.error('Finance settings error:', error)
@@ -528,7 +572,6 @@ function Weekly() {
         const { data, error } = await supabase
           .from('customers')
           .select('id, customer_id, full_name, phone, status')
-          .eq('status', 'active')
           .order('full_name')
 
         if (error) {
@@ -540,8 +583,19 @@ function Weekly() {
           return
         }
 
+        // Older customer rows may have a null/missing status, so do not
+        // filter with .eq('status', 'active') in the query. Only skip
+        // customers that are explicitly marked inactive.
+        const selectableCustomers = (data || []).filter((option) => {
+          const status = String(option.status ?? 'active')
+            .trim()
+            .toLowerCase()
+
+          return status !== 'inactive'
+        })
+
         if (active) {
-          setCustomerOptions(data || [])
+          setCustomerOptions(selectableCustomers)
         }
       } catch (error) {
         console.error('Customer loading error:', error)
@@ -578,6 +632,13 @@ function Weekly() {
     setCustomerName(typedName)
     setCustomer(selectedCustomer)
     setEditingCustomer(selectedCustomer)
+    // A name that no longer matches the selected customer is a new customer,
+    // so it must not inherit that customer's phone number.
+    setNewCustomerPhone(
+      selectedCustomer
+        ? normalizePhone(selectedCustomer.phone)
+        : ''
+    )
     setCustomerError(false)
   }
 
@@ -587,6 +648,7 @@ function Weekly() {
     setCustomerName(trimmedName)
     setCustomer(null)
     setEditingCustomer(null)
+    setNewCustomerPhone('')
     setCustomerError(false)
   }
 
@@ -710,7 +772,8 @@ function Weekly() {
   // FORMAT MONEY
   // =========================================
 
-  const formatMoney = (value) => formatMoneyValue(value)
+  const formatMoney = (value) =>
+    formatMoneyValue(value, i18n.resolvedLanguage)
 
   // =========================================
   // SELECTED CATEGORY / LIST HELPERS
@@ -762,7 +825,12 @@ function Weekly() {
 
   const saveWeeklyFinance = async (e) => {
     e.preventDefault()
+    // A synchronous ref lock closes the gap while auth.getUser() is pending;
+    // the saving state alone updates too late to stop a second fast submit.
+    if (savingRef.current) return
+    savingRef.current = true
 
+    try {
     const p = Number(principal)
     const rate = Number(interestRate)
     const paid = Number(alreadyPaid || 0)
@@ -824,7 +892,7 @@ function Weekly() {
       return
     }
 
-    if (!p || p <= 0) {
+    if (!Number.isFinite(p) || p <= 0) {
       showToast(
         t('enterValidPrincipal', 'Enter a valid Principal Amount'),
         'error'
@@ -846,7 +914,7 @@ function Weekly() {
       return
     }
 
-    if (paid < 0) {
+    if (!Number.isFinite(paid) || paid < 0) {
       showToast(
         t('alreadyPaidNegative', 'Already Paid cannot be negative'),
         'error'
@@ -909,6 +977,108 @@ function Weekly() {
     setSaving(true)
 
     try {
+      // A failed schedule must not turn the next submit into a second loan.
+      // Reuse the already-saved record and only retry the schedule RPC.
+      const retryScheduleRecordId = pendingScheduleRecordIdRef.current
+
+      if (retryScheduleRecordId && !editingFinanceId) {
+        const {
+          data: savedRecord,
+          error: savedRecordError
+        } = await supabase
+          .from('finance_records')
+          .select('id, customer_id, finance_id')
+          .eq('id', retryScheduleRecordId)
+          .single()
+
+        if (savedRecordError || !savedRecord?.id) {
+          console.error(savedRecordError)
+          pendingScheduleRecordIdRef.current = null
+          showToast(t('collectionFinanceChanged'), 'error')
+          return
+        }
+
+        const retryResult = await supabase.rpc(
+          'generate_weekly_schedule',
+          {
+            p_finance_record_id: retryScheduleRecordId
+          }
+        )
+
+        if (retryResult.error) {
+          console.error(retryResult.error)
+
+          showToast(
+            `${t(
+              'weeklyCreatedScheduleFailed',
+              'Weekly Finance was created, but schedule generation failed'
+            )}: ${retryResult.error.message}`,
+            'error'
+          )
+
+          return
+        }
+
+        pendingScheduleRecordIdRef.current = null
+
+        showToast(
+          t(
+            'weeklyFinanceCreatedSuccessfully',
+            'Weekly Finance created successfully'
+          ),
+          'success'
+        )
+
+        const retryCustomerId =
+          savedRecord.customer_id || customerId
+
+        if (retryCustomerId) {
+          navigate(`/customers/${retryCustomerId}`)
+        } else {
+          navigate('/customers')
+        }
+
+        return
+      }
+
+      const isEditing = Boolean(editingFinanceId)
+
+      // Re-read payment totals at submit time. The live list can be stale if a
+      // collection was posted after it loaded.
+      let storedRecord = null
+      let recordedTotals = {
+        paid: 0,
+        principal_paid: 0,
+        interest_paid: 0
+      }
+
+      if (isEditing) {
+        const {
+          data: freshRecord,
+          error: freshRecordError
+        } = await supabase
+          .from('finance_records')
+          .select(
+            'id, finance_id, paid, principal_paid, interest_paid'
+          )
+          .eq('id', editingFinanceId)
+          .single()
+
+        if (freshRecordError || !freshRecord?.id) {
+          console.error(freshRecordError)
+
+          showToast(t('collectionFinanceChanged'), 'error')
+          return
+        }
+
+        storedRecord = freshRecord
+        recordedTotals = {
+          paid: Number(freshRecord.paid || 0),
+          principal_paid: Number(freshRecord.principal_paid || 0),
+          interest_paid: Number(freshRecord.interest_paid || 0)
+        }
+      }
+
       // =========================================
       // RESOLVE CUSTOMER (SELECT EXISTING OR CREATE NEW)
       // =========================================
@@ -980,27 +1150,15 @@ function Weekly() {
       // EDITING? READ PRESERVED PAYMENT TOTALS
       // =========================================
 
-      const isEditing = Boolean(editingFinanceId)
+      // Posted payment totals come from the freshly read record, not the form
+      // or the live list, so editing details cannot rewrite a newer balance.
+      const paidSoFar = recordedTotals.paid
 
-      const editingRecord = isEditing
-        ? weeklyLoans.find(
-            (loan) =>
-              String(loan.id) ===
-              String(editingFinanceId)
-          )
-        : null
+      const principalPaidSoFar =
+        recordedTotals.principal_paid
 
-      // Already Paid is edited in the form, so use that value on save rather
-      // than the stored snapshot when recomputing the pending balance.
-      const paidSoFar = paid
-
-      const principalPaidSoFar = Number(
-        editingRecord?.principal_paid || 0
-      )
-
-      const interestPaidSoFar = Number(
-        editingRecord?.interest_paid || 0
-      )
+      const interestPaidSoFar =
+        recordedTotals.interest_paid
 
       // =========================================
       // CREATE / UPDATE WEEKLY FINANCE ACCOUNT
@@ -1034,11 +1192,8 @@ function Weekly() {
 
         amount: total,
 
-        // =====================================
-        // ALREADY PAID SAVED SEPARATELY
-        // =====================================
-
-        paid,
+        // Already Paid is recorded only when a loan is created. Edits keep
+        // the posted total from the saved record.
 
         // =====================================
         // PENDING / OUTSTANDING (RECOMPUTED ON EDIT)
@@ -1089,6 +1244,8 @@ function Weekly() {
         Object.assign(recordPayload, {
           user_id: user.id,
 
+          paid,
+
           original_principal: p,
 
           /*
@@ -1109,10 +1266,13 @@ function Weekly() {
       let financeError = null
 
       if (isEditing) {
-        const result = await supabase
-          .from('finance_records')
-          .update(recordPayload)
-          .eq('id', editingFinanceId)
+        const result = await withRecordedBalanceGuard(
+          supabase
+            .from('finance_records')
+            .update(recordPayload)
+            .eq('id', editingFinanceId),
+          recordedTotals
+        )
           .select('id')
           .single()
 
@@ -1127,6 +1287,19 @@ function Weekly() {
 
         financeRecord = result.data
         financeError = result.error
+
+        if (!financeError && financeRecord?.id) {
+          pendingScheduleRecordIdRef.current = financeRecord.id
+        }
+      }
+
+      if (financeError?.code === 'PGRST116') {
+        console.error(financeError)
+
+        showToast(t('collectionFinanceChanged'), 'error')
+        closeForm()
+        await loadWeeklyLoans()
+        return
       }
 
       if (financeError) {
@@ -1156,9 +1329,13 @@ function Weekly() {
       // WEEKLY REPAYMENT SCHEDULE
       // =========================================
 
+      let shouldGenerateSchedule = true
+      let scheduleError = null
+
       if (isEditing) {
         // Rebuild the installment plan only when no real payments have been
-        // recorded against this loan.
+        // recorded against this loan. The reset RPC deletes and regenerates
+        // atomically, so an authorization failure cannot leave no schedule.
         const {
           data: existingPayments,
           error: paymentCheckError
@@ -1173,62 +1350,53 @@ function Weekly() {
             'Weekly payment check error:',
             paymentCheckError
           )
-        } else if (!existingPayments?.length) {
-          const { error: scheduleDeleteError } =
-            await supabase
-              .from('repayment_schedule')
-              .delete()
-              .eq('finance_record_id', editingFinanceId)
 
-          if (scheduleDeleteError) {
-            console.error(
-              'Weekly schedule reset error:',
-              scheduleDeleteError
-            )
-          }
-
-          const { error: scheduleError } =
-            await supabase.rpc(
-              'generate_weekly_schedule',
-              {
-                p_finance_record_id:
-                  financeRecord.id
-              }
-            )
-
-          if (scheduleError) {
-            console.error(scheduleError)
-
-            showToast(
-              `${t('weeklyCreatedScheduleFailed', 'Weekly Finance was created, but schedule generation failed')}: ${scheduleError.message}`,
-              'error'
-            )
-
-            closeForm()
-            await loadWeeklyLoans()
-            return
-          }
+          scheduleError = paymentCheckError
+          shouldGenerateSchedule = false
+        } else if (existingPayments?.length) {
+          shouldGenerateSchedule = false
         }
-      } else {
-        const { error: scheduleError } =
-          await supabase.rpc(
-            'generate_weekly_schedule',
-            {
-              p_finance_record_id:
-                financeRecord.id
-            }
-          )
+      }
 
-        if (scheduleError) {
-          console.error(scheduleError)
+      if (shouldGenerateSchedule) {
+        const result = await supabase.rpc(
+          isEditing
+            ? 'reset_weekly_schedule'
+            : 'generate_weekly_schedule',
+          {
+            p_finance_record_id:
+              financeRecord.id
+          }
+        )
 
-          showToast(
-            `${t('weeklyCreatedScheduleFailed', 'Weekly Finance was created, but schedule generation failed')}: ${scheduleError.message}`,
-            'error'
-          )
+        scheduleError = result.error
+      }
 
-          return
+      if (scheduleError) {
+        console.error(scheduleError)
+
+        showToast(
+          `${t(
+            isEditing
+              ? 'weeklySavedScheduleFailed'
+              : 'weeklyCreatedScheduleFailed',
+            isEditing
+              ? 'Weekly Finance was saved, but schedule generation failed'
+              : 'Weekly Finance was created, but schedule generation failed'
+          )}: ${scheduleError.message}`,
+          'error'
+        )
+
+        if (isEditing) {
+          closeForm()
+          await loadWeeklyLoans()
         }
+
+        return
+      }
+
+      if (!isEditing) {
+        pendingScheduleRecordIdRef.current = null
       }
 
       // =========================================
@@ -1242,7 +1410,7 @@ function Weekly() {
             'Weekly Finance {{financeId}} saved successfully',
             {
               financeId:
-                editingRecord?.finance_id ||
+                storedRecord?.finance_id ||
                 `#${editingFinanceId}`
             }
           ),
@@ -1274,6 +1442,9 @@ function Weekly() {
       )
     } finally {
       setSaving(false)
+    }
+    } finally {
+      savingRef.current = false
     }
   }
 
@@ -1579,7 +1750,7 @@ function Weekly() {
                   style={{
                     display: 'block',
                     marginTop: 6,
-                    color: '#b42318'
+                    color: 'var(--fs-inline-danger, #b42318)'
                   }}
                 >
                   {t(
@@ -1617,7 +1788,7 @@ function Weekly() {
                   style={{
                     display: 'block',
                     marginTop: 6,
-                    color: '#b42318'
+                    color: 'var(--fs-inline-danger, #b42318)'
                   }}
                 >
                   {t(
@@ -1722,6 +1893,7 @@ function Weekly() {
                 min="0"
                 step="0.01"
                 value={alreadyPaid}
+                readOnly={Boolean(editingFinanceId)}
                 onChange={(e) =>
                   setAlreadyPaid(e.target.value)
                 }

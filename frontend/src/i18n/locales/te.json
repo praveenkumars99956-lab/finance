@@ -261,6 +261,7 @@
   "unableToCreateWeeklyFinance": "వీక్లీ ఫైనాన్స్ సృష్టించలేకపోయాము",
   "unableToSaveWeeklyFinance": "వీక్లీ ఫైనాన్స్ సేవ్ చేయలేకపోయాము",
   "weeklyCreatedScheduleFailed": "వీక్లీ ఫైనాన్స్ సృష్టించబడింది, కానీ షెడ్యూల్ రూపొందించడం విఫలమైంది",
+  "weeklySavedScheduleFailed": "వీక్లీ ఫైనాన్స్ సేవ్ చేయబడింది, కానీ షెడ్యూల్ రూపొందించడం విఫలమైంది",
   "unableToLoadCollectionCategories": "కలెక్షన్ వర్గాలను లోడ్ చేయలేకపోయాము",
   "weeklyCustomerMissing": "కస్టమర్ సమాచారం లేదు. దయచేసి కస్టమర్ ప్రొఫైల్ నుండి వీక్లీ లోన్ తెరవండి.",
   "enterValidPrincipal": "చెల్లుబాటు అయ్యే అసలు మొత్తాన్ని నమోదు చేయండి",

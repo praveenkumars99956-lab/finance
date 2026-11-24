@@ -1,4 +1,5 @@
 import { formatMoney as formatMoneyValue } from '../../utils/money'
+import { normalizeFinanceType } from '../../utils/financeType'
 import { notify } from '../../utils/notify'
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -246,9 +247,9 @@ function CustomerProfile() {
   // =========================================
 
   const manageFinance = (record) => {
-    const type = String(
-      record.finance_type || ''
-    ).toLowerCase()
+    const type = normalizeFinanceType(
+      record.finance_type
+    )
 
     // DAILY
     if (type === 'daily') {

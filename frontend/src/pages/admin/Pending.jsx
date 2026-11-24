@@ -200,7 +200,7 @@ function Pending() {
   const overdueAmount = overdueRecords.reduce((sum, r) => sum + Number(r.pending || 0), 0)
 
   const openFinance = (record) => {
-    switch (record.finance_type) {
+    switch (normalizeFinanceType(record.finance_type)) {
       case 'daily':
         navigate(`/daily/${record.id}`)
         break
@@ -211,7 +211,6 @@ function Pending() {
         navigate(`/monthly/${record.id}`)
         break
       case 'interest_only':
-      case 'interest-only':
         navigate(`/interest-only/${record.id}`)
         break
       default:

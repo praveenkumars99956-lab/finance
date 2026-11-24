@@ -1,18 +1,57 @@
 import { supabase } from './supabase'
-import { isMissingCategoryTypeColumnError } from '../utils/categoryType'
+import {
+  categoryTypeFromName,
+  isMissingCategoryTypeColumnError
+} from '../utils/categoryType'
 import { loadAccessContext } from './access'
 
-async function loadCollectionCategories() {
-  const { data, error } = await supabase
+async function loadCollectionCategories(categoryType) {
+  let result = await supabase
     .from('collection_categories')
-    .select('id, category_name, status')
+    .select('id, category_name, status, category_type')
     .order('category_name')
 
-  if (error) {
-    throw error
+  // Until the category_type migration is applied, keep the previous behaviour
+  // of returning every active/inactive category so edits still work.
+  if (isMissingCategoryTypeColumnError(result.error)) {
+    result = await supabase
+      .from('collection_categories')
+      .select('id, category_name, status')
+      .order('category_name')
   }
 
-  return data || []
+  if (result.error) {
+    throw result.error
+  }
+
+  const categories = result.data || []
+
+  if (!categoryType) {
+    return categories
+  }
+
+  // Legacy rows can predate category_type even after the column exists, so
+  // fall back to the product name before excluding them.
+  return categories.filter((category) => {
+    const storedType = String(category.category_type || '')
+      .trim()
+      .toLowerCase()
+
+    // Reserved product names are authoritative. If an admin changed
+    // "Weekly Loan" to category_type='daily', the next weekly form load would
+    // otherwise try to insert a duplicate name and fail with 23505.
+    const nameType = categoryTypeFromName(category.category_name)
+
+    if (nameType) {
+      return nameType === categoryType
+    }
+
+    if (storedType) {
+      return storedType === categoryType
+    }
+
+    return false
+  })
 }
 
 async function insertLoanCategory(payload) {
@@ -48,7 +87,7 @@ async function ensureLoanCategory(
     throw new Error(`A signed-in admin is required to create the ${loanName} category.`)
   }
 
-  const categories = await loadCollectionCategories()
+  const categories = await loadCollectionCategories(categoryType)
   const loanCategory = categories.find(
     (category) =>
       String(category.category_name || '').trim().toLowerCase() === loanName.toLowerCase()
@@ -114,7 +153,7 @@ async function ensureLoanCategory(
 
   if (createError) {
     if (createError.code === '23505') {
-      const currentCategories = await loadCollectionCategories()
+      const currentCategories = await loadCollectionCategories(categoryType)
       const existingCategory = currentCategories.find(
         (category) =>
           String(category.category_name || '').trim().toLowerCase() === loanName.toLowerCase()

@@ -80,9 +80,13 @@ function AdminLayout() {
   const allItems = navigationGroups.flatMap(({ items }) => items)
   const currentPageItem = pathname.startsWith('/customers/')
     ? { label: pathname.endsWith('/finance') ? t('financeAccounts') : t('customerProfile') }
-    : allItems
-        .filter(({ to }) => isActive(to))
-        .sort((a, b) => b.to.length - a.to.length)[0]
+    : pathname.startsWith('/weekly')
+      ? { label: t('weekly', 'Weekly') }
+      : pathname.startsWith('/monthly')
+        ? { label: t('monthly', 'Monthly') }
+        : allItems
+            .filter(({ to }) => isActive(to))
+            .sort((a, b) => b.to.length - a.to.length)[0]
 
   return (
     <div className="admin-shell page-bg">

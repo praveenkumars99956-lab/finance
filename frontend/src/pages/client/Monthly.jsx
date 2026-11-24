@@ -39,6 +39,23 @@ const MONTHS = [
   { value: 'December', key: 'december' }
 ]
 
+// Editing must never restore balances that were posted after the loan list was
+// read. The guard is part of the UPDATE statement, so a payment committing
+// between the fresh read and the write makes the update affect no rows.
+function withRecordedBalanceGuard(query, totals) {
+  return [
+    ['paid', totals.paid],
+    ['principal_paid', totals.principal_paid],
+    ['interest_paid', totals.interest_paid]
+  ].reduce(
+    (current, [column, value]) =>
+      current.or(
+        `${column}.eq.${Number(value || 0)},${column}.is.null`
+      ),
+    query
+  )
+}
+
 function Monthly() {
   const { t, i18n } = useTranslation()
 
@@ -71,8 +88,6 @@ function Monthly() {
         String(option.full_name || '').trim()
       )
       .filter(Boolean)
-
-  const customerId = providedCustomerId || customer?.id || null
 
   // Editing a row in the live list overrides the customer linked from the
   // customer profile so the whole loan can be changed from this page.
@@ -315,6 +330,10 @@ function Monthly() {
   const [collectionMonth, setCollectionMonth] =
     useState('')
 
+  // An edit load seeds a stored month; the next auto-select effect must not
+  // replace it with a month derived from the start date.
+  const skipMonthAutoSelectRef = useRef(false)
+
   const [categories, setCategories] =
     useState([])
 
@@ -377,8 +396,13 @@ function Monthly() {
   const [settingsLoading, setSettingsLoading] =
     useState(true)
 
+  // Keep the Settings default so resetting after an edit restores it instead
+  // of leaving the required rate blank.
+  const defaultInterestRateRef = useRef('')
+
   const [saving, setSaving] =
     useState(false)
+  const savingRef = useRef(false)
 
   // =========================================
   // LOAD DEFAULT INTEREST RATE
@@ -409,14 +433,17 @@ function Monthly() {
 
         if (
           data?.default_interest_rate !== null &&
-          data?.default_interest_rate !== undefined &&
-          !editingLoanRef.current
+          data?.default_interest_rate !== undefined
         ) {
-          setInterestRate(
-            String(
-              data.default_interest_rate
-            )
+          defaultInterestRateRef.current = String(
+            data.default_interest_rate
           )
+
+          if (!editingLoanRef.current) {
+            setInterestRate(
+              defaultInterestRateRef.current
+            )
+          }
         }
       } catch (error) {
         console.error(
@@ -470,6 +497,8 @@ function Monthly() {
         setCategoryError(false)
       } catch (error) {
         console.error('Collection category loading error:', error)
+        setCategories([])
+        setCategoryError(true)
         notify(
           `${t(
             'unableToLoadCollectionCategories',
@@ -568,6 +597,13 @@ function Monthly() {
     if (editingFinanceId) {
       setEditingCustomer(selectedCustomer)
     }
+    // A name that no longer matches the selected customer is a new customer,
+    // so it must not inherit that customer's phone number.
+    setNewCustomerPhone(
+      selectedCustomer
+        ? normalizePhone(selectedCustomer.phone)
+        : ''
+    )
     setCustomerError(false)
   }
 
@@ -579,6 +615,7 @@ function Monthly() {
     if (editingFinanceId) {
       setEditingCustomer(null)
     }
+    setNewCustomerPhone('')
     setCustomerError(false)
   }
 
@@ -587,6 +624,11 @@ function Monthly() {
   // =========================================
 
   useEffect(() => {
+    if (skipMonthAutoSelectRef.current) {
+      skipMonthAutoSelectRef.current = false
+      return
+    }
+
     if (!startDate) {
       return
     }
@@ -609,7 +651,7 @@ function Monthly() {
         ].value
       )
     }
-  }, [startDate])
+  }, [startDate, editLoadVersion])
 
   // =========================================
   // CALCULATIONS
@@ -852,8 +894,9 @@ function Monthly() {
       providedCustomer?.full_name || ''
     )
     setCustomerError(false)
+    setNewCustomerPhone('')
     setPrincipal('')
-    setInterestRate('')
+    setInterestRate(defaultInterestRateRef.current)
     setInterestAmount(0)
     interestAmountEdited.current = false
     setAlreadyPaid('0')
@@ -928,6 +971,7 @@ function Monthly() {
 
     editLoadRef.current = true
     editingLoanRef.current = true
+    skipMonthAutoSelectRef.current = true
     setEditLoadVersion((version) => version + 1)
     setEditingFinanceId(loan.id)
     setEditingCustomer(loanCustomer)
@@ -936,6 +980,7 @@ function Monthly() {
       loan.name || loanCustomer?.full_name || ''
     )
     setCustomerError(false)
+    setNewCustomerPhone(normalizePhone(loanCustomer?.phone))
 
     setPrincipal(loan.principal_amount ?? '')
     setInterestRate(loan.interest_rate ?? '')
@@ -959,10 +1004,18 @@ function Monthly() {
     setCategoryError(false)
     setShowForm(true)
 
-    window.scrollTo({
-      top: 0,
-      behavior: 'smooth'
-    })
+    const isMobile =
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(max-width: 640px)').matches
+
+    if (isMobile) {
+      revealForm()
+    } else {
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
   }
 
   // Navigation state from a customer profile opens the form automatically.
@@ -979,7 +1032,12 @@ function Monthly() {
   const saveMonthlyFinance =
     async (e) => {
       e.preventDefault()
+      // A synchronous ref lock closes the gap while auth.getUser() is
+      // pending; state alone updates too late to stop a second fast submit.
+      if (savingRef.current) return
+      savingRef.current = true
 
+      try {
       const p =
         Number(principal)
 
@@ -1037,6 +1095,12 @@ function Monthly() {
           )
         )
 
+        categorySelectRef.current?.focus()
+        categorySelectRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'center'
+        })
+
         return
       }
 
@@ -1052,7 +1116,7 @@ function Monthly() {
       }
 
       if (
-        !p ||
+        !Number.isFinite(p) ||
         p <= 0
       ) {
         notify(
@@ -1168,34 +1232,68 @@ function Monthly() {
       setSaving(true)
 
       try {
-        // =====================================
-        // RESOLVE CUSTOMER (SELECT EXISTING OR CREATE NEW)
-        // =====================================
-
         const isEditing =
           Boolean(editingFinanceId)
 
-        const editingRecord = isEditing
-          ? monthlyLoans.find(
-              (loan) =>
-                String(loan.id) ===
-                String(editingFinanceId)
+        // Re-read payment totals at submit time. The live list can be stale if
+        // a collection was posted after it loaded.
+        let storedRecord = null
+        let recordedTotals = {
+          paid: 0,
+          principal_paid: 0,
+          interest_paid: 0
+        }
+
+        if (isEditing) {
+          const {
+            data: freshRecord,
+            error: freshRecordError
+          } = await supabase
+            .from('finance_records')
+            .select(
+              'id, finance_id, paid, principal_paid, interest_paid'
             )
-          : null
+            .eq('id', editingFinanceId)
+            .single()
 
-        // On edit, the form's Already Paid is authoritative for the pending
-        // balance; creating a loan keeps its existing (no prior payments) path.
+          if (freshRecordError || !freshRecord?.id) {
+            console.error(freshRecordError)
+
+            notify(t('collectionFinanceChanged'))
+            return
+          }
+
+          storedRecord = freshRecord
+          recordedTotals = {
+            paid: Number(freshRecord.paid || 0),
+            principal_paid: Number(freshRecord.principal_paid || 0),
+            interest_paid: Number(freshRecord.interest_paid || 0)
+          }
+        }
+
+        // On edit, posted payment totals come from the freshly read record so
+        // loan detail edits cannot rewrite them. On create, the informational
+        // "Already Paid" amount must reduce the stored balances to match the
+        // live summary; otherwise the list and payment RPC would allow
+        // collecting the upfront amount a second time.
         const paidSoFar = isEditing
-          ? paid
-          : 0
+          ? recordedTotals.paid
+          : paid
 
-        const principalPaidSoFar = Number(
-          editingRecord?.principal_paid || 0
-        )
+        const principalPaidSoFar = isEditing
+          ? recordedTotals.principal_paid
+          : Math.min(paid, p)
 
-        const interestPaidSoFar = Number(
-          editingRecord?.interest_paid || 0
-        )
+        const interestPaidSoFar = isEditing
+          ? recordedTotals.interest_paid
+          : Math.min(
+              Number(interestAmount || 0),
+              Math.max(paid - p, 0)
+            )
+
+        // =====================================
+        // RESOLVE CUSTOMER (SELECT EXISTING OR CREATE NEW)
+        // =====================================
 
         let financeCustomer = activeCustomer
         let financeCustomerId = activeCustomerId
@@ -1294,6 +1392,11 @@ function Monthly() {
 
           finance_type:
             'monthly',
+
+          // The selected collection month is displayed by agent screens, so
+          // it must be persisted with the finance record.
+          collection_month:
+            collectionMonth,
 
           // =================================
           // IMPORTANT
@@ -1399,21 +1502,12 @@ function Monthly() {
             {
               user_id: user.id,
               original_principal: p,
-              interest_paid: 0,
+              interest_paid:
+                interestPaidSoFar,
               paid: paid,
               principal_paid:
-                Math.min(
-                  paid,
-                  p
-                ),
+                principalPaidSoFar,
               renewal_count: 0
-            }
-          )
-        } else {
-          Object.assign(
-            recordPayload,
-            {
-              paid: paid
             }
           )
         }
@@ -1422,10 +1516,13 @@ function Monthly() {
         let saveError = null
 
         if (isEditing) {
-          const result = await supabase
-            .from('finance_records')
-            .update(recordPayload)
-            .eq('id', editingFinanceId)
+          const result = await withRecordedBalanceGuard(
+            supabase
+              .from('finance_records')
+              .update(recordPayload)
+              .eq('id', editingFinanceId),
+            recordedTotals
+          )
             .select('id')
             .single()
 
@@ -1440,6 +1537,15 @@ function Monthly() {
 
           financeRecord = result.data
           saveError = result.error
+        }
+
+        if (saveError?.code === 'PGRST116') {
+          console.error(saveError)
+
+          notify(t('collectionFinanceChanged'))
+          closeForm()
+          await loadMonthlyLoans()
+          return
         }
 
         if (saveError) {
@@ -1474,9 +1580,12 @@ function Monthly() {
         // =====================================
 
         let scheduleError = null
+        let shouldGenerateSchedule = true
 
         if (isEditing) {
-          // Only rebuild the plan when no payments have been made yet.
+          // Only rebuild the plan when no payments have been made yet. The
+          // reset RPC deletes and regenerates atomically, so an authorization
+          // failure cannot leave the loan without a schedule.
           const {
             data: existingPayments,
             error: paymentCheckError
@@ -1494,42 +1603,19 @@ function Monthly() {
               'Monthly payment check error:',
               paymentCheckError
             )
+
+            scheduleError = paymentCheckError
+            shouldGenerateSchedule = false
+          } else if (existingPayments?.length) {
+            shouldGenerateSchedule = false
           }
+        }
 
-          if (
-            !paymentCheckError &&
-            existingPayments?.length === 0
-          ) {
-            const {
-              error: scheduleDeleteError
-            } = await supabase
-              .from('repayment_schedule')
-              .delete()
-              .eq(
-                'finance_record_id',
-                editingFinanceId
-              )
-
-            if (scheduleDeleteError) {
-              console.error(
-                'Monthly schedule reset error:',
-                scheduleDeleteError
-              )
-            }
-
-            const result = await supabase.rpc(
-              'generate_monthly_schedule',
-              {
-                p_finance_record_id:
-                  financeRecord.id
-              }
-            )
-
-            scheduleError = result.error
-          }
-        } else {
+        if (shouldGenerateSchedule) {
           const result = await supabase.rpc(
-            'generate_monthly_schedule',
+            isEditing
+              ? 'reset_monthly_schedule'
+              : 'generate_monthly_schedule',
             {
               p_finance_record_id:
                 financeRecord.id
@@ -1578,7 +1664,7 @@ function Monthly() {
               'Monthly Loan {{financeId}} saved successfully',
               {
                 financeId:
-                  editingRecord?.finance_id ||
+                  storedRecord?.finance_id ||
                   `#${editingFinanceId}`
               }
             )
@@ -1614,6 +1700,9 @@ function Monthly() {
         )
       } finally {
         setSaving(false)
+      }
+      } finally {
+        savingRef.current = false
       }
     }
 
@@ -1669,6 +1758,7 @@ function Monthly() {
         loan.finance_id,
         loan.id,
         loan.name,
+        loan.customer?.full_name,
         loan.customer?.customer_id,
         loan.customer?.phone,
         categoryName(
@@ -1696,16 +1786,16 @@ function Monthly() {
         type="button"
         className="back-button"
         onClick={() => {
-          if (customerId) {
+          if (activeCustomerId) {
             navigate(
-              `/customers/${customerId}/finance`,
+              `/customers/${activeCustomerId}/finance`,
               {
                 state: {
-                  customer,
+                  customer: activeCustomer,
 
                   customerId:
                     Number(
-                      customerId
+                      activeCustomerId
                     )
                 }
               }
@@ -2150,7 +2240,7 @@ function Monthly() {
                   style={{
                     display: 'block',
                     marginTop: 6,
-                    color: '#b42318'
+                    color: 'var(--fs-inline-danger, #b42318)'
                   }}
                 >
                   {t(
@@ -2188,7 +2278,7 @@ function Monthly() {
                   style={{
                     display: 'block',
                     marginTop: 6,
-                    color: '#b42318'
+                    color: 'var(--fs-inline-danger, #b42318)'
                   }}
                 >
                   {t(
@@ -2448,6 +2538,7 @@ function Monthly() {
                 value={
                   alreadyPaid
                 }
+                readOnly={Boolean(editingFinanceId)}
                 onChange={(e) =>
                   setAlreadyPaid(
                     e.target.value
