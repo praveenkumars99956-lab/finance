@@ -1432,7 +1432,7 @@ function Monthly() {
           } = await supabase
             .from('finance_records')
             .select(
-              'id, finance_id, paid, principal_paid, interest_paid, pending, loan_status, next_due_date'
+              'id, paid, principal_paid, interest_paid, pending, loan_status, next_due_date'
             )
             .eq('id', editedRecordId)
             .single()
@@ -1940,7 +1940,7 @@ function Monthly() {
             } = await supabase
               .from('finance_records')
               .select(
-                'id, finance_id, paid, principal_paid, interest_paid, pending, loan_status, next_due_date'
+                'id, paid, principal_paid, interest_paid, pending, loan_status, next_due_date'
               )
               .eq('id', editedRecordId)
               .single()

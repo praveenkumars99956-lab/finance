@@ -22,7 +22,7 @@ const h = vi.hoisted(() => ({
     query.select = (columns) => {
       state.columns = String(columns || '')
       if (state.mode !== 'update') {
-        state.mode = state.columns.includes('finance_id') ? 'fresh' : 'list'
+        state.mode = state.columns.includes('principal_paid') ? 'fresh' : 'list'
       }
       return query
     }

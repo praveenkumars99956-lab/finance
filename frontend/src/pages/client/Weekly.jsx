@@ -1064,7 +1064,7 @@ function Weekly() {
           error: savedRecordError
         } = await supabase
           .from('finance_records')
-          .select('id, customer_id, finance_id')
+          .select('id, customer_id')
           .eq('id', retryScheduleRecordId)
           .single()
 
@@ -1138,7 +1138,7 @@ function Weekly() {
         } = await supabase
           .from('finance_records')
           .select(
-            'id, finance_id, paid, principal_paid, interest_paid, pending, period, loan_status, next_due_date'
+            'id, paid, principal_paid, interest_paid, pending, period, loan_status, next_due_date'
           )
           .eq('id', editedRecordId)
           .single()

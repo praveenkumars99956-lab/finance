@@ -68,6 +68,14 @@ describe('weekly and monthly data-integrity parity', () => {
     }
   })
 
+  it('does not select the legacy finance_id column', () => {
+    for (const source of [weekly, monthly]) {
+      expect(source).not.toMatch(
+        /\.select\(\s*['"`][^'"`]*\bfinance_id\b/u
+      )
+    }
+  })
+
   it('uses a plain id update and keeps conflict detection at the boundary', () => {
     for (const source of [weekly, monthly]) {
       expect(source).not.toMatch(/withRecordedBalanceGuard/)
