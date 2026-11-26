@@ -819,6 +819,7 @@ function AgentHistory() {
                         (payment) => (
                           <tr
                             key={payment.id}
+                            data-finance-id={payment.finance_record_id}
                             style={{
                               borderTop:
                                 '1px solid #e5e7eb'

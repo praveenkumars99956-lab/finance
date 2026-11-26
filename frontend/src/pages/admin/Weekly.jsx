@@ -2467,7 +2467,7 @@ function Weekly() {
                   const weeks = loanWeeks(loan)
 
                   return (
-                    <tr key={loan.id}>
+                    <tr key={loan.id} data-finance-id={loan.id}>
                       <td>{loan.finance_id || `#${loan.id}`}</td>
 
                       <td>

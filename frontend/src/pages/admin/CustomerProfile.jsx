@@ -664,6 +664,7 @@ function CustomerProfile() {
 
                   <div
                     key={record.id}
+                    data-finance-id={record.id}
                     className="flex flex-col gap-space-md bg-surface-container-lowest rounded-DEFAULT stitch-shadow"
                     style={{ border: '1px solid var(--color-outline-variant)', overflow: 'hidden' }}
                   >

@@ -16,6 +16,7 @@ import Navbar from './components/Navbar'
 import AdminLayout from './components/AdminLayout'
 import AgentLayout from './components/AgentLayout'
 import FloatingVoiceButton from './components/FloatingVoiceButton'
+import LoanSummaryOverlay from './components/LoanSummaryOverlay'
 
 const Login = lazy(() => import('./pages/auth/Login'))
 const AdminCreate = lazy(() => import('./pages/auth/AdminCreate'))
@@ -416,6 +417,8 @@ function App() {
 
         </Routes>
         </Suspense>
+
+        <LoanSummaryOverlay />
 
       </AuthBoundary>
 

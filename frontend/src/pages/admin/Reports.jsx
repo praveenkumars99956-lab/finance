@@ -668,7 +668,7 @@ function Reports() {
 
                 <tbody>
                   {filteredRecords.map((record) => (
-                    <tr key={record.id} style={{ borderTop: '1px solid #e5e7eb' }}>
+                    <tr key={record.id} data-finance-id={record.id} style={{ borderTop: '1px solid #e5e7eb' }}>
                       <td style={{ padding: '12px', verticalAlign: 'top' }}>
                         <strong>
                           {getCustomerName(record)}

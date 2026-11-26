@@ -2165,7 +2165,7 @@ function InterestOnly() {
               <tbody>
                 {filteredInterestOnlyLoans.map(
                   (loan) => (
-                    <tr key={loan.id}>
+                    <tr key={loan.id} data-finance-id={loan.id}>
 
                       <td>
                         {loan.finance_id ||

@@ -593,6 +593,7 @@ function AgentLoans() {
                       return (
                         <div
                           key={record.id}
+                          data-finance-id={record.id}
                           style={{
                             border: '1px solid var(--fs-inline-border, #d7e0ec)',
                             borderRadius: '14px',

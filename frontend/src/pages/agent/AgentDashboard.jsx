@@ -414,7 +414,7 @@ function AgentDashboard() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.75rem' }}>
             {todayTasks.slice(0, 12).map((record) => (
-              <div key={record.id} style={{ border: '1px solid var(--fs-inline-border, #d7e0ec)', borderRadius: 12, padding: '0.9rem', background: 'var(--fs-inline-card, #fff)' }}>
+              <div key={record.id} data-finance-id={record.id} style={{ border: '1px solid var(--fs-inline-border, #d7e0ec)', borderRadius: 12, padding: '0.9rem', background: 'var(--fs-inline-card, #fff)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem' }}>
                   <strong>{record.customers?.full_name || '-'}</strong>
                   <small style={{ color: '#6b7280' }}>{record.customers?.customer_id || '-'}</small>

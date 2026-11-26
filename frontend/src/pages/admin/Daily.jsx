@@ -2509,7 +2509,7 @@ function Daily() {
                       loanDays(loan)
 
                     return (
-                      <tr key={loan.id}>
+                      <tr key={loan.id} data-finance-id={loan.id}>
 
                         <td>
                           {loan.finance_id ||

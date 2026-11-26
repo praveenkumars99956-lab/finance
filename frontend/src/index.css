@@ -8805,3 +8805,189 @@ table {
   color: var(--color-text-muted);
   font-size: 0.75rem;
 }
+
+/* ==========================================================================
+   Shared loan summary overlay — opened by clicking a loan line on any page.
+   ========================================================================== */
+
+.loan-summary-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(12, 18, 28, 0.56);
+  backdrop-filter: blur(3px);
+}
+
+.loan-summary-modal {
+  width: min(880px, 100%);
+  max-height: min(88vh, 900px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+  box-shadow: 0 28px 70px rgba(15, 23, 42, 0.28);
+}
+
+.loan-summary-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.loan-summary-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  line-height: 1.25;
+}
+
+.loan-summary-header p {
+  margin: 5px 0 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+}
+
+.loan-summary-close {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--color-border);
+  border-radius: 9px;
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.loan-summary-close:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.loan-summary-close:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.loan-summary-body {
+  overflow: auto;
+  padding: 20px 24px 24px;
+}
+
+.loan-summary-message {
+  margin: 0;
+  padding: 18px 0;
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.loan-summary-error {
+  color: var(--color-danger);
+}
+
+.loan-summary-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.loan-summary-fact {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-hover);
+}
+
+.loan-summary-fact span {
+  color: var(--color-text-secondary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.loan-summary-fact strong {
+  font-size: 0.875rem;
+  text-align: right;
+}
+
+.loan-summary-history {
+  margin-top: 22px;
+}
+
+.loan-summary-history h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.loan-summary-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+}
+
+.loan-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8125rem;
+}
+
+.loan-summary-table th,
+.loan-summary-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--color-border);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.loan-summary-table th {
+  background: var(--color-surface-hover);
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+
+.loan-summary-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+@media (max-width: 640px) {
+  .loan-summary-overlay {
+    padding: 12px;
+  }
+
+  .loan-summary-modal {
+    max-height: 92vh;
+    border-radius: 14px;
+  }
+
+  .loan-summary-header {
+    padding: 16px 16px 12px;
+  }
+
+  .loan-summary-body {
+    padding: 16px;
+  }
+
+  .loan-summary-facts {
+    grid-template-columns: 1fr;
+  }
+}

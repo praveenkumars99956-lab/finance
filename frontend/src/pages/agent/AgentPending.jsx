@@ -670,6 +670,7 @@ function AgentPending() {
                       return (
                         <div
                           key={record.id}
+                          data-finance-id={record.id}
                           style={{
                             background: 'var(--fs-inline-card, #ffffff)',
                             border:

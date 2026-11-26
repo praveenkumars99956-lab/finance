@@ -798,6 +798,7 @@ function Collections() {
 
                     <tr
                       key={item.id}
+                      data-finance-id={item.financeRecordId}
                       style={{
                         borderTop:
                           '1px solid #e5e7eb'

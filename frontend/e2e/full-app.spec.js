@@ -373,6 +373,23 @@ test.describe('full app sweep - admin', () => {
     })
   })
 
+  test('clicking a live loan line opens the full loan summary', async () => {
+    await page.goto('/daily')
+
+    const row = page.locator('tr[data-finance-id]').first()
+    test.skip((await row.count()) === 0, 'No loan rows were available in the live list.')
+
+    await row.locator('td').first().click()
+
+    const dialog = page.getByRole('dialog', { name: /loan summary/i })
+    await expect(dialog).toBeVisible()
+    await expect(dialog).toContainText('EMI / Installment')
+    await expect(dialog).toContainText('Payment History')
+
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+  })
+
   for (const type of ['daily', 'weekly', 'monthly', 'interest-only']) {
     test(`admin manage ${type} record`, async () => {
       const id = financeIds[type]

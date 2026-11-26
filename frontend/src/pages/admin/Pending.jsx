@@ -369,7 +369,7 @@ function Pending() {
                     const category = record.collection_categories
 
                     return (
-                      <tr key={record.id}>
+                      <tr key={record.id} data-finance-id={record.id}>
                         <td>
                           <strong>{customer?.full_name || record.name || '-'}</strong>
                           <div className="text-xs text-muted">

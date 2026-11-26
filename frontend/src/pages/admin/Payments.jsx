@@ -333,7 +333,7 @@ function Payments() {
                   const type = normalizeFinanceType(record.finance_type)
 
                   return (
-                    <tr key={payment.id} className="border-t border-outline-variant/20 hover:bg-surface-container-low/60">
+                    <tr key={payment.id} data-finance-id={record.id} className="border-t border-outline-variant/20 hover:bg-surface-container-low/60">
                       <td className="px-space-md py-space-sm font-body-md text-on-surface whitespace-nowrap">
                         {formatDate(payment.payment_date)}
                       </td>
