@@ -96,7 +96,25 @@ async function rebuildMonthlySchedule(recordId, isEditing) {
     .delete()
     .eq('finance_record_id', recordId)
 
-  if (removed.error) return removed
+  if (removed.error) {
+    // Some older projects grant no direct DELETE on this table to the
+    // client role. The loan record is already saved, so let the existing
+    // security-definer generator run rather than reporting a false save
+    // failure. It keeps the current plan when one already exists.
+    const denied =
+      removed.error.code === '42501' ||
+      String(removed.error.message)
+        .toLowerCase()
+        .includes('permission denied')
+
+    if (denied) {
+      return supabase.rpc('generate_monthly_schedule', {
+        p_finance_record_id: recordId
+      })
+    }
+
+    return removed
+  }
 
   return supabase.rpc('generate_monthly_schedule', {
     p_finance_record_id: recordId

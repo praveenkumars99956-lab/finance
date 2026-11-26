@@ -174,10 +174,15 @@ describe('weekly and monthly data-integrity parity', () => {
       expect(helper).toMatch(
         /\.from\('repayment_schedule'\)\s*\.delete\(\)\s*\.eq\('finance_record_id', recordId\)/u
       )
-      expect(helper).toMatch(/if \(removed\.error\) return removed/)
-      expect(helper).toMatch(
-        /return supabase\.rpc\('generate_(?:weekly|monthly)_schedule'/
-      )
+      expect(helper).toMatch(/if \(removed\.error\) \{/)
+      expect(helper).toMatch(/removed\.error\.code === '42501'/)
+      expect(helper).toMatch(/includes\('permission denied'\)/)
+      expect(helper).toMatch(/return removed/)
+      expect(
+        helper.match(
+          /return supabase\.rpc\('generate_(?:weekly|monthly)_schedule'/g
+        )?.length
+      ).toBeGreaterThanOrEqual(2)
     }
   })
 
