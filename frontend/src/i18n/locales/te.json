@@ -1118,7 +1118,7 @@
   "profile": "ప్రొఫైల్",
   "savedOfflineWillSync": "ఈ పరికరంలో భద్రపరచబడింది. కనెక్షన్ తిరిగి వచ్చినప్పుడు ఇది స్వయంగా సింక్ అవుతుంది.",
   "totalLoans": "వసూలులో ఉన్న మొత్తం రుణాలు",
-  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "interestAmountRateHint": "Enter the interest amount manually. The rate of interest is not calculated from it.",
   "businessNameHint": "Identifies this workspace in your settings.",
   "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
   "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",

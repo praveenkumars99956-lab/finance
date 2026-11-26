@@ -1118,7 +1118,7 @@
   "profile": "சுயவிவரம்",
   "savedOfflineWillSync": "இந்த சாதனத்தில் சேமிக்கப்பட்டது. இணைப்பு திரும்பியவுடன் தானாக ஒத்திசைக்கப்படும்.",
   "totalLoans": "வசூலில் உள்ள மொத்த கடன்கள்",
-  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "interestAmountRateHint": "Enter the interest amount manually. The rate of interest is not calculated from it.",
   "businessNameHint": "Identifies this workspace in your settings.",
   "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
   "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",

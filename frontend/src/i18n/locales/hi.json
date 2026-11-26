@@ -1118,7 +1118,7 @@
   "profile": "प्रोफ़ाइल",
   "savedOfflineWillSync": "इस डिवाइस पर सहेजा गया। कनेक्शन वापस आने पर यह स्वतः सिंक हो जाएगा।",
   "totalLoans": "संग्रह में कुल ऋण",
-  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "interestAmountRateHint": "Enter the interest amount manually. The rate of interest is not calculated from it.",
   "businessNameHint": "Identifies this workspace in your settings.",
   "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
   "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",

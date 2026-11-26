@@ -10,10 +10,7 @@ import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
 import { isValidPhone, normalizePhone } from '../../utils/phone'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
-import {
-  normalizeInterestInput,
-  rateFromInterestAmount
-} from '../../utils/interestRate'
+import { normalizeInterestInput } from '../../utils/interestRate'
 import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
@@ -590,8 +587,8 @@ function Monthly() {
   const [interestAmount, setInterestAmount] =
     useState(0)
 
-  // Tracks which field the user last edited. While Interest Amount is being
-  // typed, the rate follows it; otherwise the rate drives the interest.
+  // Tracks whether the user manually entered an Interest Amount. A manual
+  // amount is kept as-is; it never changes the Rate of Interest.
   const interestAmountEdited = useRef(false)
 
   // Loading a saved loan must not let the calculation effect or the async
@@ -665,8 +662,8 @@ function Monthly() {
             data.default_interest_rate
           )
 
-          // A late settings response must not replace a rate the user just
-          // derived by typing an Interest Amount.
+          // A late settings response must not change the rate while the
+          // user is working with a manually entered Interest Amount.
           if (
             !editingLoanRef.current &&
             !interestAmountEdited.current
@@ -966,18 +963,7 @@ function Monthly() {
       // Keep the stored interest/rate from the loaded loan. The flag is
       // consumed so later user edits recalculate as usual.
       editLoadRef.current = false
-    } else if (interestAmountEdited.current) {
-      const derivedRate =
-        rateFromInterestAmount(
-          interestAmount,
-          principal,
-          numberOfMonths
-        )
-
-      if (derivedRate !== interestRate) {
-        setInterestRate(derivedRate)
-      }
-    } else {
+    } else if (!interestAmountEdited.current) {
       setInterestAmount(
         interest
       )
@@ -2960,22 +2946,9 @@ function Monthly() {
                 value={
                   principal
                 }
-                onChange={(e) => {
-                  const value = e.target.value
-                  setPrincipal(value)
-
-                  // If the amount was entered first, keep the rate in sync
-                  // as soon as its principal is available.
-                  if (interestAmountEdited.current) {
-                    setInterestRate(
-                      rateFromInterestAmount(
-                        interestAmount,
-                        value,
-                        numberOfMonths
-                      )
-                    )
-                  }
-                }}
+                onChange={(e) =>
+                  setPrincipal(e.target.value)
+                }
                 placeholder={
                   t(
                     'principalExample',
@@ -3061,13 +3034,6 @@ function Monthly() {
                   )
                   interestAmountEdited.current = true
                   setInterestAmount(value)
-                  setInterestRate(
-                    rateFromInterestAmount(
-                      value,
-                      principal,
-                      numberOfMonths
-                    )
-                  )
                 }}
               />
 
@@ -3141,21 +3107,9 @@ function Monthly() {
                 value={
                   numberOfMonths
                 }
-                onChange={(e) => {
-                  const value = e.target.value
-                  setNumberOfMonths(value)
-
-                  // The month count is part of the amount-to-rate inverse.
-                  if (interestAmountEdited.current) {
-                    setInterestRate(
-                      rateFromInterestAmount(
-                        interestAmount,
-                        principal,
-                        value
-                      )
-                    )
-                  }
-                }}
+                onChange={(e) =>
+                  setNumberOfMonths(e.target.value)
+                }
                 placeholder={
                   t(
                     'monthsExample',

@@ -231,7 +231,7 @@
   "rateOfInterest": "Rate of Interest",
   "alreadyPaid": "Already Paid",
   "interestAmount": "Interest Amount",
-  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "interestAmountRateHint": "Enter the interest amount manually. The rate of interest is not calculated from it.",
   "numberOfWeeks": "Number of Weeks",
   "startDate": "Start Date",
   "weeklyPrincipalExample": "Example: 20000",

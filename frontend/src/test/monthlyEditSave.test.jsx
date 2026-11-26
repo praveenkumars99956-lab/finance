@@ -597,6 +597,35 @@ describe('Monthly live list edit', () => {
     ).toBe('1500')
   })
 
+  it('keeps the rate unchanged when the interest amount is edited', async () => {
+    await openEditForm()
+
+    const rate = screen.getByDisplayValue('2')
+    const interestAmount = screen.getByRole('spinbutton', {
+      name: 'Interest Amount'
+    })
+
+    fireEvent.change(interestAmount, {
+      target: { value: '6000' }
+    })
+
+    await waitFor(() => {
+      expect(interestAmount.value).toBe('6000')
+    })
+
+    expect(rate.value).toBe('2')
+
+    fireEvent.change(screen.getByDisplayValue('50000'), {
+      target: { value: '60000' }
+    })
+    fireEvent.change(screen.getByDisplayValue('12'), {
+      target: { value: '10' }
+    })
+
+    expect(rate.value).toBe('2')
+    expect(interestAmount.value).toBe('6000')
+  })
+
   it('rejects a retained upfront amount after the total is reduced', async () => {
     h.freshRecord = {
       ...h.freshRecord,

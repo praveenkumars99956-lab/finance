@@ -1118,7 +1118,7 @@
   "profile": "പ്രൊഫൈൽ",
   "savedOfflineWillSync": "ഈ ഉപകരണത്തിൽ സൂക്ഷിച്ചു. കണക്ഷൻ തിരിച്ചെത്തുമ്പോൾ ഇത് സ്വയം സമന്വയിപ്പിക്കും.",
   "totalLoans": "വസൂലിലുള്ള ആകെ ലോണുകൾ",
-  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "interestAmountRateHint": "Enter the interest amount manually. The rate of interest is not calculated from it.",
   "businessNameHint": "Identifies this workspace in your settings.",
   "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
   "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",

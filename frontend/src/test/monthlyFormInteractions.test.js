@@ -43,7 +43,7 @@ describe('monthly form interactions', () => {
     expect(motionCss).toMatch(/animation:[^;]*backwards/)
   })
 
-  it('does not let a late Settings response overwrite an interest-derived rate', () => {
+  it('does not let a late Settings response change the rate during a manual amount edit', () => {
     for (const source of [weekly, monthly]) {
       expect(source).toMatch(
         /!editing(?:LoanRef|FinanceIdRef)\.current\s*&&\s*!interestAmountEdited\.current/u
@@ -51,7 +51,7 @@ describe('monthly form interactions', () => {
     }
   })
 
-  it('recalculates the monthly rate from the amount and its inputs', () => {
+  it('does not recalculate the monthly rate from the interest amount', () => {
     const principal = section(
       monthly,
       '{/* PRINCIPAL */}',
@@ -68,16 +68,13 @@ describe('monthly form interactions', () => {
       '{/* START DATE */}'
     )
 
+    expect(monthly).not.toMatch(/rateFromInterestAmount\(/u)
+    expect(amount).not.toMatch(/setInterestRate\(/)
     expect(amount).toMatch(/interestAmountEdited\.current = true/)
-    expect(amount).toMatch(
-      /setInterestRate\(\s*rateFromInterestAmount\(\s*value,\s*principal,\s*numberOfMonths\s*\)\s*\)/u
-    )
 
     for (const input of [principal, months]) {
-      expect(input).toMatch(/interestAmountEdited\.current/)
-      expect(input).toMatch(/setInterestRate\(/)
-      expect(input).toMatch(/rateFromInterestAmount\(/)
-      expect(input).toMatch(/interestAmount/)
+      expect(input).not.toMatch(/setInterestRate\(/)
+      expect(input).not.toMatch(/interestAmountEdited\.current = true/)
     }
 
     expect(principal).toMatch(/\bvalue\b/)

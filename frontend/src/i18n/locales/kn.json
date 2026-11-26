@@ -1118,7 +1118,7 @@
   "profile": "ಪ್ರೊಫೈಲ್",
   "savedOfflineWillSync": "ಈ ಸಾಧನದಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ. ಸಂಪರ್ಕ ಮರಳಿದಾಗ ಇದು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಸಿಂಕ್ ಆಗುತ್ತದೆ.",
   "totalLoans": "ವಸೂಲಿಯಲ್ಲಿರುವ ಒಟ್ಟು ಸಾಲಗಳು",
-  "interestAmountRateHint": "Enter the interest amount to calculate the rate automatically.",
+  "interestAmountRateHint": "Enter the interest amount manually. The rate of interest is not calculated from it.",
   "businessNameHint": "Identifies this workspace in your settings.",
   "currencySymbolHint": "For example, ₹, $ or €. Maximum 5 characters.",
   "defaultInterestRateHint": "Prefills the rate when a new loan is created. You can still change it per loan.",
