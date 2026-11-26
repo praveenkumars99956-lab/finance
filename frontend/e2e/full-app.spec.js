@@ -634,7 +634,7 @@ test.describe('full app sweep - agent', () => {
     await expect(page.locator('#agent-sidebar')).not.toHaveClass(/is-open/)
   })
 
-  test('mobile agent header, menu, drawer and content are aligned', async ({
+  test('mobile agent header, nav tabs, menu, drawer and content are aligned', async ({
   }, testInfo) => {
     test.skip(
       testInfo.project.name !== 'mobile',
@@ -647,44 +647,68 @@ test.describe('full app sweep - agent', () => {
       await page.waitForTimeout(750)
 
       const geometry = await page.evaluate(() => {
-        const box = (selector) => {
-          const element = document.querySelector(selector)
+        const box = (element) => {
           if (!element) return null
           const rect = element.getBoundingClientRect()
-          return { top: rect.top, bottom: rect.bottom }
+          return {
+            top: rect.top,
+            bottom: rect.bottom,
+            left: rect.left,
+            right: rect.right,
+            width: rect.width
+          }
         }
 
         const firstPage = document.querySelector('main.agent-main > *')
+        const tabs = Array.from(document.querySelectorAll('.agent-mobile-tab'))
 
         return {
-          navbarBottom: box('.app-navbar')?.bottom ?? 0,
-          header: box('.agent-header'),
-          toggle: box('.mobile-nav-toggle'),
-          sidebar: box('#agent-sidebar'),
+          navbarBottom: box(document.querySelector('.app-navbar'))?.bottom ?? 0,
+          stack: box(document.querySelector('.agent-header-stack')),
+          toggle: box(document.querySelector('.mobile-nav-toggle')),
+          sidebar: box(document.querySelector('#agent-sidebar')),
+          tabs: tabs.map((tab) => ({
+            href: tab.getAttribute('href'),
+            ...box(tab)
+          })),
           contentTop: firstPage?.firstElementChild
             ? firstPage.firstElementChild.getBoundingClientRect().top
             : null,
+          viewportWidth: document.documentElement.clientWidth,
           viewportHeight: window.innerHeight
         }
       })
 
       expect(
-        Math.abs(geometry.header.top - geometry.navbarBottom)
+        Math.abs(geometry.stack.top - geometry.navbarBottom)
       ).toBeLessThanOrEqual(2)
       expect(geometry.toggle.top).toBeGreaterThanOrEqual(
-        geometry.header.bottom - 1
+        geometry.stack.bottom - 1
       )
       expect(
-        Math.abs(geometry.sidebar.top - geometry.header.bottom)
+        Math.abs(geometry.sidebar.top - geometry.stack.bottom)
       ).toBeLessThanOrEqual(2)
       expect(geometry.contentTop).toBeGreaterThanOrEqual(
-        geometry.header.bottom
+        geometry.stack.bottom
       )
       expect(
-        geometry.contentTop - geometry.header.bottom
+        geometry.contentTop - geometry.stack.bottom
       ).toBeLessThanOrEqual(32)
 
+      // Every navigation tab is visible, inside the phone width and a real link.
+      expect(geometry.tabs).toHaveLength(8)
+      for (const tab of geometry.tabs) {
+        expect(tab.href).toMatch(/^\/agent/)
+        expect(tab.width).toBeGreaterThan(0)
+        expect(tab.left).toBeGreaterThanOrEqual(-1)
+        expect(tab.right).toBeLessThanOrEqual(geometry.viewportWidth + 1)
+      }
+
       if (route === '/agent') {
+        await page.locator('.agent-mobile-tab[href="/agent/today"]').click()
+        await expect(page).toHaveURL((url) => url.pathname === '/agent/today')
+
+        await page.goto('/agent')
         await page.locator('.mobile-nav-toggle').click()
         await expect(page.locator('#agent-sidebar')).toHaveClass(/is-open/)
 

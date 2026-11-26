@@ -1410,19 +1410,9 @@ function AgentCollection() {
 
         ) : (
 
-          <div
-            style={{
-              overflowX: 'auto'
-            }}
-          >
+          <div className="collections-table-wrap">
 
-            <table
-              style={{
-                width: '100%',
-                borderCollapse:
-                  'collapse'
-              }}
-            >
+            <table className="collections-table">
 
               <thead>
 
@@ -1477,10 +1467,6 @@ function AgentCollection() {
                       key={
                         payment.id
                       }
-                      style={{
-                        borderTop:
-                          '1px solid #e5e7eb'
-                      }}
                     >
 
                       <td

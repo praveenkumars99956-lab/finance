@@ -2078,6 +2078,18 @@ table td,
   }
 }
 
+/* The agent header and the phone-only tab strip share one sticky stack so the
+   drawer, scrim and menu button can align to a single measured height. */
+.agent-header-stack {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.agent-mobile-tabs {
+  display: none;
+}
+
 /* --------------------------------------------------------------------------
    Agent portal on phones
 
@@ -2098,8 +2110,60 @@ table td,
     );
   }
 
-  .agent-portal > .agent-header {
+  .agent-portal .agent-header-stack {
     top: var(--fs-agent-navbar-h) !important;
+  }
+
+  /* All navigation tabs stay on screen in a compact 4-column grid. Equal
+     minmax(0, 1fr) columns and min-width:0 labels keep every tab inside the
+     phone width, even with long translations. */
+  .agent-portal .agent-mobile-tabs {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0.3rem;
+    padding: 0.4rem 0.5rem 0.5rem;
+    background: var(--fs-agent-header-bg, rgba(255, 255, 255, 0.92));
+    border-bottom: 1px solid var(--fs-agent-border, rgba(53, 16, 120, 0.12));
+    backdrop-filter: blur(8px);
+  }
+
+  .agent-portal .agent-mobile-tab {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1px;
+    min-width: 0;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.35rem 0.1rem;
+    border: 1px solid var(--fs-agent-border, rgba(53, 16, 120, 0.12));
+    border-radius: 10px;
+    color: var(--fs-agent-link, #3b2a5a);
+    font-size: 0.68rem;
+    font-weight: 600;
+    line-height: 1.15;
+    text-align: center;
+    text-decoration: none;
+  }
+
+  .agent-portal .agent-mobile-tab.is-active {
+    color: var(--fs-agent-link-active, #351078);
+    background: var(--fs-agent-link-active-bg, rgba(53, 16, 120, 0.1));
+    border-color: var(--fs-agent-link-active, #351078);
+  }
+
+  .agent-portal .agent-mobile-tab .material-symbols-outlined {
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  .agent-portal .agent-mobile-tab-label {
+    display: block;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .agent-portal .mobile-nav-toggle {

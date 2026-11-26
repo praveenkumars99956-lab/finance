@@ -171,13 +171,10 @@ export default function AgentLayout() {
         onClick={() => setSidebarOpen(false)}
       />
 
+      <div ref={headerRef} className="agent-header-stack">
       <header
-        ref={headerRef}
         className="agent-header"
         style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 20,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
@@ -222,6 +219,29 @@ export default function AgentLayout() {
           </button>
         </div>
       </header>
+
+      {/* On phones every navigation tab stays visible in a compact grid, so
+          agents can jump straight to a section without opening the drawer. */}
+      <nav className="agent-mobile-tabs" aria-label={t('agentNavigation', 'Agent navigation')}>
+        {[
+          ...navItems,
+          { to: '/agent/loans/daily', labelKey: 'collections', fallback: 'Collections', icon: 'payments' }
+        ].map((item) => {
+          const active = isActivePath(location.pathname, item.to, item.end)
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              className={`agent-mobile-tab${active ? ' is-active' : ''}`}
+              aria-current={active ? 'page' : undefined}
+            >
+              <span className="material-symbols-outlined" aria-hidden="true">{item.icon}</span>
+              <span className="agent-mobile-tab-label">{t(item.labelKey, item.fallback)}</span>
+            </Link>
+          )
+        })}
+      </nav>
+      </div>
 
       <div style={{ display: 'flex', minHeight: 'calc(100vh - 57px)' }}>
         <aside
