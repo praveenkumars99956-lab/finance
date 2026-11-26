@@ -598,6 +598,42 @@ table tbody tr:hover {
   background: rgba(237, 229, 255, 0.55);
 }
 
+/* Collections list: filter controls and table borders. These base rules keep
+   the desktop layout intact; the phone overrides live in the mobile section. */
+.collections-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 1.25rem;
+}
+
+.collections-filter-search {
+  flex: 1 1 280px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.collections-filter-select {
+  flex: 0 0 auto;
+}
+
+.collections-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--fs-line);
+  border-radius: var(--fs-radius);
+}
+
+.collections-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
 /* --------------------------------------------------------------------------
    Forms & controls
    -------------------------------------------------------------------------- */
@@ -1986,7 +2022,24 @@ table td,
     margin: 0 0 1rem !important;
   }
 
+  /* Collections filters stack full-width so the search field and dropdown
+     line up cleanly instead of wrapping at different widths on a phone. */
+  .collections-filter-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.625rem;
+  }
+
+  .collections-filter-search,
+  .collections-filter-select {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
   /* Keep momentum scrolling when a wide data table is swiped sideways. */
+  .collections-table-wrap,
   .daily-list-table-wrap,
   .loan-list-table-wrap,
   .payment-table-wrapper,

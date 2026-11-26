@@ -470,6 +470,96 @@ test.describe('full app sweep - admin', () => {
     await expect(page).toHaveURL((url) => url.pathname === '/pending')
   })
 
+  test('mobile collections filters and table borders are aligned', async ({
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'mobile',
+      'Alignment is only exercised in the mobile project.'
+    )
+
+    await page.goto('/collections')
+    await expect(page.locator('.collections-table-wrap')).toBeVisible({
+      timeout: 45_000
+    })
+    await page.waitForTimeout(750)
+
+    const geometry = await page.evaluate(() => {
+      const box = (selector) => {
+        const element = document.querySelector(selector)
+        if (!element) return null
+        const rect = element.getBoundingClientRect()
+        return {
+          top: rect.top,
+          bottom: rect.bottom,
+          left: rect.left,
+          right: rect.right,
+          width: rect.width
+        }
+      }
+
+      const filterRow = document.querySelector('.collections-filter-row')
+      const input = document.querySelector('.collections-filter-search')
+      const select = document.querySelector('.collections-filter-select')
+      const wrapper = document.querySelector('.collections-table-wrap')
+      const table = document.querySelector('.collections-table')
+      const firstRow = table?.querySelector('tbody tr')
+      const cells = Array.from(
+        table?.querySelectorAll('tbody tr:not(:last-child) td') || []
+      )
+
+      return {
+        viewportWidth: document.documentElement.clientWidth,
+        filterRow: box('.collections-filter-row'),
+        input: box('.collections-filter-search'),
+        select: box('.collections-filter-select'),
+        inputMinWidth: input ? getComputedStyle(input).minWidth : null,
+        wrapper: box('.collections-table-wrap'),
+        tableCollapse: table ? getComputedStyle(table).borderCollapse : null,
+        firstRowInlineBorder: firstRow?.style.borderTop || '',
+        firstRowTopBorder: firstRow
+          ? getComputedStyle(firstRow).borderTopWidth
+          : null,
+        cellBottomBorders: Array.from(
+          new Set(
+            cells.map((cell) => getComputedStyle(cell).borderBottomColor)
+          )
+        ),
+        documentOverflow:
+          document.documentElement.scrollWidth -
+          document.documentElement.clientWidth
+      }
+    })
+
+    expect(geometry.filterRow).not.toBeNull()
+    expect(geometry.input).not.toBeNull()
+    expect(geometry.select).not.toBeNull()
+    expect(geometry.wrapper).not.toBeNull()
+
+    // Both filter controls fill the row and stack on a phone.
+    expect(geometry.inputMinWidth).toBe('0px')
+    expect(
+      Math.abs(geometry.input.width - geometry.filterRow.width)
+    ).toBeLessThanOrEqual(2)
+    expect(
+      Math.abs(geometry.select.width - geometry.filterRow.width)
+    ).toBeLessThanOrEqual(2)
+    expect(geometry.select.top).toBeGreaterThanOrEqual(
+      geometry.input.bottom - 1
+    )
+
+    // The wide table scrolls inside its own bordered wrapper, not the page.
+    expect(geometry.tableCollapse).toBe('separate')
+    expect(geometry.wrapper.width).toBeLessThanOrEqual(
+      geometry.viewportWidth + 2
+    )
+    expect(geometry.documentOverflow).toBeLessThanOrEqual(2)
+
+    // Row separators come from the shared cell borders, not a stray inline color.
+    expect(geometry.firstRowInlineBorder).toBe('')
+    expect(geometry.firstRowTopBorder).toBe('0px')
+    expect(geometry.cellBottomBorders.length).toBeLessThanOrEqual(1)
+  })
+
   test('no uncaught page errors on admin pages', async () => {
     expect(pageErrors).toEqual([])
   })

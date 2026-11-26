@@ -575,7 +575,7 @@ function Collections() {
 
   if (loading) {
     return (
-      <div className="customer-profile-page">
+      <div className="customer-profile-page collections-page">
         <p>
           {t('loadingCollections')}
         </p>
@@ -584,7 +584,7 @@ function Collections() {
   }
 
   return (
-    <div className="customer-profile-page">
+    <div className="customer-profile-page collections-page">
 
       {/* HEADER */}
 
@@ -689,16 +689,10 @@ function Collections() {
           {t('collectionTransactions')}
         </h2>
 
-        <div
-          style={{
-            display: 'flex',
-            gap: '12px',
-            flexWrap: 'wrap',
-            marginBottom: '20px'
-          }}
-        >
+        <div className="collections-filter-row">
 
           <input
+            className="collections-filter-search"
             type="text"
             placeholder={t('searchCollections')}
             value={search}
@@ -707,12 +701,10 @@ function Collections() {
                 e.target.value
               )
             }
-            style={{
-              minWidth: '280px'
-            }}
           />
 
           <SelectMenu
+            className="collections-filter-select"
             value={financeType}
             onChange={setFinanceType}
             ariaLabel={t('filterByLoanType', 'Filter by loan type')}
@@ -736,18 +728,9 @@ function Collections() {
 
         ) : (
 
-          <div
-            style={{
-              overflowX: 'auto'
-            }}
-          >
+          <div className="collections-table-wrap">
 
-            <table
-              style={{
-                width: '100%',
-                borderCollapse: 'collapse'
-              }}
-            >
+            <table className="collections-table">
 
               <thead>
                 <tr>
@@ -799,10 +782,6 @@ function Collections() {
                     <tr
                       key={item.id}
                       data-finance-id={item.financeRecordId}
-                      style={{
-                        borderTop:
-                          '1px solid #e5e7eb'
-                      }}
                     >
 
                       <td style={tdStyle}>
