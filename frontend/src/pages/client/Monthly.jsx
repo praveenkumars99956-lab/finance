@@ -39,6 +39,102 @@ const MONTHS = [
   { value: 'December', key: 'december' }
 ]
 
+// Older projects do not have the finance_has_posted_payments RPC. Keep the
+// form usable there without weakening the payment lock: combine any ledger row
+// with the posted-payment totals stored on the loan.
+async function checkPostedPayments(recordId, storedRecord) {
+  const result = await supabase.rpc('finance_has_posted_payments', {
+    p_finance_record_id: recordId
+  })
+
+  if (!result.error || result.error.code !== 'PGRST202') {
+    return {
+      hasPayments: Boolean(result.data),
+      error: result.error || null
+    }
+  }
+
+  const ledger = await supabase
+    .from('finance_payments')
+    .select('id')
+    .eq('finance_record_id', recordId)
+    .limit(1)
+
+  const totalsHavePayments =
+    Number(storedRecord?.principal_paid || 0) > 0 ||
+    Number(storedRecord?.interest_paid || 0) > 0
+
+  return {
+    hasPayments:
+      (!ledger.error && Boolean(ledger.data?.length)) ||
+      totalsHavePayments,
+    // A failed ledger lookup cannot prove the loan is unpaid. Unless the
+    // stored totals already show a posted collection, keep the field locked.
+    error: ledger.error && !totalsHavePayments ? ledger.error : null
+  }
+}
+
+// The atomic reset RPC is also absent in older projects. Delete the old plan
+// only after the no-payment check has passed, then use the existing generator.
+async function rebuildMonthlySchedule(recordId, isEditing) {
+  if (!isEditing) {
+    return supabase.rpc('generate_monthly_schedule', {
+      p_finance_record_id: recordId
+    })
+  }
+
+  const reset = await supabase.rpc('reset_monthly_schedule', {
+    p_finance_record_id: recordId
+  })
+
+  if (!reset.error || reset.error.code !== 'PGRST202') {
+    return reset
+  }
+
+  const removed = await supabase
+    .from('repayment_schedule')
+    .delete()
+    .eq('finance_record_id', recordId)
+
+  if (removed.error) return removed
+
+  return supabase.rpc('generate_monthly_schedule', {
+    p_finance_record_id: recordId
+  })
+}
+
+// Older projects do not have collection_month. Retry once without that column
+// instead of blocking the whole save.
+async function writeMonthlyRecord(payload, isEditing, recordId) {
+  const run = (body) =>
+    isEditing
+      ? supabase
+          .from('finance_records')
+          .update(body)
+          .eq('id', recordId)
+          .select('id')
+          .single()
+      : supabase
+          .from('finance_records')
+          .insert([body])
+          .select('id')
+          .single()
+
+  let result = await run(payload)
+
+  if (
+    result.error?.code === '42703' &&
+    String(result.error.message).includes('collection_month') &&
+    Object.prototype.hasOwnProperty.call(payload, 'collection_month')
+  ) {
+    const legacyPayload = { ...payload }
+    delete legacyPayload.collection_month
+    result = await run(legacyPayload)
+  }
+
+  return result
+}
+
 const PAYMENT_STATE_FIELDS = [
   'paid',
   'principal_paid',
@@ -1136,11 +1232,8 @@ function Monthly() {
     setEditingHasPayments(true)
     setEditingPaymentChecked(false)
 
-    supabase
-      .rpc('finance_has_posted_payments', {
-        p_finance_record_id: loan.id
-      })
-      .then(({ data, error }) => {
+    checkPostedPayments(loan.id, loan)
+      .then(({ hasPayments, error }) => {
         if (
           lookupId !== paymentLookupRef.current ||
           paymentCheckId !==
@@ -1158,7 +1251,7 @@ function Monthly() {
           return
         }
 
-        setEditingHasPayments(Boolean(data))
+        setEditingHasPayments(hasPayments)
         setEditingPaymentChecked(true)
       })
       .catch((error) =>
@@ -1454,8 +1547,8 @@ function Monthly() {
 
         if (!isCurrentEdit()) return
 
-        // The RPC checks payments in a security-definer function, so a role
-        // that may edit the loan cannot get a false empty result from RLS.
+        // The helper uses the authoritative RPC when deployed and a safe ledger
+        // plus stored-total fallback on older projects.
         let hasPostedPayments = false
         let paymentCheckError = null
 
@@ -1463,9 +1556,9 @@ function Monthly() {
           // A separate lookup id prevents a slower opening lookup from
           // overriding this authoritative submit-time result.
           const lookupId = ++paymentLookupRef.current
-          const result = await supabase.rpc(
-            'finance_has_posted_payments',
-            { p_finance_record_id: editedRecordId }
+          const result = await checkPostedPayments(
+            editedRecordId,
+            storedRecord
           )
 
           if (
@@ -1476,7 +1569,7 @@ function Monthly() {
           }
 
           paymentCheckError = result.error
-          hasPostedPayments = Boolean(result.data)
+          hasPostedPayments = result.hasPayments
         }
 
         if (!isCurrentEdit()) return
@@ -1901,9 +1994,9 @@ function Monthly() {
             hasPostedPayments
           const lookupId =
             ++paymentLookupRef.current
-          const paymentResult = await supabase.rpc(
-            'finance_has_posted_payments',
-            { p_finance_record_id: editedRecordId }
+          const paymentResult = await checkPostedPayments(
+            editedRecordId,
+            refreshedLoan
           )
 
           if (
@@ -1911,9 +2004,8 @@ function Monthly() {
             reloadToken === postSaveReloadRef.current &&
             !paymentResult.error
           ) {
-            postedPaymentsAtReload = Boolean(
-              paymentResult.data
-            )
+            postedPaymentsAtReload =
+              paymentResult.hasPayments
           } else if (paymentResult.error) {
             console.error(
               'Monthly reload payment check error:',
@@ -1973,31 +2065,19 @@ function Monthly() {
         let financeRecord = null
         let saveError = null
 
-        if (isEditing) {
-          // The fresh read above already establishes the balance snapshot. Do
-          // not add balance predicates to the UPDATE itself: numeric formatting
-          // from PostgREST can make a normal edit affect zero rows and surface
-          // a false "finance account changed" error. The database guard still
-          // blocks payment-total changes once a collection is posted.
-          const result = await supabase
-            .from('finance_records')
-            .update(recordPayload)
-            .eq('id', editedRecordId)
-            .select('id')
-            .single()
+        // The fresh read above already establishes the balance snapshot. Do
+        // not add balance predicates to the UPDATE itself: numeric formatting
+        // from PostgREST can make a normal edit affect zero rows and surface a
+        // false "finance account changed" error. The helper also retries once
+        // without collection_month on projects where that column is missing.
+        const result = await writeMonthlyRecord(
+          recordPayload,
+          isEditing,
+          editedRecordId
+        )
 
-          financeRecord = result.data
-          saveError = result.error
-        } else {
-          const result = await supabase
-            .from('finance_records')
-            .insert([recordPayload])
-            .select('id')
-            .single()
-
-          financeRecord = result.data
-          saveError = result.error
-        }
+        financeRecord = result.data
+        saveError = result.error
 
         if (saveError?.code === 'PGRST116') {
           console.error(saveError)
@@ -2052,14 +2132,9 @@ function Monthly() {
           (!hasPostedPayments && !paymentCheckError)
 
         if (shouldGenerateSchedule) {
-          const result = await supabase.rpc(
+          const result = await rebuildMonthlySchedule(
+            financeRecord.id,
             isEditing
-              ? 'reset_monthly_schedule'
-              : 'generate_monthly_schedule',
-            {
-              p_finance_record_id:
-                financeRecord.id
-            }
           )
 
           scheduleError = result.error

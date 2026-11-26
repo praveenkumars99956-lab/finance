@@ -78,11 +78,19 @@ describe('weekly and monthly data-integrity parity', () => {
 
   it('uses a plain id update and keeps conflict detection at the boundary', () => {
     for (const source of [weekly, monthly]) {
+      const directUpdate =
+        /\.update\(recordPayload\)[\s\S]{0,120}\.eq\('id', editedRecordId\)/.test(
+          source
+        )
+      const helperUpdate =
+        /await writeMonthlyRecord\(\s*recordPayload,\s*isEditing,\s*editedRecordId\s*\)/.test(
+          source
+        ) &&
+        /\.update\(body\)[\s\S]{0,80}\.eq\('id', recordId\)/.test(source)
+
       expect(source).not.toMatch(/withRecordedBalanceGuard/)
       expect(source).not.toMatch(/\.or\(/)
-      expect(source).toMatch(
-        /\.update\(recordPayload\)[\s\S]{0,120}\.eq\('id', editedRecordId\)/
-      )
+      expect(directUpdate || helperUpdate).toBe(true)
       expect(source).toMatch(/storedRecord\?\.paid/)
       expect(source).toMatch(/collectionFinanceChanged/)
     }
@@ -141,22 +149,50 @@ describe('weekly and monthly data-integrity parity', () => {
     )
   })
 
-  it('skips schedule generation after a failed or paid edit check', () => {
+  it('guards legacy schedule deletion behind the missing-reset fallback', () => {
     for (const source of [weekly, monthly]) {
+      const helper =
+        source.match(/async function rebuild(?:Weekly|Monthly)Schedule[\s\S]*?\n\}/)?.[0] || ''
+      const scheduleBlockStart = source.indexOf('if (shouldGenerateSchedule)')
+      const scheduleBlock = source.slice(
+        scheduleBlockStart,
+        scheduleBlockStart + 320
+      )
+
       expect(source).toMatch(
         /const shouldGenerateSchedule =\s*!isEditing \|\|\s*\(\s*!hasPostedPayments && !paymentCheckError\s*\)/
       )
-      expect(source).toMatch(/if \(shouldGenerateSchedule\)/)
-      expect(source).not.toMatch(/\.from\('repayment_schedule'\)[\s\S]{0,80}\.delete\(\)/u)
+      expect(scheduleBlock).toMatch(
+        /await rebuild(?:Weekly|Monthly)Schedule\(/
+      )
+      expect(helper).toMatch(
+        /const reset = await supabase\.rpc\('reset_(?:weekly|monthly)_schedule'/
+      )
+      expect(helper.indexOf('PGRST202')).toBeLessThan(
+        helper.indexOf(".from('repayment_schedule')")
+      )
+      expect(helper).toMatch(
+        /\.from\('repayment_schedule'\)\s*\.delete\(\)\s*\.eq\('finance_record_id', recordId\)/u
+      )
+      expect(helper).toMatch(/if \(removed\.error\) return removed/)
+      expect(helper).toMatch(
+        /return supabase\.rpc\('generate_(?:weekly|monthly)_schedule'/
+      )
     }
   })
 
   it('uses atomic reset RPCs for edits', () => {
     expect(weekly).toMatch(
-      /isEditing\s*\n\s*\? 'reset_weekly_schedule'/
+      /const reset = await supabase\.rpc\(\s*'reset_weekly_schedule'/
     )
     expect(monthly).toMatch(
-      /isEditing\s*\n\s*\? 'reset_monthly_schedule'/
+      /const reset = await supabase\.rpc\(\s*'reset_monthly_schedule'/
+    )
+    expect(weekly).toMatch(
+      /await rebuildWeeklySchedule\(\s*financeRecord\.id,\s*isEditing\s*\)/
+    )
+    expect(monthly).toMatch(
+      /await rebuildMonthlySchedule\(\s*financeRecord\.id,\s*isEditing\s*\)/
     )
     expect(collectionMonthMigration).toMatch(
       /function public\.reset_weekly_schedule/
@@ -208,10 +244,22 @@ describe('weekly and monthly data-integrity parity', () => {
 
   it('uses an authoritative payment lookup and an explicit paid-change rule', () => {
     for (const source of [weekly, monthly]) {
-      expect(source).toMatch(
-        /\.rpc\(\s*'finance_has_posted_payments',\s*\{\s*p_finance_record_id:/
+      const helper =
+        source.match(/async function checkPostedPayments[\s\S]*?\n\}/)?.[0] || ''
+
+      expect(helper).toMatch(
+        /await supabase\.rpc\('finance_has_posted_payments'/
       )
-      expect(source).not.toMatch(/\.from\('finance_payments'\)/)
+      expect(helper).toMatch(/result\.error\.code !== 'PGRST202'/)
+      expect(helper).toMatch(/\.from\('finance_payments'\)/)
+      expect(helper).toMatch(/principal_paid \|\| 0/)
+      expect(helper).toMatch(/interest_paid \|\| 0/)
+      expect(helper).toMatch(
+        /ledger\.error && !totalsHavePayments \? ledger\.error : null/
+      )
+      expect(source).toMatch(
+        /const result = await checkPostedPayments\(\s*editedRecordId,\s*storedRecord\s*\)/
+      )
       expect(source).toMatch(/paymentLookupRef = useRef\(0\)/)
       expect(source).toMatch(/const lookupId = \+\+paymentLookupRef\.current/)
       expect(source).toMatch(/const submittedEditRecordId = editingFinanceId/)
@@ -227,6 +275,19 @@ describe('weekly and monthly data-integrity parity', () => {
         /loan_status:\s*isEditing\s*\? storedRecord\?\.loan_status/
       )
     }
+  })
+
+  it('retries monthly writes without collection_month on legacy schemas', () => {
+    const helper =
+      monthly.match(/async function writeMonthlyRecord[\s\S]*?\n\}/)?.[0] || ''
+
+    expect(helper).toMatch(/result\.error\?\.code === '42703'/)
+    expect(helper).toMatch(/includes\('collection_month'\)/)
+    expect(helper).toMatch(/delete legacyPayload\.collection_month/)
+    expect(helper).toMatch(/result = await run\(legacyPayload\)/)
+    expect(monthly).toMatch(
+      /await writeMonthlyRecord\(\s*recordPayload,\s*isEditing,\s*editedRecordId\s*\)/
+    )
   })
 
   it('normalizes legacy loan types in client edit policies', () => {

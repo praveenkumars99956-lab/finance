@@ -18,6 +18,70 @@ import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
 
+// Older projects do not have the finance_has_posted_payments RPC. Keep the
+// form usable there without weakening the payment lock: combine any ledger row
+// with the posted-payment totals stored on the loan.
+async function checkPostedPayments(recordId, storedRecord) {
+  const result = await supabase.rpc('finance_has_posted_payments', {
+    p_finance_record_id: recordId
+  })
+
+  if (!result.error || result.error.code !== 'PGRST202') {
+    return {
+      hasPayments: Boolean(result.data),
+      error: result.error || null
+    }
+  }
+
+  const ledger = await supabase
+    .from('finance_payments')
+    .select('id')
+    .eq('finance_record_id', recordId)
+    .limit(1)
+
+  const totalsHavePayments =
+    Number(storedRecord?.principal_paid || 0) > 0 ||
+    Number(storedRecord?.interest_paid || 0) > 0
+
+  return {
+    hasPayments:
+      (!ledger.error && Boolean(ledger.data?.length)) ||
+      totalsHavePayments,
+    // A failed ledger lookup cannot prove the loan is unpaid. Unless the
+    // stored totals already show a posted collection, keep the field locked.
+    error: ledger.error && !totalsHavePayments ? ledger.error : null
+  }
+}
+
+// The atomic reset RPC is also absent in older projects. Delete the old plan
+// only after the no-payment check has passed, then use the existing generator.
+async function rebuildWeeklySchedule(recordId, isEditing) {
+  if (!isEditing) {
+    return supabase.rpc('generate_weekly_schedule', {
+      p_finance_record_id: recordId
+    })
+  }
+
+  const reset = await supabase.rpc('reset_weekly_schedule', {
+    p_finance_record_id: recordId
+  })
+
+  if (!reset.error || reset.error.code !== 'PGRST202') {
+    return reset
+  }
+
+  const removed = await supabase
+    .from('repayment_schedule')
+    .delete()
+    .eq('finance_record_id', recordId)
+
+  if (removed.error) return removed
+
+  return supabase.rpc('generate_weekly_schedule', {
+    p_finance_record_id: recordId
+  })
+}
+
 function Weekly() {
   const { t, i18n } = useTranslation()
   const { showToast } = useToast()
@@ -458,11 +522,8 @@ function Weekly() {
     setEditingHasPayments(true)
     setEditingPaymentChecked(false)
 
-    supabase
-      .rpc('finance_has_posted_payments', {
-        p_finance_record_id: loan.id
-      })
-      .then(({ data, error }) => {
+    checkPostedPayments(loan.id, loan)
+      .then(({ hasPayments, error }) => {
         if (
           lookupId !== paymentLookupRef.current ||
           paymentCheckId !==
@@ -480,7 +541,7 @@ function Weekly() {
           return
         }
 
-        setEditingHasPayments(Boolean(data))
+        setEditingHasPayments(hasPayments)
         setEditingPaymentChecked(true)
       })
       .catch((error) =>
@@ -1160,17 +1221,17 @@ function Weekly() {
 
       if (!isCurrentEdit()) return
 
-      // The RPC checks payments in a security-definer function, so a role that
-      // may edit the loan cannot get a false empty result from RLS.
+      // The helper uses the authoritative RPC when deployed and a safe ledger
+      // plus stored-total fallback on older projects.
       let hasPostedPayments = false
       let paymentCheckError = null
 
       if (isEditing) {
         // Keep the submit-time result newer than any opening lookup.
         const lookupId = ++paymentLookupRef.current
-        const result = await supabase.rpc(
-          'finance_has_posted_payments',
-          { p_finance_record_id: editedRecordId }
+        const result = await checkPostedPayments(
+          editedRecordId,
+          storedRecord
         )
 
         if (
@@ -1181,7 +1242,7 @@ function Weekly() {
         }
 
         paymentCheckError = result.error
-        hasPostedPayments = Boolean(result.data)
+        hasPostedPayments = result.hasPayments
       }
 
       if (!isCurrentEdit()) return
@@ -1586,14 +1647,9 @@ function Weekly() {
         (!hasPostedPayments && !paymentCheckError)
 
       if (shouldGenerateSchedule) {
-        const result = await supabase.rpc(
+        const result = await rebuildWeeklySchedule(
+          financeRecord.id,
           isEditing
-            ? 'reset_weekly_schedule'
-            : 'generate_weekly_schedule',
-          {
-            p_finance_record_id:
-              financeRecord.id
-          }
         )
 
         scheduleError = result.error
