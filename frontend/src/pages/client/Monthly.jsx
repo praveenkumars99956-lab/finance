@@ -140,11 +140,19 @@ async function writeMonthlyRecord(payload, isEditing, recordId) {
 
   let result = await run(payload)
 
-  if (
-    result.error?.code === '42703' &&
-    String(result.error.message).includes('collection_month') &&
-    Object.prototype.hasOwnProperty.call(payload, 'collection_month')
-  ) {
+  // PostgREST reports an unknown column as PGRST204; direct SQL uses 42703.
+  const missingCollectionMonth =
+    Object.prototype.hasOwnProperty.call(
+      payload,
+      'collection_month'
+    ) &&
+    (result.error?.code === '42703' ||
+      result.error?.code === 'PGRST204' ||
+      String(result.error?.message || '')
+        .toLowerCase()
+        .includes('collection_month'))
+
+  if (missingCollectionMonth) {
     const legacyPayload = { ...payload }
     delete legacyPayload.collection_month
     result = await run(legacyPayload)

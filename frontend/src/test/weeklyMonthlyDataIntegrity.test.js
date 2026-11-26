@@ -287,6 +287,7 @@ describe('weekly and monthly data-integrity parity', () => {
       monthly.match(/async function writeMonthlyRecord[\s\S]*?\n\}/)?.[0] || ''
 
     expect(helper).toMatch(/result\.error\?\.code === '42703'/)
+    expect(helper).toMatch(/result\.error\?\.code === 'PGRST204'/)
     expect(helper).toMatch(/includes\('collection_month'\)/)
     expect(helper).toMatch(/delete legacyPayload\.collection_month/)
     expect(helper).toMatch(/result = await run\(legacyPayload\)/)

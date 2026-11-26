@@ -5,6 +5,9 @@ const h = vi.hoisted(() => ({
   t: (key, fallback) => fallback || key,
   i18n: { resolvedLanguage: 'en' },
   latestUpdate: null,
+  updatePayloads: [],
+  updateCalls: 0,
+  updateError: null,
   orFilters: [],
   loans: [],
   customers: [],
@@ -35,6 +38,7 @@ const h = vi.hoisted(() => ({
     query.update = (payload) => {
       state.mode = 'update'
       h.latestUpdate = payload
+      h.updatePayloads.push(payload)
       return query
     }
     query.maybeSingle = () =>
@@ -44,6 +48,10 @@ const h = vi.hoisted(() => ({
       })
     query.single = () => {
       if (state.mode === 'update') {
+        h.updateCalls += 1
+        if (h.updateError && h.updateCalls === 1) {
+          return Promise.resolve({ data: null, error: h.updateError })
+        }
         return Promise.resolve({ data: { id: 'loan-1' }, error: null })
       }
       if (state.mode === 'fresh') {
@@ -220,6 +228,9 @@ describe('Monthly live list edit', () => {
       }
     ]
     h.latestUpdate = null
+    h.updatePayloads = []
+    h.updateCalls = 0
+    h.updateError = null
     h.orFilters = []
     h.payments = []
     h.paymentsAfterReload = []
@@ -298,6 +309,36 @@ describe('Monthly live list edit', () => {
         )
       ).toBeInTheDocument()
     })
+  })
+
+  it('retries without collection_month when the live schema lacks it', async () => {
+    h.updateError = {
+      code: 'PGRST204',
+      message:
+        "Could not find the 'collection_month' column of 'finance_records' in the schema cache"
+    }
+
+    await openEditForm()
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Save Monthly Finance' })
+    )
+
+    await waitFor(() => {
+      expect(h.updateCalls).toBe(2)
+    })
+
+    expect(h.updatePayloads[0]).toHaveProperty('collection_month')
+    expect(h.updatePayloads[1]).not.toHaveProperty('collection_month')
+
+    await waitFor(() => {
+      expect(notify).toHaveBeenCalledWith(
+        expect.stringContaining('saved successfully')
+      )
+    })
+    expect(notify).not.toHaveBeenCalledWith(
+      expect.stringContaining('Unable to save Monthly Finance')
+    )
   })
 
   it('keeps a newer upfront amount on a detail-only edit', async () => {
