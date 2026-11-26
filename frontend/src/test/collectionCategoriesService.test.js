@@ -4,6 +4,7 @@ const query = {
   select: vi.fn(() => query),
   order: vi.fn(),
   insert: vi.fn(() => query),
+  update: vi.fn(() => query),
   single: vi.fn()
 }
 
@@ -13,11 +14,11 @@ vi.mock('../services/supabase', () => ({
   }
 }))
 
-vi.mock('../services/access', () => ({
-  loadAccessContext: vi.fn()
-}))
-
-import { ensureMonthlyLoanCategory, ensureWeeklyLoanCategory } from '../services/collectionCategories'
+import {
+  getInterestOnlyLoanCategory,
+  getMonthlyLoanCategory,
+  getWeeklyLoanCategory
+} from '../services/collectionCategories'
 
 const weeklyCategory = {
   id: 'weekly-1',
@@ -33,6 +34,13 @@ const monthlyCategory = {
   category_type: 'monthly'
 }
 
+const interestCategory = {
+  id: 'interest-1',
+  category_name: 'Interest-Only Collection',
+  status: 'active',
+  category_type: 'interest'
+}
+
 const dailyCategory = {
   id: 'daily-1',
   category_name: 'Daily Loan',
@@ -40,7 +48,13 @@ const dailyCategory = {
   category_type: 'daily'
 }
 
-describe('collection category service product typing', () => {
+function expectNoWrites() {
+  expect(query.insert).not.toHaveBeenCalled()
+  expect(query.update).not.toHaveBeenCalled()
+  expect(query.single).not.toHaveBeenCalled()
+}
+
+describe('collection category lookups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
@@ -51,13 +65,14 @@ describe('collection category service product typing', () => {
       error: null
     })
 
-    const result = await ensureWeeklyLoanCategory('admin-1')
+    const result = await getWeeklyLoanCategory()
 
     expect(query.select).toHaveBeenCalledWith(
       'id, category_name, status, category_type'
     )
     expect(result.weeklyCategory).toEqual(weeklyCategory)
     expect(result.categories).toEqual([weeklyCategory])
+    expectNoWrites()
   })
 
   it('loads only monthly categories when preparing the monthly form', async () => {
@@ -66,10 +81,23 @@ describe('collection category service product typing', () => {
       error: null
     })
 
-    const result = await ensureMonthlyLoanCategory('admin-1')
+    const result = await getMonthlyLoanCategory()
 
     expect(result.monthlyCategory).toEqual(monthlyCategory)
     expect(result.categories).toEqual([monthlyCategory])
+    expectNoWrites()
+  })
+
+  it('loads only interest categories when preparing the interest-only form', async () => {
+    query.order.mockResolvedValueOnce({
+      data: [interestCategory, monthlyCategory, dailyCategory],
+      error: null
+    })
+
+    const result = await getInterestOnlyLoanCategory()
+
+    expect(result.interestOnlyCategory).toEqual(interestCategory)
+    expectNoWrites()
   })
 
   it('treats a reserved product name as authoritative over a wrong category_type', async () => {
@@ -83,13 +111,42 @@ describe('collection category service product typing', () => {
       error: null
     })
 
-    const result = await ensureWeeklyLoanCategory('admin-1')
+    const result = await getWeeklyLoanCategory()
 
     expect(result.weeklyCategory).toEqual(mistypedWeeklyCategory)
     expect(result.categories.map((category) => category.id)).toEqual([
       'weekly-1'
     ])
-    expect(query.insert).not.toHaveBeenCalled()
+    expectNoWrites()
+  })
+
+  it('returns no product category instead of creating one when none is active', async () => {
+    query.order.mockResolvedValueOnce({
+      data: [
+        { ...weeklyCategory, status: 'inactive' },
+        monthlyCategory,
+        dailyCategory
+      ],
+      error: null
+    })
+
+    const result = await getWeeklyLoanCategory()
+
+    expect(result.weeklyCategory).toBeNull()
+    expect(result.categories).toEqual([])
+    expectNoWrites()
+  })
+
+  it('returns no interest-only category instead of creating one when it is absent', async () => {
+    query.order.mockResolvedValueOnce({
+      data: [monthlyCategory, dailyCategory],
+      error: null
+    })
+
+    const result = await getInterestOnlyLoanCategory()
+
+    expect(result.interestOnlyCategory).toBeNull()
+    expectNoWrites()
   })
 
   it('falls back to name-based typing when category_type is not in the database', async () => {
@@ -115,7 +172,7 @@ describe('collection category service product typing', () => {
         error: null
       })
 
-    const result = await ensureWeeklyLoanCategory('admin-1')
+    const result = await getWeeklyLoanCategory()
 
     expect(selectedFields).toContain('category_type')
     expect(query.select).toHaveBeenLastCalledWith('id, category_name, status')
@@ -123,5 +180,6 @@ describe('collection category service product typing', () => {
     expect(result.categories.map((category) => category.id)).toEqual([
       'old-weekly'
     ])
+    expectNoWrites()
   })
 })

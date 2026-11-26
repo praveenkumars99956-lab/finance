@@ -10,7 +10,7 @@ import CalendarDatePicker from '../../components/CalendarDatePicker'
 import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
-import { ensureInterestOnlyLoanCategory } from '../../services/collectionCategories'
+import { getInterestOnlyLoanCategory } from '../../services/collectionCategories'
 import { generateCustomerId } from '../../utils/customerId'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import { isValidPhone, normalizePhone } from '../../utils/phone'
@@ -515,12 +515,13 @@ function InterestOnly() {
         }
 
         const { interestOnlyCategory: categoryResult } =
-          await ensureInterestOnlyLoanCategory(user.id)
+          await getInterestOnlyLoanCategory()
 
         setInterestOnlyCategory(categoryResult || null)
 
-        // Clicking Edit may have already loaded a category; keep that value
-        // but still publish the default category for labels and summaries.
+        // Clicking Edit may have already loaded a category; keep that value.
+        // Without a manually created category the form stays unassigned and
+        // offers a link to create one instead of creating it automatically.
         if (
           !editLoadedValuesRef.current?.categoryLoaded
         ) {
@@ -530,7 +531,14 @@ function InterestOnly() {
               : ''
           )
 
-          setCategoryError('')
+          setCategoryError(
+            categoryResult
+              ? ''
+              : t(
+                  'noActiveCollectionCategories',
+                  'No active collection categories are available. Add a category before creating this loan.'
+                )
+          )
         }
       } catch (error) {
         console.error(
@@ -1729,6 +1737,27 @@ function InterestOnly() {
           <p role="alert">
             {categoryError}
           </p>
+        )}
+
+        {!categoryLoading && !interestOnlyCategory && (
+          <button
+            type="button"
+            className="daily-category-action"
+            onClick={() =>
+              navigate('/categories', {
+                state: {
+                  returnTo: '/interest-only',
+                  returnState: location.state,
+                  returnLabelKey: 'backToFinanceSetup'
+                }
+              })
+            }
+          >
+            {t(
+              'manageCollectionCategories',
+              'Manage Collection Categories'
+            )}
+          </button>
         )}
 
         {/* ===================================

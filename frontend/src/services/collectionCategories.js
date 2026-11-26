@@ -3,7 +3,10 @@ import {
   categoryTypeFromName,
   isMissingCategoryTypeColumnError
 } from '../utils/categoryType'
-import { loadAccessContext } from './access'
+
+// Loan product categories are created manually in Collection Categories.
+// These helpers only look up an existing active category; they never insert,
+// reactivate or seed one as a side effect of opening a form.
 
 async function loadCollectionCategories(categoryType) {
   let result = await supabase
@@ -38,8 +41,8 @@ async function loadCollectionCategories(categoryType) {
       .toLowerCase()
 
     // Reserved product names are authoritative. If an admin changed
-    // "Weekly Loan" to category_type='daily', the next weekly form load would
-    // otherwise try to insert a duplicate name and fail with 23505.
+    // "Weekly Loan" to category_type='daily', the weekly form still finds the
+    // manually created category instead of trying to create a duplicate.
     const nameType = categoryTypeFromName(category.category_name)
 
     if (nameType) {
@@ -54,149 +57,27 @@ async function loadCollectionCategories(categoryType) {
   })
 }
 
-async function insertLoanCategory(payload) {
-  const { data, error } = await supabase
-    .from('collection_categories')
-    .insert(payload)
-    .select('id, category_name, status')
-    .single()
-
-  // The category_type column is added by a recent migration. Until it has
-  // been applied, fall back to a plain insert so loan creation still works.
-  if (isMissingCategoryTypeColumnError(error)) {
-    const payloadWithoutType = { ...payload }
-    delete payloadWithoutType.category_type
-
-    return supabase
-      .from('collection_categories')
-      .insert(payloadWithoutType)
-      .select('id, category_name, status')
-      .single()
-  }
-
-  return { data, error }
-}
-
-async function ensureLoanCategory(
-  createdBy,
-  loanName,
-  reactivateInactive = false,
-  categoryType = 'daily'
-) {
-  if (!createdBy) {
-    throw new Error(`A signed-in admin is required to create the ${loanName} category.`)
-  }
-
+async function findActiveLoanCategory(loanName, categoryType) {
   const categories = await loadCollectionCategories(categoryType)
-  const loanCategory = categories.find(
-    (category) =>
-      String(category.category_name || '').trim().toLowerCase() === loanName.toLowerCase()
+  const activeCategories = categories.filter(
+    (category) => category.status === 'active'
   )
 
-  if (loanCategory?.status === 'active') {
-    return {
-      categories: categories.filter(
-        (category) => category.status === 'active'
-      ),
-      loanCategory
-    }
-  }
+  const loanCategory =
+    activeCategories.find(
+      (category) =>
+        String(category.category_name || '')
+          .trim()
+          .toLowerCase() === loanName.toLowerCase()
+    ) || null
 
-  if (loanCategory && !reactivateInactive) {
-    throw new Error(
-      `A ${loanName} collection category already exists but is inactive. Reactivate it in Collection Categories to continue.`
-    )
-  }
-
-  const { access, error: accessError } = await loadAccessContext()
-
-  if (accessError) {
-    throw accessError
-  }
-
-  if (access?.role !== 'admin') {
-    throw new Error(
-      `Only an admin can create the default ${loanName} collection category.`
-    )
-  }
-
-  if (loanCategory) {
-    const { data: reactivatedCategory, error: reactivateError } = await supabase
-      .from('collection_categories')
-      .update({ status: 'active' })
-      .eq('id', loanCategory.id)
-      .select('id, category_name, status')
-      .single()
-
-    if (reactivateError) {
-      throw reactivateError
-    }
-
-    return {
-      categories: [...categories.filter((category) => category.id !== loanCategory.id), reactivatedCategory]
-        .filter((category) => category.status === 'active')
-        .sort((left, right) =>
-          left.category_name.localeCompare(right.category_name)
-        ),
-      loanCategory: reactivatedCategory
-    }
-  }
-
-  const { data: createdCategory, error: createError } =
-    await insertLoanCategory({
-      category_name: loanName,
-      description: `Default collection category for ${loanName}`,
-      status: 'active',
-      category_type: categoryType,
-      created_by: createdBy
-    })
-
-  if (createError) {
-    if (createError.code === '23505') {
-      const currentCategories = await loadCollectionCategories(categoryType)
-      const existingCategory = currentCategories.find(
-        (category) =>
-          String(category.category_name || '').trim().toLowerCase() === loanName.toLowerCase()
-      )
-
-      if (existingCategory?.status === 'active') {
-        return {
-          categories: currentCategories.filter(
-            (category) => category.status === 'active'
-          ),
-          loanCategory: existingCategory
-        }
-      }
-
-      if (existingCategory && !reactivateInactive) {
-        throw new Error(
-          `A ${loanName} collection category already exists but is inactive. Reactivate it in Collection Categories to continue.`
-        )
-      }
-    }
-
-    throw createError
-  }
-
-  return {
-    categories: [...categories, createdCategory]
-      .filter((category) => category.status === 'active')
-      .sort((left, right) =>
-        left.category_name.localeCompare(right.category_name)
-      ),
-    loanCategory: createdCategory
-  }
+  return { categories: activeCategories, loanCategory }
 }
 
-export async function ensureWeeklyLoanCategory(
-  createdBy,
-  reactivateInactive = true
-) {
+export async function getWeeklyLoanCategory() {
   const { categories, loanCategory } =
-    await ensureLoanCategory(
-      createdBy,
+    await findActiveLoanCategory(
       'Weekly Loan',
-      reactivateInactive,
       'weekly'
     )
 
@@ -206,12 +87,10 @@ export async function ensureWeeklyLoanCategory(
   }
 }
 
-export async function ensureMonthlyLoanCategory(createdBy) {
+export async function getMonthlyLoanCategory() {
   const { categories, loanCategory } =
-    await ensureLoanCategory(
-      createdBy,
+    await findActiveLoanCategory(
       'Monthly Loan',
-      true,
       'monthly'
     )
 
@@ -221,12 +100,10 @@ export async function ensureMonthlyLoanCategory(createdBy) {
   }
 }
 
-export async function ensureInterestOnlyLoanCategory(createdBy) {
+export async function getInterestOnlyLoanCategory() {
   const { loanCategory } =
-    await ensureLoanCategory(
-      createdBy,
+    await findActiveLoanCategory(
       'Interest-Only Collection',
-      true,
       'interest'
     )
 

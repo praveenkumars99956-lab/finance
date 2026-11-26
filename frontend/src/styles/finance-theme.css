@@ -2034,22 +2034,33 @@ table td,
    card grids are allowed to shrink. Nothing here applies above 640px.
    -------------------------------------------------------------------------- */
 @media (max-width: 640px) {
+  /* The agent header is sticky directly under the fixed global navbar. Its
+     height changes when the name/status wrap, so the drawer and menu button
+     are aligned to the height measured by AgentLayout instead of fixed offsets. */
+  .agent-portal {
+    --fs-agent-navbar-h: 4rem;
+    --fs-agent-header-h: 6.5rem;
+    --fs-agent-stack-h: calc(
+      var(--fs-agent-navbar-h) + var(--fs-agent-header-h)
+    );
+  }
+
   .agent-portal > .agent-header {
-    top: 4rem !important;
+    top: var(--fs-agent-navbar-h) !important;
   }
 
   .agent-portal .mobile-nav-toggle {
     display: inline-flex;
-    top: 8.25rem !important;
+    top: calc(var(--fs-agent-stack-h) + 0.35rem) !important;
   }
 
   .agent-portal .agent-sidebar {
     position: fixed !important;
-    top: 8rem !important;
-    bottom: 0 !important;
+    top: var(--fs-agent-stack-h) !important;
+    bottom: auto !important;
     left: 0 !important;
     width: min(17rem, 84vw) !important;
-    height: auto !important;
+    height: calc(100dvh - var(--fs-agent-stack-h)) !important;
     z-index: 55 !important;
     transform: translateX(-105%);
     transition: transform 220ms ease;
@@ -2061,7 +2072,7 @@ table td,
   }
 
   .agent-portal .sidebar-scrim {
-    inset: 8rem 0 0 !important;
+    inset: var(--fs-agent-stack-h) 0 0 !important;
   }
 
   .agent-portal .sidebar-scrim.is-visible {
@@ -2072,8 +2083,10 @@ table td,
     padding: 0 !important;
   }
 
+  /* The sticky header still occupies normal flow above .agent-main, so only
+     the navbar overlap needs clearing before the page content starts. */
   .agent-portal .customer-profile-page {
-    padding-top: 8.75rem !important;
+    padding-top: calc(var(--fs-agent-navbar-h) + 1rem) !important;
   }
 
   /* Inline minmax() widths cannot shrink on a narrow phone. */

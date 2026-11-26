@@ -123,7 +123,7 @@ vi.mock('../services/workspaces', () => ({
 }))
 
 vi.mock('../services/collectionCategories', () => ({
-  ensureMonthlyLoanCategory: vi.fn(() =>
+  getMonthlyLoanCategory: vi.fn(() =>
     Promise.resolve({
       categories: [
         {

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useDispatch, useSelector } from 'react-redux'
 import { useTranslation } from 'react-i18next'
@@ -31,6 +31,8 @@ export default function AgentLayout() {
   const [status, setStatus] = useState('checking') // checking | online | offline | error
   const [lastValidatedAt, setLastValidatedAt] = useState(null)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const portalRef = useRef(null)
+  const headerRef = useRef(null)
 
   const role = auth?.access?.role || 'agent'
   const displayName = agent?.full_name || auth?.profile?.fullName || auth?.user?.email || t('agent', 'Agent')
@@ -92,6 +94,31 @@ export default function AgentLayout() {
     setSidebarOpen(false)
   }, [location.pathname])
 
+  // The mobile header wraps to different heights depending on the agent name
+  // and status. Publish its real height so the drawer, scrim and menu button
+  // line up with it instead of relying on guessed pixel offsets.
+  useEffect(() => {
+    const portal = portalRef.current
+    const header = headerRef.current
+
+    if (!portal || !header) return undefined
+
+    const syncHeaderHeight = () => {
+      portal.style.setProperty(
+        '--fs-agent-header-h',
+        `${Math.ceil(header.getBoundingClientRect().height)}px`
+      )
+    }
+
+    syncHeaderHeight()
+
+    if (typeof ResizeObserver === 'undefined') return undefined
+
+    const observer = new ResizeObserver(syncHeaderHeight)
+    observer.observe(header)
+    return () => observer.disconnect()
+  }, [])
+
   const logout = async () => {
     try {
       const { error } = await supabase.auth.signOut({ scope: 'local' })
@@ -120,7 +147,11 @@ export default function AgentLayout() {
   }
 
   return (
-    <div className="agent-portal" style={{ minHeight: '100vh', background: 'transparent', color: 'var(--fs-agent-heading, #1a0a3b)' }}>
+    <div
+      ref={portalRef}
+      className="agent-portal"
+      style={{ minHeight: '100vh', background: 'transparent', color: 'var(--fs-agent-heading, #1a0a3b)' }}
+    >
       <button
         type="button"
         className="mobile-nav-toggle"
@@ -141,6 +172,7 @@ export default function AgentLayout() {
       />
 
       <header
+        ref={headerRef}
         className="agent-header"
         style={{
           position: 'sticky',

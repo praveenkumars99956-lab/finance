@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { getCurrentWorkspaceId } from '../../services/workspaces'
-import { ensureWeeklyLoanCategory } from '../../services/collectionCategories'
+import { getWeeklyLoanCategory } from '../../services/collectionCategories'
 import { useToast } from '../../components/Toast'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
@@ -658,16 +658,21 @@ function Weekly() {
         }
 
         const { categories: activeCategories, weeklyCategory } =
-          await ensureWeeklyLoanCategory(user.id)
+          await getWeeklyLoanCategory()
+
+        const weeklyCategoryIdValue = weeklyCategory?.id
+          ? String(weeklyCategory.id)
+          : ''
 
         setCategories(activeCategories)
-        setWeeklyCategoryId(String(weeklyCategory.id))
+        setWeeklyCategoryId(weeklyCategoryIdValue)
         // An Edit click can happen while this loader is in flight. Keep the
-        // category from the loaded loan instead of replacing it with default.
+        // category from the loaded loan instead of replacing it with the
+        // manually created one.
         setCollectionCategoryId((current) =>
           editingFinanceIdRef.current && current
             ? current
-            : String(weeklyCategory.id)
+            : weeklyCategoryIdValue
         )
         setCategoryError(false)
       } catch (error) {

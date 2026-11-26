@@ -195,7 +195,7 @@ function AgentProfile() {
 
   if (loading) {
     return (
-      <div style={pageStyle}>
+      <div className="customer-profile-page" style={pageStyle}>
         <div style={containerStyle}>
           <div style={cardStyle}>
             <h2>{t('appName')}</h2>
@@ -207,7 +207,7 @@ function AgentProfile() {
   }
 
   return (
-    <div style={pageStyle}>
+    <div className="customer-profile-page" style={pageStyle}>
       <div style={containerStyle}>
 
         {/* HEADER */}

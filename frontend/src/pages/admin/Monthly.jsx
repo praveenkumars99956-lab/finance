@@ -5,7 +5,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
 import { getCurrentWorkspaceId } from '../../services/workspaces'
-import { ensureMonthlyLoanCategory } from '../../services/collectionCategories'
+import { getMonthlyLoanCategory } from '../../services/collectionCategories'
 import SelectMenu from '../../components/SelectMenu'
 import { generateCustomerId } from '../../utils/customerId'
 import { isValidPhone, normalizePhone } from '../../utils/phone'
@@ -711,17 +711,22 @@ function Monthly() {
         const {
           categories: activeCategories,
           monthlyCategory
-        } = await ensureMonthlyLoanCategory(user.id)
+        } = await getMonthlyLoanCategory()
+
+        const monthlyCategoryIdValue = monthlyCategory?.id
+          ? String(monthlyCategory.id)
+          : ''
 
         setCategories(activeCategories)
         // An Edit click can happen while this loader is in flight. Keep the
-        // category from the loaded loan instead of replacing it with default.
+        // category from the loaded loan instead of replacing it with the
+        // manually created one.
         setCollectionCategoryId((current) =>
           editingLoanRef.current && current
             ? current
-            : String(monthlyCategory.id)
+            : monthlyCategoryIdValue
         )
-        setDefaultCategoryId(String(monthlyCategory.id))
+        setDefaultCategoryId(monthlyCategoryIdValue)
         setCategoryError(false)
       } catch (error) {
         console.error('Collection category loading error:', error)

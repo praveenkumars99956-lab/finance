@@ -7,11 +7,6 @@ import { writeAuditLog } from '../../services/auditLog'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import { categoryTypeFromName } from '../../utils/categoryType'
 import SelectMenu from '../../components/SelectMenu'
-import {
-  ensureInterestOnlyLoanCategory,
-  ensureMonthlyLoanCategory,
-  ensureWeeklyLoanCategory
-} from '../../services/collectionCategories'
 
 function AgentAssignments() {
   const navigate = useNavigate()
@@ -94,12 +89,6 @@ function AgentAssignments() {
         navigate('/')
         return
       }
-
-      await Promise.all([
-        ensureWeeklyLoanCategory(user.id),
-        ensureMonthlyLoanCategory(user.id),
-        ensureInterestOnlyLoanCategory(user.id)
-      ])
 
       const { data, error } = await supabase
         .from('collection_categories')

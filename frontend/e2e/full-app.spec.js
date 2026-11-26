@@ -522,6 +522,68 @@ test.describe('full app sweep - agent', () => {
     await expect(page.locator('#agent-sidebar')).not.toHaveClass(/is-open/)
   })
 
+  test('mobile agent header, menu, drawer and content are aligned', async ({
+  }, testInfo) => {
+    test.skip(
+      testInfo.project.name !== 'mobile',
+      'Alignment is only exercised in the mobile project.'
+    )
+
+    for (const route of ['/agent', '/agent/profile']) {
+      await page.goto(route)
+      await expect(page.locator('.agent-header')).toBeVisible()
+      await page.waitForTimeout(750)
+
+      const geometry = await page.evaluate(() => {
+        const box = (selector) => {
+          const element = document.querySelector(selector)
+          if (!element) return null
+          const rect = element.getBoundingClientRect()
+          return { top: rect.top, bottom: rect.bottom }
+        }
+
+        const firstPage = document.querySelector('main.agent-main > *')
+
+        return {
+          navbarBottom: box('.app-navbar')?.bottom ?? 0,
+          header: box('.agent-header'),
+          toggle: box('.mobile-nav-toggle'),
+          sidebar: box('#agent-sidebar'),
+          contentTop: firstPage?.firstElementChild
+            ? firstPage.firstElementChild.getBoundingClientRect().top
+            : null,
+          viewportHeight: window.innerHeight
+        }
+      })
+
+      expect(
+        Math.abs(geometry.header.top - geometry.navbarBottom)
+      ).toBeLessThanOrEqual(2)
+      expect(geometry.toggle.top).toBeGreaterThanOrEqual(
+        geometry.header.bottom - 1
+      )
+      expect(
+        Math.abs(geometry.sidebar.top - geometry.header.bottom)
+      ).toBeLessThanOrEqual(2)
+      expect(geometry.contentTop).toBeGreaterThanOrEqual(
+        geometry.header.bottom
+      )
+      expect(
+        geometry.contentTop - geometry.header.bottom
+      ).toBeLessThanOrEqual(32)
+
+      if (route === '/agent') {
+        await page.locator('.mobile-nav-toggle').click()
+        await expect(page.locator('#agent-sidebar')).toHaveClass(/is-open/)
+
+        const drawer = await page.locator('#agent-sidebar').boundingBox()
+        expect(
+          Math.abs(drawer.y + drawer.height - geometry.viewportHeight)
+        ).toBeLessThanOrEqual(2)
+      }
+    }
+  })
+
   test('no uncaught page errors on agent pages', async () => {
     expect(pageErrors).toEqual([])
   })
