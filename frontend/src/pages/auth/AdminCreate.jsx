@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import { createTenantAuthEmail } from '../../utils/tenantAuthEmail'
 
 function AdminCreate() {
   const navigate = useNavigate()
@@ -69,11 +70,22 @@ function AdminCreate() {
         throw new Error(data?.message || t('adminWorkspaceCreateFailed'))
       }
 
-      if (!data.login_email) {
-        throw new Error(t('tenantLoginAliasUnavailable'))
-      }
+      // Older deployed functions may omit login_email while still returning
+      // the new workspace id. The alias is deterministic, so recover it here
+      // instead of failing after the workspace was already created.
+      const workspaceId =
+        data.workspace_id || data.workspace?.id || ''
+      const resolvedLoginEmail =
+        data.login_email ||
+        data.loginEmail ||
+        (workspaceId
+          ? createTenantAuthEmail(
+              email.trim().toLowerCase(),
+              workspaceId
+            )
+          : '')
 
-      setLoginEmail(data.login_email)
+      setLoginEmail(resolvedLoginEmail)
       setCreated(true)
       setPassword('')
     } catch (error) {
@@ -109,8 +121,16 @@ function AdminCreate() {
               }}
             >
               <p>{t('adminWorkspaceCreated')}</p>
-              <strong>{t('tenantLoginEmail', { email: loginEmail })}</strong>
-              <p>{t('tenantLoginEmailHelp')}</p>
+              {loginEmail ? (
+                <>
+                  <strong>
+                    {t('tenantLoginEmail', { email: loginEmail })}
+                  </strong>
+                  <p>{t('tenantLoginEmailHelp')}</p>
+                </>
+              ) : (
+                <p>{t('tenantLoginAliasPending')}</p>
+              )}
             </div>
             <button
               type="button"

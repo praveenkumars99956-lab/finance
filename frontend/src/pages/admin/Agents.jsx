@@ -3,8 +3,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { supabase } from '../../services/supabase'
+import { getCurrentWorkspaceId } from '../../services/workspaces'
 import { writeAuditLog } from '../../services/auditLog'
 import { isValidPhone, normalizePhone } from '../../utils/phone'
+import { createTenantAuthEmail } from '../../utils/tenantAuthEmail'
 import { useMobileFormReveal } from '../../hooks/useMobileFormReveal'
 import CustomSelect from '../../components/CustomSelect'
 
@@ -61,31 +63,80 @@ function Agents() {
       )
 
       setLoading(false)
-      return
+      return {}
     }
 
     setAgents(data || [])
 
-    // Resolve the real Supabase Auth login email for each agent. This is
-    // additive: if the helper migration has not been applied yet, fall back
-    // to the existing contact-email display instead of failing the page.
+    const byAgentId = await fetchAgentLoginEmails()
+    setLoginEmails(byAgentId)
+    setLoading(false)
+
+    return byAgentId
+  }
+
+  // Resolve the real Supabase Auth login email for each agent. This is
+  // additive: if the helper migration has not been applied yet, fall back
+  // to the existing contact-email display instead of failing the page.
+  async function fetchAgentLoginEmails() {
     const { data: loginRows, error: loginError } = await supabase
       .rpc('finance_agent_login_emails')
 
     if (loginError) {
       console.warn('AGENT LOGIN EMAIL LOOKUP:', loginError.message)
-      setLoginEmails({})
-    } else {
-      const byAgentId = {}
-
-      for (const row of loginRows || []) {
-        byAgentId[row.agent_row_id] = row
-      }
-
-      setLoginEmails(byAgentId)
+      return {}
     }
 
-    setLoading(false)
+    const byAgentId = {}
+
+    for (const row of loginRows || []) {
+      byAgentId[row.agent_row_id] = row
+    }
+
+    return byAgentId
+  }
+
+  async function notifyCreatedAgent(response, loginRowsById) {
+    const createdAgent = response?.agent || {}
+    const contactEmail =
+      response?.contact_email || createdAgent.email || ''
+    const agentId = createdAgent.agent_id || '-'
+
+    let loginEmail =
+      response?.login_email ||
+      response?.loginEmail ||
+      loginRowsById?.[createdAgent.id]?.login_email ||
+      ''
+
+    if (!loginEmail && contactEmail) {
+      try {
+        const workspaceId = await getCurrentWorkspaceId()
+        loginEmail = createTenantAuthEmail(
+          contactEmail,
+          workspaceId
+        )
+      } catch (error) {
+        console.warn(
+          'AGENT LOGIN ALIAS DERIVATION:',
+          error?.message
+        )
+      }
+    }
+
+    if (!loginEmail) {
+      notify(
+        t('agentCreatedLoginEmailPending', { agentId })
+      )
+      return
+    }
+
+    notify(
+      t('agentCreatedWithLogin', {
+        agentId,
+        email: contactEmail,
+        loginEmail
+      })
+    )
   }
 
   // =========================================
@@ -214,6 +265,8 @@ function Agents() {
 
       return
     }
+
+    let createdAgentResponse = null
 
     setSaving(true)
 
@@ -426,20 +479,15 @@ function Agents() {
         // SUCCESS
         // -------------------------------------
 
-        const createdAgent =
-          data.agent
-
-        if (!data.login_email) {
-          throw new Error(t('tenantLoginAliasUnavailable'))
+        // The account already exists at this point. Keep the response so the
+        // login alias can be resolved after the list refresh; an older Edge
+        // Function may omit login_email even though creation succeeded.
+        createdAgentResponse = {
+          ...data,
+          contact_email:
+            data.agent?.email ||
+            form.email.trim().toLowerCase()
         }
-
-        notify(
-          t('agentCreatedWithLogin', {
-            agentId: createdAgent?.agent_id || '-',
-            email: createdAgent?.email || form.email.trim().toLowerCase(),
-            loginEmail: data.login_email || ''
-          })
-        )
       }
 
       // =====================================
@@ -448,7 +496,14 @@ function Agents() {
 
       clearForm()
 
-      await loadAgents()
+      const refreshedLoginEmails = await loadAgents()
+
+      if (createdAgentResponse) {
+        await notifyCreatedAgent(
+          createdAgentResponse,
+          refreshedLoginEmails
+        )
+      }
     } catch (error) {
       console.error(
         'SAVE AGENT ERROR:',
