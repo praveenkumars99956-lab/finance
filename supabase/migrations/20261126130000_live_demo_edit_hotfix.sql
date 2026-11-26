@@ -270,6 +270,7 @@ set search_path = public
 as $body$
 declare
   finance_row public.finance_records%rowtype;
+  v_role text := public.current_user_role();
   installment_count integer;
   payable_amount numeric;
   payable_cents bigint;
@@ -280,7 +281,7 @@ begin
   if auth.uid() is null then
     raise exception 'Login session not found';
   end if;
-  if public.current_user_role() not in ('admin', 'client') then
+  if v_role is null or v_role not in ('admin', 'client') then
     raise exception 'Not allowed to reset this schedule';
   end if;
   perform public.finance_assert_record_workspace(p_finance_record_id);
