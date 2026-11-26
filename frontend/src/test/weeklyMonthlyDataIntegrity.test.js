@@ -21,6 +21,13 @@ const collectionMonthMigration = readFileSync(
   ),
   'utf8'
 )
+const clientLoanEditMigration = readFileSync(
+  path.resolve(
+    frontendRoot,
+    '../supabase/migrations/20261124140000_harden_client_loan_edit_access.sql'
+  ),
+  'utf8'
+)
 const appSource = readFileSync(
   path.join(frontendRoot, 'src/App.jsx'),
   'utf8'
@@ -40,7 +47,7 @@ describe('weekly and monthly data-integrity parity', () => {
     }
   })
 
-  it('derives pending from a freshly stored paid total on edit', () => {
+  it('derives pending from a freshly stored paid total when collections exist', () => {
     for (const source of [weekly, monthly]) {
       expect(source).toMatch(
         /paid: Number\(freshRecord\.paid \|\| 0\)/
@@ -54,24 +61,21 @@ describe('weekly and monthly data-integrity parity', () => {
       expect(source).not.toMatch(
         /(weekly|monthly)Loans\.find/
       )
+      expect(source).toMatch(
+        /const effectivePaid = canApplyAlreadyPaid[\s\S]{0,120}: recordedTotals\.paid/u
+      )
+      expect(source).toMatch(/const paidSoFar = effectivePaid/)
     }
-
-    expect(weekly).toMatch(
-      /const paidSoFar = recordedTotals\.paid/
-    )
-    expect(monthly).toMatch(
-      /\? recordedTotals\.paid/
-    )
-    expect(weekly).not.toMatch(/const paidSoFar = paid/)
   })
 
-  it('blocks an edit when a payment lands after the fresh read', () => {
+  it('uses a plain id update and keeps conflict detection at the boundary', () => {
     for (const source of [weekly, monthly]) {
-      expect(source).toMatch(/function withRecordedBalanceGuard/)
+      expect(source).not.toMatch(/withRecordedBalanceGuard/)
+      expect(source).not.toMatch(/\.or\(/)
       expect(source).toMatch(
-        /current\.or\(\s*`\$\{column\}\.eq\.\$\{Number\(value \|\| 0\)\},\$\{column\}\.is\.null`/
+        /\.update\(recordPayload\)[\s\S]{0,120}\.eq\('id', editedRecordId\)/
       )
-      expect(source).toMatch(/saveError\?\.code === 'PGRST116'|financeError\?\.code === 'PGRST116'/)
+      expect(source).toMatch(/storedRecord\?\.paid/)
       expect(source).toMatch(/collectionFinanceChanged/)
     }
   })
@@ -81,7 +85,7 @@ describe('weekly and monthly data-integrity parity', () => {
       /pendingScheduleRecordIdRef = useRef\(null\)/
     )
     expect(weekly).toMatch(
-      /if \(retryScheduleRecordId && !editingFinanceId\)/
+      /if \(retryScheduleRecordId && !submittedEditRecordId\)/
     )
     expect(weekly).toMatch(
       /pendingScheduleRecordIdRef\.current = financeRecord\.id/
@@ -94,26 +98,46 @@ describe('weekly and monthly data-integrity parity', () => {
     )
   })
 
-  it('writes paid only when a loan is created', () => {
-    expect(weekly).toMatch(/user_id: user\.id,[\s\S]{0,80}paid,/)
-    expect(monthly).toMatch(/user_id: user\.id,[\s\S]{0,160}paid: paid,/)
-
-    expect(monthly).not.toMatch(
-      /Object\.assign\(\s*recordPayload,\s*\{\s*paid: paid\s*\}\s*\)/
-    )
+  it('writes paid through the guarded upfront-paid rule', () => {
+    for (const source of [weekly, monthly]) {
+      expect(source).toMatch(/user_id: user\.id/)
+      expect(source).toMatch(/if \(canApplyAlreadyPaid\)/)
+      expect(source).toMatch(/paid: paidSoFar/)
+      expect(source).not.toMatch(
+        /Object\.assign\(\s*recordPayload,\s*\{\s*paid: paid\s*\}\s*\)/
+      )
+    }
   })
 
-  it('surfaces a failed payment check instead of reporting success', () => {
+  it('aborts the save when a payment check fails', () => {
     for (const source of [weekly, monthly]) {
-      expect(source).toMatch(/scheduleError = paymentCheckError/)
-      expect(source).toMatch(/if\s*\([\s\S]{0,40}scheduleError[\s\S]{0,40}\)/u)
+      expect(source).toMatch(/paymentStatusCheckFailed/)
+      expect(source).toMatch(
+        /if \(paymentCheckError\)[\s\S]{0,1200}?(notify|showToast)\(\s*t\(\s*'paymentStatusCheckFailed'/u
+      )
+      expect(source).toMatch(/let scheduleError = null/)
     }
+  })
+
+  it('does not restage a superseded reload', () => {
+    expect(monthly).toMatch(/postSaveReloadRef = useRef\(0\)/)
+    expect(monthly).toMatch(/reloadToken !== postSaveReloadRef\.current/)
+    expect(monthly).toMatch(
+      /listGeneration !== loadRequestRef\.current/
+    )
+    expect(monthly).toMatch(/balanceLoan = \{/)
+    expect(monthly).toMatch(/if \(!refreshedLoan\) return/)
+    expect(monthly).toMatch(/mergedPatch\.customer_id =/)
+    expect(monthly).toMatch(
+      /const useRefreshedCustomer =\s*Boolean\(refreshedLoan\) &&\s*Boolean\(refreshedCustomer\)/
+    )
   })
 
   it('skips schedule generation after a failed or paid edit check', () => {
     for (const source of [weekly, monthly]) {
-      expect(source).toMatch(/let shouldGenerateSchedule = true/)
-      expect(source).toMatch(/shouldGenerateSchedule = false/)
+      expect(source).toMatch(
+        /const shouldGenerateSchedule =\s*!isEditing \|\|\s*\(\s*!hasPostedPayments && !paymentCheckError\s*\)/
+      )
       expect(source).toMatch(/if \(shouldGenerateSchedule\)/)
       expect(source).not.toMatch(/\.from\('repayment_schedule'\)[\s\S]{0,80}\.delete\(\)/u)
     }
@@ -165,8 +189,84 @@ describe('weekly and monthly data-integrity parity', () => {
       expect(source).toMatch(
         /!Number\.isFinite\(paid\)[\s\S]{0,30}\|\|[\s\S]{0,30}paid < 0/u
       )
-      expect(source).toMatch(/readOnly=\{Boolean\(editingFinanceId\)\}/)
+      expect(source).toMatch(
+        /readOnly=\{Boolean\(\s*editingFinanceId &&\s*\(\s*!editingPaymentChecked \|\|\s*editingHasPayments\s*\)\s*\)\}/
+      )
+      expect(source).toMatch(
+        /canApplyAlreadyPaid =\s*!isEditing \|\|\s*\(\s*alreadyPaidChanged &&\s*!hasPostedPayments &&\s*!paymentCheckError\s*\)/
+      )
     }
+  })
+
+  it('uses an authoritative payment lookup and an explicit paid-change rule', () => {
+    for (const source of [weekly, monthly]) {
+      expect(source).toMatch(
+        /\.rpc\(\s*'finance_has_posted_payments',\s*\{\s*p_finance_record_id:/
+      )
+      expect(source).not.toMatch(/\.from\('finance_payments'\)/)
+      expect(source).toMatch(/paymentLookupRef = useRef\(0\)/)
+      expect(source).toMatch(/const lookupId = \+\+paymentLookupRef\.current/)
+      expect(source).toMatch(/const submittedEditRecordId = editingFinanceId/)
+      expect(source).toMatch(/const submittedEditSessionId =/)
+      expect(source).toMatch(/const submittedOriginalPaid =/)
+      expect(source).toMatch(/alreadyPaidChanged =/)
+      expect(source).toMatch(/isCurrentEdit\(\)/)
+      expect(source).toMatch(/if \(savingRef\.current\) return/)
+      expect(source).toMatch(
+        /next_due_date:\s*isEditing\s*&&\s*hasPostedPayments\s*\? storedRecord\?\.next_due_date/
+      )
+      expect(source).toMatch(
+        /loan_status:\s*isEditing\s*\? storedRecord\?\.loan_status/
+      )
+    }
+  })
+
+  it('normalizes legacy loan types in client edit policies', () => {
+    expect(clientLoanEditMigration).toMatch(
+      /finance_normalize_type\(finance_type\) in \('weekly', 'monthly'\)/
+    )
+    expect(clientLoanEditMigration).toMatch(
+      /finance_normalize_type\(finance\.finance_type\) in \('weekly', 'monthly'\)/
+    )
+    expect(clientLoanEditMigration).toMatch(
+      /create or replace function public\.finance_has_posted_payments/
+    )
+    expect(clientLoanEditMigration).toMatch(/security definer/)
+    expect(clientLoanEditMigration).toMatch(
+      /v_role is null or v_role not in \('admin', 'client'\)/
+    )
+    expect(clientLoanEditMigration).toMatch(
+      /create trigger finance_30_client_payment_totals_guard/
+    )
+    expect(clientLoanEditMigration).toMatch(
+      /new\.paid is distinct from old\.paid/
+    )
+    expect(clientLoanEditMigration).toMatch(
+      /not public\.finance_has_posted_payments\(finance\.id\)/
+    )
+  })
+
+  it('keeps weekly upfront paid out of pending', () => {
+    const start = weekly.indexOf('const pendingSoFar =')
+    const end = weekly.indexOf(
+      '// CREATE / UPDATE WEEKLY FINANCE ACCOUNT',
+      start
+    )
+
+    expect(start).toBeGreaterThan(-1)
+    expect(end).toBeGreaterThan(start)
+
+    const section = weekly.slice(start, end)
+
+    expect(section).toMatch(/\?\s*total/u)
+    expect(section).toMatch(
+      /Math\.max\(total - postedPaidSoFar, 0\)/
+    )
+    expect(weekly).toMatch(/pending: pendingSoFar/)
+    expect(weekly).toMatch(/weeklyTermLockedAfterPayments/)
+    expect(weekly).not.toMatch(
+      /interestAmount,\s*alreadyPaid,\s*numberOfWeeks/u
+    )
   })
 
   it('clears the prefilled phone when switching to a new customer', () => {
@@ -201,13 +301,14 @@ describe('weekly and monthly data-integrity parity', () => {
     )
   })
 
-  it('subtracts upfront paid from stored monthly balances on create', () => {
-    const baselineStart = monthly.indexOf('const paidSoFar = isEditing')
+  it('subtracts upfront paid from stored monthly balances when collections are absent', () => {
+    const baselineStart = monthly.indexOf('const canApplyAlreadyPaid =')
     const baselineEnd = monthly.indexOf('let financeCustomer', baselineStart)
     const paidBaseline = monthly.slice(baselineStart, baselineEnd)
 
-    expect(paidBaseline).toMatch(/const paidSoFar = isEditing/)
-    expect(paidBaseline).toMatch(/:\s*paid/u)
+    expect(paidBaseline).toMatch(/const effectivePaid = canApplyAlreadyPaid/)
+    expect(paidBaseline).toMatch(/\?\s*paid/u)
+    expect(paidBaseline).toMatch(/recordedTotals\.paid/)
     expect(paidBaseline).toMatch(/Math\.min\(paid, p\)/)
     expect(paidBaseline).toMatch(/Math\.max\(paid - p, 0\)/)
     expect(monthly).toMatch(/interest_paid:\s*interestPaidSoFar/)

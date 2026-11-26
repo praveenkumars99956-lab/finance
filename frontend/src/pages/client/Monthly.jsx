@@ -39,21 +39,43 @@ const MONTHS = [
   { value: 'December', key: 'december' }
 ]
 
-// Editing must never restore balances that were posted after the loan list was
-// read. The guard is part of the UPDATE statement, so a payment committing
-// between the fresh read and the write makes the update affect no rows.
-function withRecordedBalanceGuard(query, totals) {
-  return [
-    ['paid', totals.paid],
-    ['principal_paid', totals.principal_paid],
-    ['interest_paid', totals.interest_paid]
-  ].reduce(
-    (current, [column, value]) =>
-      current.or(
-        `${column}.eq.${Number(value || 0)},${column}.is.null`
-      ),
-    query
-  )
+const PAYMENT_STATE_FIELDS = [
+  'paid',
+  'principal_paid',
+  'interest_paid',
+  'pending',
+  'principal_outstanding',
+  'loan_status',
+  'next_due_date'
+]
+
+// A collection can commit between the save and the post-save reload. In that
+// case the refreshed row owns the newer payment totals and balances, so keep
+// those fields instead of restoring the pre-payment values from the edit.
+// Without a confirmed posted collection, the values just saved stay on screen
+// even if the reload returns an older row.
+function reconcileStagedLoan(
+  patch,
+  refreshedLoan,
+  useRefreshedPaymentState
+) {
+  if (!patch || !refreshedLoan) return patch
+  if (!useRefreshedPaymentState) return patch
+
+  const reconciled = { ...patch }
+
+  PAYMENT_STATE_FIELDS.forEach((field) => {
+    if (
+      Object.prototype.hasOwnProperty.call(
+        refreshedLoan,
+        field
+      )
+    ) {
+      reconciled[field] = refreshedLoan[field]
+    }
+  })
+
+  return reconciled
 }
 
 function Monthly() {
@@ -135,6 +157,10 @@ function Monthly() {
 
   const realtimeTimer = useRef(null)
   const loadRequestRef = useRef(0)
+  // Closing the form intentionally invalidates the edit session, but the
+  // post-save reload must still be able to stage the values it just wrote.
+  // A new form opening during that reload increments this token and skips it.
+  const postSaveReloadRef = useRef(0)
 
   const loadMonthlyLoans = useCallback(async () => {
     const requestId = ++loadRequestRef.current
@@ -196,17 +222,20 @@ function Monthly() {
       }
 
       // Ignore a slower refresh that started before the post-save reload.
-      if (requestId === loadRequestRef.current) {
-        setMonthlyLoans(
-          rows.map((row) => ({
-            ...row,
-            customer:
-              customerMap[row.customer_id] || null
-          }))
-        )
+      let refreshedRows = null
 
+      if (requestId === loadRequestRef.current) {
+        refreshedRows = rows.map((row) => ({
+          ...row,
+          customer:
+            customerMap[row.customer_id] || null
+        }))
+
+        setMonthlyLoans(refreshedRows)
         setListError('')
       }
+
+      return refreshedRows
     } catch (error) {
       if (requestId !== loadRequestRef.current) {
         return
@@ -230,6 +259,70 @@ function Monthly() {
       }
     }
   }, [t])
+
+  // The live list is the user's confirmation that an edit worked. Stage the
+  // saved values immediately, and again after the reload, so a delayed or
+  // stale refresh cannot restore the old row on screen.
+  const stageEditedLoan = useCallback(
+    (
+      patch,
+      refreshedLoan,
+      useRefreshedPaymentState = false
+    ) => {
+      if (!patch?.id) return
+
+      const rowId = String(patch.id)
+
+      const stagedPatch = reconcileStagedLoan(
+        patch,
+        refreshedLoan,
+        useRefreshedPaymentState
+      )
+
+      const refreshedCustomer =
+        refreshedLoan?.customer
+      // A successful authoritative reload is the current source of truth,
+      // including when another operator changed the loan's customer.
+      const useRefreshedCustomer =
+        Boolean(refreshedLoan) &&
+        Boolean(refreshedCustomer)
+
+      const mergedPatch = {
+        ...stagedPatch
+      }
+
+      if (useRefreshedCustomer) {
+        // The association must move as one unit: customer object, id and
+        // displayed name. Otherwise search can still match the old customer.
+        mergedPatch.customer_id =
+          refreshedCustomer.id ??
+          refreshedCustomer.customer_id ??
+          refreshedLoan.customer_id ??
+          mergedPatch.customer_id
+        mergedPatch.name =
+          refreshedCustomer.full_name ||
+          refreshedLoan.name ||
+          mergedPatch.name
+      }
+
+      setMonthlyLoans((current) =>
+        current.map((loan) =>
+          String(loan.id) === rowId
+            ? {
+                ...loan,
+                ...mergedPatch,
+                customer: useRefreshedCustomer
+                  ? refreshedCustomer
+                  : mergedPatch.customer ??
+                    loan.customer ??
+                    null
+              }
+            : loan
+        )
+      )
+    },
+    []
+  )
 
   useEffect(() => {
     loadMonthlyLoans()
@@ -320,6 +413,17 @@ function Monthly() {
 
   const [alreadyPaid, setAlreadyPaid] =
     useState('0')
+
+  // "Already Paid" is editable for a saved loan only after a successful lookup
+  // confirms there are no posted collections. While the lookup is pending or
+  // failed, the field stays locked.
+  const [editingHasPayments, setEditingHasPayments] =
+    useState(false)
+  const [editingPaymentChecked, setEditingPaymentChecked] =
+    useState(false)
+  const editingPaymentCheckRef = useRef(0)
+  const paymentLookupRef = useRef(0)
+  const originalAlreadyPaidRef = useRef('0')
 
   const [numberOfMonths, setNumberOfMonths] =
     useState('')
@@ -892,6 +996,12 @@ function Monthly() {
   const resetForm = () => {
     editLoadRef.current = false
     editingLoanRef.current = false
+    postSaveReloadRef.current += 1
+    editingPaymentCheckRef.current += 1
+    paymentLookupRef.current += 1
+    originalAlreadyPaidRef.current = '0'
+    setEditingHasPayments(false)
+    setEditingPaymentChecked(false)
     setEditingFinanceId(null)
     setEditingCustomer(null)
     setCustomer(providedCustomer)
@@ -914,6 +1024,10 @@ function Monthly() {
   }
 
   const openAddMonthly = () => {
+    // A customer insert and loan write are a single save session. Do not let a
+    // new form replace one that has already started writing.
+    if (savingRef.current) return
+
     resetForm()
     setShowForm(true)
 
@@ -954,6 +1068,10 @@ function Monthly() {
   }
 
   const editMonthlyLoan = (loan) => {
+    // A customer insert and loan write are a single save session. Do not let a
+    // new edit replace one that has already started writing.
+    if (savingRef.current) return
+
     const months = parseInt(
       String(loan.period || '').split(' ')[0],
       10
@@ -978,6 +1096,7 @@ function Monthly() {
     editingLoanRef.current = true
     skipMonthAutoSelectRef.current = true
     setEditLoadVersion((version) => version + 1)
+    postSaveReloadRef.current += 1
     setEditingFinanceId(loan.id)
     setEditingCustomer(loanCustomer)
     setCustomer(loanCustomer)
@@ -993,6 +1112,7 @@ function Monthly() {
       loan.interest_accrual ?? loan.interest_due ?? 0
     )
     interestAmountEdited.current = false
+    originalAlreadyPaidRef.current = String(loan.paid ?? 0)
     setAlreadyPaid(loan.paid ?? 0)
     setNumberOfMonths(
       Number.isFinite(months) ? String(months) : ''
@@ -1008,6 +1128,45 @@ function Monthly() {
     )
     setCategoryError(false)
     setShowForm(true)
+
+    // Keep Already Paid locked until the lookup confirms there are no posted
+    // collections. Pending and failed checks must not unlock the field.
+    const paymentCheckId = ++editingPaymentCheckRef.current
+    const lookupId = ++paymentLookupRef.current
+    setEditingHasPayments(true)
+    setEditingPaymentChecked(false)
+
+    supabase
+      .rpc('finance_has_posted_payments', {
+        p_finance_record_id: loan.id
+      })
+      .then(({ data, error }) => {
+        if (
+          lookupId !== paymentLookupRef.current ||
+          paymentCheckId !==
+          editingPaymentCheckRef.current
+        ) {
+          return
+        }
+
+        if (error) {
+          console.error(
+            'Monthly payment check error:',
+            error
+          )
+
+          return
+        }
+
+        setEditingHasPayments(Boolean(data))
+        setEditingPaymentChecked(true)
+      })
+      .catch((error) =>
+        console.error(
+          'Monthly payment check error:',
+          error
+        )
+      )
 
     const isMobile =
       typeof window.matchMedia === 'function' &&
@@ -1043,6 +1202,15 @@ function Monthly() {
       savingRef.current = true
 
       try {
+      // Capture the exact edit being submitted before any await. A different
+      // loan can be opened while authentication or customer creation is in
+      // flight, and this handler must keep using its own snapshot.
+      const submittedEditRecordId = editingFinanceId
+      const submittedEditSessionId =
+        editingPaymentCheckRef.current
+      const submittedOriginalPaid =
+        originalAlreadyPaidRef.current
+
       const p =
         Number(principal)
 
@@ -1177,22 +1345,6 @@ function Monthly() {
         return
       }
 
-      // Paid-off loans may be edited; this guard only applies to new loans.
-      if (
-        !editingFinanceId &&
-        paid >=
-        totalRepayment
-      ) {
-        notify(
-          t(
-            'alreadyPaidLessThanTotal',
-            'Already Paid must be less than Total Repayment'
-          )
-        )
-
-        return
-      }
-
       if (!startDate) {
         notify(
           t(
@@ -1234,11 +1386,35 @@ function Monthly() {
         return
       }
 
+      // Authentication was awaited while the form could have been replaced by
+      // another loan. Keep using only the snapshot captured on submit.
+      if (
+        submittedEditSessionId !==
+          editingPaymentCheckRef.current ||
+        String(submittedEditRecordId ?? '') !==
+          String(editingFinanceId ?? '')
+      ) {
+        return
+      }
+
       setSaving(true)
 
       try {
         const isEditing =
-          Boolean(editingFinanceId)
+          Boolean(submittedEditRecordId)
+        const editedRecordId =
+          submittedEditRecordId
+
+        const isCurrentEdit = () =>
+          submittedEditSessionId ===
+            editingPaymentCheckRef.current &&
+          String(editingFinanceId ?? '') ===
+            String(submittedEditRecordId ?? '')
+
+        // Closing must only reset the form that submitted this save.
+        const closeSubmittedForm = () => {
+          if (isCurrentEdit()) closeForm()
+        }
 
         // Re-read payment totals at submit time. The live list can be stale if
         // a collection was posted after it loaded.
@@ -1256,9 +1432,9 @@ function Monthly() {
           } = await supabase
             .from('finance_records')
             .select(
-              'id, finance_id, paid, principal_paid, interest_paid'
+              'id, finance_id, paid, principal_paid, interest_paid, pending, loan_status, next_due_date'
             )
-            .eq('id', editingFinanceId)
+            .eq('id', editedRecordId)
             .single()
 
           if (freshRecordError || !freshRecord?.id) {
@@ -1276,25 +1452,139 @@ function Monthly() {
           }
         }
 
-        // On edit, posted payment totals come from the freshly read record so
-        // loan detail edits cannot rewrite them. On create, the informational
-        // "Already Paid" amount must reduce the stored balances to match the
-        // live summary; otherwise the list and payment RPC would allow
-        // collecting the upfront amount a second time.
-        const paidSoFar = isEditing
-          ? recordedTotals.paid
-          : paid
+        if (!isCurrentEdit()) return
 
-        const principalPaidSoFar = isEditing
-          ? recordedTotals.principal_paid
-          : Math.min(paid, p)
+        // The RPC checks payments in a security-definer function, so a role
+        // that may edit the loan cannot get a false empty result from RLS.
+        let hasPostedPayments = false
+        let paymentCheckError = null
 
-        const interestPaidSoFar = isEditing
-          ? recordedTotals.interest_paid
-          : Math.min(
+        if (isEditing) {
+          // A separate lookup id prevents a slower opening lookup from
+          // overriding this authoritative submit-time result.
+          const lookupId = ++paymentLookupRef.current
+          const result = await supabase.rpc(
+            'finance_has_posted_payments',
+            { p_finance_record_id: editedRecordId }
+          )
+
+          if (
+            lookupId !== paymentLookupRef.current ||
+            !isCurrentEdit()
+          ) {
+            return
+          }
+
+          paymentCheckError = result.error
+          hasPostedPayments = Boolean(result.data)
+        }
+
+        if (!isCurrentEdit()) return
+
+        const originallySeenPaid =
+          Number(submittedOriginalPaid || 0)
+        const alreadyPaidChanged =
+          isEditing &&
+          Number(paid) !== originallySeenPaid
+
+        // An explicit upfront edit must not overwrite a newer value saved by
+        // somebody else. The fresh read is the conflict reference.
+        if (
+          alreadyPaidChanged &&
+          Number(storedRecord?.paid || 0) !==
+            originallySeenPaid
+        ) {
+          notify(t('collectionFinanceChanged'))
+          closeSubmittedForm()
+          await loadMonthlyLoans()
+          return
+        }
+
+        setEditingHasPayments(
+          paymentCheckError ? true : hasPostedPayments
+        )
+        setEditingPaymentChecked(!paymentCheckError)
+
+        // Without a trustworthy payment status, no write is safe: a detail
+        // edit could rewrite payment balances and a paid correction could
+        // duplicate a posted collection. Keep the form and its values open.
+        if (paymentCheckError) {
+          console.error(
+            'Monthly payment status check error:',
+            paymentCheckError
+          )
+
+          notify(
+            t(
+              'paymentStatusCheckFailed',
+              'Payment status could not be checked. Save was not completed. Please try again.'
+            )
+          )
+
+          return
+        }
+
+        // Only an explicit change with no posted collections is written. A
+        // detail-only edit keeps the freshly read totals instead of restoring
+        // the amount this form originally displayed.
+        const canApplyAlreadyPaid =
+          !isEditing ||
+          (alreadyPaidChanged &&
+            !hasPostedPayments &&
+            !paymentCheckError)
+
+        const effectivePaid = canApplyAlreadyPaid
+          ? paid
+          : recordedTotals.paid
+        const shouldValidatePaid =
+          !isEditing ||
+          (!hasPostedPayments && !paymentCheckError)
+
+        // Validate the amount that will actually be saved, including an
+        // unchanged upfront amount retained after the total was reduced.
+        if (
+          shouldValidatePaid &&
+          Number(effectivePaid) >= totalRepayment
+        ) {
+          notify(
+            t(
+              'alreadyPaidLessThanTotal',
+              'Already Paid must be less than Total Repayment'
+            )
+          )
+
+          return
+        }
+
+        if (
+          isEditing &&
+          hasPostedPayments &&
+          alreadyPaidChanged
+        ) {
+          setAlreadyPaid(
+            String(recordedTotals.paid)
+          )
+
+          notify(
+            t(
+              'alreadyPaidLockedAfterPayments',
+              'Already Paid cannot be changed after collections are posted.'
+            )
+          )
+        }
+
+        const paidSoFar = effectivePaid
+
+        const principalPaidSoFar = canApplyAlreadyPaid
+          ? Math.min(paid, p)
+          : recordedTotals.principal_paid
+
+        const interestPaidSoFar = canApplyAlreadyPaid
+          ? Math.min(
               Number(interestAmount || 0),
               Math.max(paid - p, 0)
             )
+          : recordedTotals.interest_paid
 
         // =====================================
         // RESOLVE CUSTOMER (SELECT EXISTING OR CREATE NEW)
@@ -1302,6 +1592,7 @@ function Monthly() {
 
         let financeCustomer = activeCustomer
         let financeCustomerId = activeCustomerId
+        let insertedCustomer = null
 
         if (!financeCustomer) {
           const existingCustomer =
@@ -1340,7 +1631,7 @@ function Monthly() {
                     new Date().toISOString()
                 })
                 .select(
-                  'id, customer_id, full_name'
+                  'id, customer_id, full_name, phone, address'
                 )
                 .single()
 
@@ -1365,15 +1656,21 @@ function Monthly() {
               )
             }
 
-            financeCustomer = insertResult.data
-            financeCustomerId = insertResult.data.id
-
-            setCustomer(financeCustomer)
-            setCustomerOptions((current) => [
-              ...current,
-              financeCustomer
-            ])
+            insertedCustomer = insertResult.data
+            financeCustomer = insertedCustomer
+            financeCustomerId = insertedCustomer.id
           }
+        }
+
+        // Customer creation was awaited; the form could have been replaced.
+        if (!isCurrentEdit()) return
+
+        if (insertedCustomer) {
+          setCustomer(insertedCustomer)
+          setCustomerOptions((current) => [
+            ...current,
+            insertedCustomer
+          ])
         }
 
         // =====================================
@@ -1494,11 +1791,20 @@ function Monthly() {
           last_interest_date:
             startDate,
 
+          // A rebuilt unpaid schedule starts on the new start date, so the
+          // due date must follow it. A paid loan skips the rebuild and keeps
+          // its stored lifecycle date.
           next_due_date:
-            startDate,
+            isEditing && hasPostedPayments
+              ? storedRecord?.next_due_date ??
+                startDate
+              : startDate,
 
           loan_status:
-            'active'
+            isEditing
+              ? storedRecord?.loan_status ??
+                'active'
+              : 'active'
         }
 
         if (!isEditing) {
@@ -1507,13 +1813,160 @@ function Monthly() {
             {
               user_id: user.id,
               original_principal: p,
-              interest_paid:
-                interestPaidSoFar,
-              paid: paid,
-              principal_paid:
-                principalPaidSoFar,
               renewal_count: 0
             }
+          )
+        }
+
+        if (canApplyAlreadyPaid) {
+          Object.assign(
+            recordPayload,
+            {
+              paid: paidSoFar,
+              principal_paid:
+                principalPaidSoFar,
+              interest_paid:
+                interestPaidSoFar
+            }
+          )
+        }
+
+        const stagedCustomer = financeCustomer
+          ? {
+              id:
+                financeCustomer.id ??
+                financeCustomerId,
+              customer_id:
+                financeCustomer.customer_id ??
+                financeCustomerId,
+              full_name:
+                financeCustomer.full_name ||
+                trimmedCustomerName,
+              phone:
+                normalizePhone(
+                  financeCustomer.phone ||
+                    newCustomerPhone
+                ) || '',
+              address:
+                financeCustomer.address || ''
+            }
+          : null
+
+        const savedLoanPatch = isEditing
+          ? {
+              ...recordPayload,
+              id: submittedEditRecordId,
+              finance_id:
+                storedRecord?.finance_id,
+              paid: paidSoFar,
+              principal_paid:
+                principalPaidSoFar,
+              interest_paid:
+                interestPaidSoFar,
+              customer: stagedCustomer
+            }
+          : null
+
+        const reloadAndStageEdit = async (
+          reloadToken
+        ) => {
+          const refreshedRows =
+            await loadMonthlyLoans()
+          const listGeneration =
+            loadRequestRef.current
+
+          // A null result means the reload was superseded or failed. Keep the
+          // immediate patch already on screen instead of restaging stale data.
+          if (
+            !refreshedRows ||
+            reloadToken !== postSaveReloadRef.current
+          ) {
+            return
+          }
+
+          const refreshedLoan =
+            refreshedRows.find(
+              (row) =>
+                String(row.id) ===
+                String(editedRecordId)
+            )
+
+          if (!refreshedLoan) return
+
+          // Recheck payments after the reload. A collection posted between
+          // the guarded UPDATE and this read makes the refreshed balances
+          // authoritative; otherwise the just-saved patch wins over a stale
+          // reload.
+          let postedPaymentsAtReload =
+            hasPostedPayments
+          const lookupId =
+            ++paymentLookupRef.current
+          const paymentResult = await supabase.rpc(
+            'finance_has_posted_payments',
+            { p_finance_record_id: editedRecordId }
+          )
+
+          if (
+            lookupId === paymentLookupRef.current &&
+            reloadToken === postSaveReloadRef.current &&
+            !paymentResult.error
+          ) {
+            postedPaymentsAtReload = Boolean(
+              paymentResult.data
+            )
+          } else if (paymentResult.error) {
+            console.error(
+              'Monthly reload payment check error:',
+              paymentResult.error
+            )
+          }
+
+          if (
+            reloadToken !== postSaveReloadRef.current ||
+            listGeneration !== loadRequestRef.current
+          ) {
+            return
+          }
+
+          // If a posted collection makes the refreshed balances authoritative,
+          // read them once more after the status check so both decisions come
+          // from the same post-payment state.
+          let balanceLoan = refreshedLoan
+
+          if (postedPaymentsAtReload) {
+            const {
+              data: snapshotRecord,
+              error: snapshotError
+            } = await supabase
+              .from('finance_records')
+              .select(
+                'id, finance_id, paid, principal_paid, interest_paid, pending, loan_status, next_due_date'
+              )
+              .eq('id', editedRecordId)
+              .single()
+
+            if (
+              !snapshotError &&
+              snapshotRecord?.id
+            ) {
+              balanceLoan = {
+                ...refreshedLoan,
+                ...snapshotRecord
+              }
+            }
+          }
+
+          if (
+            reloadToken !== postSaveReloadRef.current ||
+            listGeneration !== loadRequestRef.current
+          ) {
+            return
+          }
+
+          stageEditedLoan(
+            savedLoanPatch,
+            balanceLoan,
+            postedPaymentsAtReload
           )
         }
 
@@ -1521,13 +1974,15 @@ function Monthly() {
         let saveError = null
 
         if (isEditing) {
-          const result = await withRecordedBalanceGuard(
-            supabase
-              .from('finance_records')
-              .update(recordPayload)
-              .eq('id', editingFinanceId),
-            recordedTotals
-          )
+          // The fresh read above already establishes the balance snapshot. Do
+          // not add balance predicates to the UPDATE itself: numeric formatting
+          // from PostgREST can make a normal edit affect zero rows and surface
+          // a false "finance account changed" error. The database guard still
+          // blocks payment-total changes once a collection is posted.
+          const result = await supabase
+            .from('finance_records')
+            .update(recordPayload)
+            .eq('id', editedRecordId)
             .select('id')
             .single()
 
@@ -1548,7 +2003,7 @@ function Monthly() {
           console.error(saveError)
 
           notify(t('collectionFinanceChanged'))
-          closeForm()
+          closeSubmittedForm()
           await loadMonthlyLoans()
           return
         }
@@ -1580,41 +2035,21 @@ function Monthly() {
           return
         }
 
+        if (savedLoanPatch) {
+          stageEditedLoan(savedLoanPatch)
+        }
+
         // =====================================
         // MONTHLY REPAYMENT SCHEDULE
         // =====================================
 
+        // Only rebuild the plan when no payments have been recorded. The reset
+        // RPC deletes and regenerates atomically, so an authorization failure
+        // cannot leave the loan without a schedule.
         let scheduleError = null
-        let shouldGenerateSchedule = true
-
-        if (isEditing) {
-          // Only rebuild the plan when no payments have been made yet. The
-          // reset RPC deletes and regenerates atomically, so an authorization
-          // failure cannot leave the loan without a schedule.
-          const {
-            data: existingPayments,
-            error: paymentCheckError
-          } = await supabase
-            .from('finance_payments')
-            .select('id')
-            .eq(
-              'finance_record_id',
-              editingFinanceId
-            )
-            .limit(1)
-
-          if (paymentCheckError) {
-            console.error(
-              'Monthly payment check error:',
-              paymentCheckError
-            )
-
-            scheduleError = paymentCheckError
-            shouldGenerateSchedule = false
-          } else if (existingPayments?.length) {
-            shouldGenerateSchedule = false
-          }
-        }
+        const shouldGenerateSchedule =
+          !isEditing ||
+          (!hasPostedPayments && !paymentCheckError)
 
         if (shouldGenerateSchedule) {
           const result = await supabase.rpc(
@@ -1646,8 +2081,10 @@ function Monthly() {
           )
 
           if (isEditing) {
-            closeForm()
-            await loadMonthlyLoans()
+            closeSubmittedForm()
+            await reloadAndStageEdit(
+              postSaveReloadRef.current
+            )
             return
           }
 
@@ -1670,13 +2107,15 @@ function Monthly() {
               {
                 financeId:
                   storedRecord?.finance_id ||
-                  `#${editingFinanceId}`
+                  `#${submittedEditRecordId}`
               }
             )
           )
 
-          closeForm()
-          await loadMonthlyLoans()
+          closeSubmittedForm()
+          await reloadAndStageEdit(
+            postSaveReloadRef.current
+          )
           return
         }
 
@@ -2507,6 +2946,10 @@ function Monthly() {
                 type="number"
                 min="0"
                 step="0.01"
+                aria-label={t(
+                  'interestAmount',
+                  'Interest Amount'
+                )}
                 value={
                   interestAmount
                 }
@@ -2551,10 +2994,18 @@ function Monthly() {
                 type="number"
                 min="0"
                 step="0.01"
+                aria-label={t(
+                  'alreadyPaid',
+                  'Already Paid'
+                )}
                 value={
                   alreadyPaid
                 }
-                readOnly={Boolean(editingFinanceId)}
+                readOnly={Boolean(
+                  editingFinanceId &&
+                    (!editingPaymentChecked ||
+                      editingHasPayments)
+                )}
                 onChange={(e) =>
                   setAlreadyPaid(
                     e.target.value

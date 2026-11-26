@@ -18,23 +18,6 @@ import CustomerAutocomplete, {
   getTrimmedCustomerName
 } from '../../components/CustomerAutocomplete'
 
-// Editing must never restore balances that were posted after the loan list was
-// read. The guard is part of the UPDATE statement, so a payment committing
-// between the fresh read and the write makes the update affect no rows.
-function withRecordedBalanceGuard(query, totals) {
-  return [
-    ['paid', totals.paid],
-    ['principal_paid', totals.principal_paid],
-    ['interest_paid', totals.interest_paid]
-  ].reduce(
-    (current, [column, value]) =>
-      current.or(
-        `${column}.eq.${Number(value || 0)},${column}.is.null`
-      ),
-    query
-  )
-}
-
 function Weekly() {
   const { t, i18n } = useTranslation()
   const { showToast } = useToast()
@@ -84,6 +67,16 @@ function Weekly() {
   const [principal, setPrincipal] = useState('')
   const [interestRate, setInterestRate] = useState('')
   const [alreadyPaid, setAlreadyPaid] = useState('0')
+
+  // "Already Paid" is editable for a saved loan only after a successful lookup
+  // confirms there are no posted collections. Pending and failed checks keep
+  // the field locked.
+  const [editingHasPayments, setEditingHasPayments] = useState(false)
+  const [editingPaymentChecked, setEditingPaymentChecked] = useState(false)
+  const editingPaymentCheckRef = useRef(0)
+  const paymentLookupRef = useRef(0)
+  const originalAlreadyPaidRef = useRef('0')
+
   const [numberOfWeeks, setNumberOfWeeks] = useState('')
   const [startDate, setStartDate] = useState('')
 
@@ -339,6 +332,11 @@ function Weekly() {
     editingFinanceIdRef.current = null
     pendingScheduleRecordIdRef.current = null
     loadedLoanValuesRef.current = null
+    editingPaymentCheckRef.current += 1
+    paymentLookupRef.current += 1
+    originalAlreadyPaidRef.current = '0'
+    setEditingHasPayments(false)
+    setEditingPaymentChecked(false)
     setEditingFinanceId(null)
     setEditingCustomer(null)
     setCustomer(providedCustomer)
@@ -361,6 +359,10 @@ function Weekly() {
   }
 
   const openAddWeekly = () => {
+    // A customer insert and loan write are a single save session. Do not let a
+    // new form replace one that has already started writing.
+    if (savingRef.current) return
+
     resetForm()
     setShowForm(true)
 
@@ -384,6 +386,10 @@ function Weekly() {
   }
 
   const editWeeklyLoan = (loan) => {
+    // A customer insert and loan write are a single save session. Do not let a
+    // new edit replace one that has already started writing.
+    if (savingRef.current) return
+
     const weeks = parseInt(
       String(loan.period || '').split(' ')[0],
       10
@@ -394,6 +400,7 @@ function Weekly() {
     const nextInterestAmount =
       loan.interest_accrual ?? loan.interest_due ?? 0
     const nextAlreadyPaid = loan.paid ?? 0
+    originalAlreadyPaidRef.current = String(nextAlreadyPaid)
     const nextWeeks =
       Number.isFinite(weeks) ? String(weeks) : ''
     const nextStartDate =
@@ -443,6 +450,45 @@ function Weekly() {
     )
     setCategoryError(false)
     setShowForm(true)
+
+    // Keep Already Paid locked until the lookup confirms there are no posted
+    // collections. Pending and failed checks must not unlock the field.
+    const paymentCheckId = ++editingPaymentCheckRef.current
+    const lookupId = ++paymentLookupRef.current
+    setEditingHasPayments(true)
+    setEditingPaymentChecked(false)
+
+    supabase
+      .rpc('finance_has_posted_payments', {
+        p_finance_record_id: loan.id
+      })
+      .then(({ data, error }) => {
+        if (
+          lookupId !== paymentLookupRef.current ||
+          paymentCheckId !==
+          editingPaymentCheckRef.current
+        ) {
+          return
+        }
+
+        if (error) {
+          console.error(
+            'Weekly payment check error:',
+            error
+          )
+
+          return
+        }
+
+        setEditingHasPayments(Boolean(data))
+        setEditingPaymentChecked(true)
+      })
+      .catch((error) =>
+        console.error(
+          'Weekly payment check error:',
+          error
+        )
+      )
 
     const isMobile =
       typeof window.matchMedia === 'function' &&
@@ -768,7 +814,6 @@ function Weekly() {
     principal,
     interestRate,
     interestAmount,
-    alreadyPaid,
     numberOfWeeks,
     startDate
   ])
@@ -836,6 +881,14 @@ function Weekly() {
     savingRef.current = true
 
     try {
+    // Capture the exact edit being submitted before any await. A different
+    // loan can be opened while authentication or customer creation is pending.
+    const submittedEditRecordId = editingFinanceId
+    const submittedEditSessionId =
+      editingPaymentCheckRef.current
+    const submittedOriginalPaid =
+      originalAlreadyPaidRef.current
+
     const p = Number(principal)
     const rate = Number(interestRate)
     const paid = Number(alreadyPaid || 0)
@@ -843,7 +896,7 @@ function Weekly() {
 
     // On edit the form holds the loan's stored interest, which may have been
     // typed directly, so keep it instead of recomputing from the rate.
-    const interest = editingFinanceId
+    const interest = submittedEditRecordId
       ? Number(interestAmount || 0)
       : Number(((p * rate) / 100).toFixed(2))
 
@@ -979,14 +1032,33 @@ function Weekly() {
       return
     }
 
+    // Authentication was awaited while the form could have been replaced.
+    if (
+      submittedEditSessionId !==
+        editingPaymentCheckRef.current ||
+      String(submittedEditRecordId ?? '') !==
+        String(editingFinanceId ?? '')
+    ) {
+      return
+    }
+
     setSaving(true)
 
     try {
+      const isEditing = Boolean(submittedEditRecordId)
+      const editedRecordId = submittedEditRecordId
+
+      const isCurrentEdit = () =>
+        submittedEditSessionId ===
+          editingPaymentCheckRef.current &&
+        String(editingFinanceId ?? '') ===
+          String(submittedEditRecordId ?? '')
+
       // A failed schedule must not turn the next submit into a second loan.
       // Reuse the already-saved record and only retry the schedule RPC.
       const retryScheduleRecordId = pendingScheduleRecordIdRef.current
 
-      if (retryScheduleRecordId && !editingFinanceId) {
+      if (retryScheduleRecordId && !submittedEditRecordId) {
         const {
           data: savedRecord,
           error: savedRecordError
@@ -996,12 +1068,16 @@ function Weekly() {
           .eq('id', retryScheduleRecordId)
           .single()
 
+        if (!isCurrentEdit()) return
+
         if (savedRecordError || !savedRecord?.id) {
           console.error(savedRecordError)
           pendingScheduleRecordIdRef.current = null
           showToast(t('collectionFinanceChanged'), 'error')
           return
         }
+
+        if (!isCurrentEdit()) return
 
         const retryResult = await supabase.rpc(
           'generate_weekly_schedule',
@@ -1046,8 +1122,6 @@ function Weekly() {
         return
       }
 
-      const isEditing = Boolean(editingFinanceId)
-
       // Re-read payment totals at submit time. The live list can be stale if a
       // collection was posted after it loaded.
       let storedRecord = null
@@ -1064,9 +1138,9 @@ function Weekly() {
         } = await supabase
           .from('finance_records')
           .select(
-            'id, finance_id, paid, principal_paid, interest_paid'
+            'id, finance_id, paid, principal_paid, interest_paid, pending, period, loan_status, next_due_date'
           )
-          .eq('id', editingFinanceId)
+          .eq('id', editedRecordId)
           .single()
 
         if (freshRecordError || !freshRecord?.id) {
@@ -1084,12 +1158,136 @@ function Weekly() {
         }
       }
 
+      if (!isCurrentEdit()) return
+
+      // The RPC checks payments in a security-definer function, so a role that
+      // may edit the loan cannot get a false empty result from RLS.
+      let hasPostedPayments = false
+      let paymentCheckError = null
+
+      if (isEditing) {
+        // Keep the submit-time result newer than any opening lookup.
+        const lookupId = ++paymentLookupRef.current
+        const result = await supabase.rpc(
+          'finance_has_posted_payments',
+          { p_finance_record_id: editedRecordId }
+        )
+
+        if (
+          lookupId !== paymentLookupRef.current ||
+          !isCurrentEdit()
+        ) {
+          return
+        }
+
+        paymentCheckError = result.error
+        hasPostedPayments = Boolean(result.data)
+      }
+
+      if (!isCurrentEdit()) return
+
+      const originallySeenPaid =
+        Number(submittedOriginalPaid || 0)
+      const alreadyPaidChanged =
+        isEditing && Number(paid) !== originallySeenPaid
+
+      // An explicit upfront edit must not overwrite a newer value saved by
+      // somebody else. The fresh read is the conflict reference.
+      if (
+        alreadyPaidChanged &&
+        Number(storedRecord?.paid || 0) !==
+          originallySeenPaid
+      ) {
+        showToast(t('collectionFinanceChanged'), 'error')
+        closeForm()
+        await loadWeeklyLoans()
+        return
+      }
+
+      // Apply the latest authoritative status before any rejection path so the
+      // form cannot keep Already Paid editable after a posted collection is
+      // discovered at submit time.
+      setEditingHasPayments(
+        paymentCheckError ? true : hasPostedPayments
+      )
+      setEditingPaymentChecked(!paymentCheckError)
+
+      // A posted collection has an installment plan that must stay aligned
+      // with the stored term. Details edits remain allowed; term changes are
+      // deferred until the loan has no posted collections.
+      const storedWeeks = parseInt(
+        String(storedRecord?.period || '').split(' ')[0],
+        10
+      )
+
+      if (
+        isEditing &&
+        hasPostedPayments &&
+        Number.isFinite(storedWeeks) &&
+        weeks !== storedWeeks
+      ) {
+        showToast(
+          t(
+            'weeklyTermLockedAfterPayments',
+            'Loan term cannot be changed after collections are posted.'
+          ),
+          'error'
+        )
+
+        return
+      }
+
+      // A failed status check cannot safely rewrite balances or duplicate a
+      // posted collection. Abort before the write and leave the form open.
+      if (paymentCheckError) {
+        console.error(
+          'Weekly payment status check error:',
+          paymentCheckError
+        )
+
+        showToast(
+          t(
+            'paymentStatusCheckFailed',
+            'Payment status could not be checked. Save was not completed. Please try again.'
+          ),
+          'error'
+        )
+
+        return
+      }
+
+      // Only an explicit change with no posted collections is written. A
+      // detail-only edit keeps the freshly read totals instead of restoring
+      // the amount this form originally displayed.
+      const canApplyAlreadyPaid =
+        !isEditing ||
+        (alreadyPaidChanged &&
+          !hasPostedPayments &&
+          !paymentCheckError)
+
+      if (
+        isEditing &&
+        hasPostedPayments &&
+        alreadyPaidChanged
+      ) {
+        setAlreadyPaid(String(recordedTotals.paid))
+
+        showToast(
+          t(
+            'alreadyPaidLockedAfterPayments',
+            'Already Paid cannot be changed after collections are posted.'
+          ),
+          'error'
+        )
+      }
+
       // =========================================
       // RESOLVE CUSTOMER (SELECT EXISTING OR CREATE NEW)
       // =========================================
 
       let financeCustomer = activeCustomer
       let financeCustomerId = customerId
+      let insertedCustomer = null
 
       if (!financeCustomer) {
         const existingCustomer = customerOptions.find(
@@ -1118,7 +1316,7 @@ function Weekly() {
                 created_by: user.id,
                 updated_at: new Date().toISOString()
               })
-              .select('id, customer_id, full_name')
+              .select('id, customer_id, full_name, phone, address')
               .single()
 
             if (!result.error) {
@@ -1140,15 +1338,22 @@ function Weekly() {
             )
           }
 
-          financeCustomer = insertResult.data
-          financeCustomerId = insertResult.data.id
-
-          setCustomer(financeCustomer)
-          setCustomerOptions((current) => [
-            ...current,
-            financeCustomer
-          ])
+          insertedCustomer = insertResult.data
+          financeCustomer = insertedCustomer
+          financeCustomerId = insertedCustomer.id
         }
+      }
+
+      // Customer creation was awaited; do not update the newer form or start
+      // the loan write if another edit has since been opened.
+      if (!isCurrentEdit()) return
+
+      if (insertedCustomer) {
+        setCustomer(insertedCustomer)
+        setCustomerOptions((current) => [
+          ...current,
+          insertedCustomer
+        ])
       }
 
       // =========================================
@@ -1157,13 +1362,39 @@ function Weekly() {
 
       // Posted payment totals come from the freshly read record, not the form
       // or the live list, so editing details cannot rewrite a newer balance.
-      const paidSoFar = recordedTotals.paid
+      // If no real collection exists, the upfront amount from the form is
+      // written to the same balances used on create.
+      const effectivePaid = canApplyAlreadyPaid
+        ? paid
+        : recordedTotals.paid
+      const paidSoFar = effectivePaid
 
-      const principalPaidSoFar =
-        recordedTotals.principal_paid
+      const principalPaidSoFar = canApplyAlreadyPaid
+        ? 0
+        : recordedTotals.principal_paid
 
-      const interestPaidSoFar =
-        recordedTotals.interest_paid
+      const interestPaidSoFar = canApplyAlreadyPaid
+        ? 0
+        : recordedTotals.interest_paid
+
+      // Weekly "Already Paid" is informational when no collection is posted,
+      // so it must not reduce the outstanding amount. After a collection, only
+      // principal/interest paid from real collections count against pending;
+      // `paid` can still include the informational upfront amount.
+      const postedPaidSoFar =
+        Number(recordedTotals.principal_paid || 0) +
+        Number(recordedTotals.interest_paid || 0)
+
+      const pendingSoFar =
+        !isEditing ||
+        (!hasPostedPayments && !paymentCheckError)
+          ? total
+          : paymentCheckError
+            ? Number(
+                storedRecord?.pending ??
+                  Math.max(total - postedPaidSoFar, 0)
+              )
+            : Math.max(total - postedPaidSoFar, 0)
 
       // =========================================
       // CREATE / UPDATE WEEKLY FINANCE ACCOUNT
@@ -1197,16 +1428,14 @@ function Weekly() {
 
         amount: total,
 
-        // Already Paid is recorded only when a loan is created. Edits keep
-        // the posted total from the saved record.
+        // Already Paid is written on create and when an edit explicitly changes
+        // it while no real collection exists. Other edits keep stored totals.
 
         // =====================================
         // PENDING / OUTSTANDING (RECOMPUTED ON EDIT)
         // =====================================
 
-        pending: isEditing
-          ? Math.max(total - paidSoFar, 0)
-          : total,
+        pending: pendingSoFar,
 
         calculation_mode: 'automatic',
 
@@ -1240,18 +1469,32 @@ function Weekly() {
 
         last_interest_date: startDate,
 
-        next_due_date: startDate,
+        // A rebuilt unpaid schedule starts on the new start date, so the due
+        // date must follow it. A paid loan skips the rebuild and keeps its
+        // stored lifecycle date.
+        next_due_date:
+          isEditing && hasPostedPayments
+            ? storedRecord?.next_due_date ?? startDate
+            : startDate,
 
-        loan_status: 'active'
+        loan_status: isEditing
+          ? storedRecord?.loan_status ?? 'active'
+          : 'active'
       }
 
       if (!isEditing) {
         Object.assign(recordPayload, {
           user_id: user.id,
 
-          paid,
-
           original_principal: p,
+
+          renewal_count: 0
+        })
+      }
+
+      if (canApplyAlreadyPaid) {
+        Object.assign(recordPayload, {
+          paid: paidSoFar,
 
           /*
             Keep principal outstanding at
@@ -1259,11 +1502,9 @@ function Weekly() {
             Already Paid must not reduce it.
           */
 
-          interest_paid: 0,
+          interest_paid: interestPaidSoFar,
 
-          principal_paid: 0,
-
-          renewal_count: 0
+          principal_paid: principalPaidSoFar
         })
       }
 
@@ -1271,13 +1512,15 @@ function Weekly() {
       let financeError = null
 
       if (isEditing) {
-        const result = await withRecordedBalanceGuard(
-          supabase
-            .from('finance_records')
-            .update(recordPayload)
-            .eq('id', editingFinanceId),
-          recordedTotals
-        )
+        // The fresh read above already establishes the balance snapshot. Do not
+        // add balance predicates to the UPDATE itself: numeric formatting from
+        // PostgREST can make a normal edit affect zero rows and surface a false
+        // "finance account changed" error. The database guard still blocks
+        // payment-total changes once a collection is posted.
+        const result = await supabase
+          .from('finance_records')
+          .update(recordPayload)
+          .eq('id', editedRecordId)
           .select('id')
           .single()
 
@@ -1334,34 +1577,13 @@ function Weekly() {
       // WEEKLY REPAYMENT SCHEDULE
       // =========================================
 
-      let shouldGenerateSchedule = true
+      // Rebuild the installment plan only when no real payments have been
+      // recorded against this loan. The reset RPC deletes and regenerates
+      // atomically, so an authorization failure cannot leave no schedule.
       let scheduleError = null
-
-      if (isEditing) {
-        // Rebuild the installment plan only when no real payments have been
-        // recorded against this loan. The reset RPC deletes and regenerates
-        // atomically, so an authorization failure cannot leave no schedule.
-        const {
-          data: existingPayments,
-          error: paymentCheckError
-        } = await supabase
-          .from('finance_payments')
-          .select('id')
-          .eq('finance_record_id', editingFinanceId)
-          .limit(1)
-
-        if (paymentCheckError) {
-          console.error(
-            'Weekly payment check error:',
-            paymentCheckError
-          )
-
-          scheduleError = paymentCheckError
-          shouldGenerateSchedule = false
-        } else if (existingPayments?.length) {
-          shouldGenerateSchedule = false
-        }
-      }
+      const shouldGenerateSchedule =
+        !isEditing ||
+        (!hasPostedPayments && !paymentCheckError)
 
       if (shouldGenerateSchedule) {
         const result = await supabase.rpc(
@@ -1416,7 +1638,7 @@ function Weekly() {
             {
               financeId:
                 storedRecord?.finance_id ||
-                `#${editingFinanceId}`
+                `#${submittedEditRecordId}`
             }
           ),
           'success'
@@ -1897,8 +2119,13 @@ function Weekly() {
                 type="number"
                 min="0"
                 step="0.01"
+                aria-label={t('alreadyPaid', 'Already Paid')}
                 value={alreadyPaid}
-                readOnly={Boolean(editingFinanceId)}
+                readOnly={Boolean(
+                  editingFinanceId &&
+                    (!editingPaymentChecked ||
+                      editingHasPayments)
+                )}
                 onChange={(e) =>
                   setAlreadyPaid(e.target.value)
                 }
