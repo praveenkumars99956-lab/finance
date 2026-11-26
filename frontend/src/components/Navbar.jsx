@@ -8,6 +8,7 @@ import LanguageSelector from './LanguageSelector'
 import SyncStatus from './SyncStatus'
 import VoiceLanguageSelector from './VoiceLanguageSelector'
 import { selectUi, setTheme } from '../store/slices/uiSlice'
+import { useDashboardMetrics } from '../hooks/useDashboardMetrics'
 
 function Navbar() {
   const location = useLocation()
@@ -16,12 +17,12 @@ function Navbar() {
   const { t } = useTranslation()
   const { theme } = useSelector(selectUi)
   const [adminProfile, setAdminProfile] = useState(null)
-  const [headerMetrics, setHeaderMetrics] = useState(null)
   const isDarkTheme = theme === 'dark'
   const isAuthPage = ['/', '/admin/create', '/forgot-password', '/reset-password'].includes(location.pathname)
   const isAdminPage = !isAuthPage &&
     !location.pathname.startsWith('/agent') &&
     !['/client', '/weekly', '/monthly'].includes(location.pathname)
+  const headerMetrics = useDashboardMetrics({ enabled: isAdminPage })
 
   useEffect(() => {
     document.documentElement.dataset.theme = theme
@@ -53,7 +54,6 @@ function Navbar() {
   useEffect(() => {
     if (!isAdminPage) {
       setAdminProfile(null)
-      setHeaderMetrics(null)
       return undefined
     }
 
@@ -72,24 +72,11 @@ function Navbar() {
         return
       }
 
-      const [profileResult, financeResult, pendingResult, paymentResult] = await Promise.all([
-        supabase
-          .from('profiles')
-          .select('full_name, role')
-          .eq('id', userData.user.id)
-          .maybeSingle(),
-        supabase
-          .from('finance_records')
-          .select('id', { count: 'exact', head: true }),
-        supabase
-          .from('finance_records')
-          .select('id', { count: 'exact', head: true })
-          .gt('pending', 0),
-        supabase
-          .from('finance_payments')
-          .select('id', { count: 'exact', head: true })
-          .gte('payment_date', getLocalDateString())
-      ])
+      const profileResult = await supabase
+        .from('profiles')
+        .select('full_name, role')
+        .eq('id', userData.user.id)
+        .maybeSingle()
 
       if (!active) return
 
@@ -101,22 +88,6 @@ function Navbar() {
           role: profileResult.data?.role
         })
       }
-
-      const metricResults = [
-        ['financeAccounts', financeResult],
-        ['pendingAccounts', pendingResult],
-        ['paymentsToday', paymentResult]
-      ]
-
-      const metrics = {}
-      metricResults.forEach(([key, result]) => {
-        if (result.error) {
-          console.error(`Unable to load admin header ${key}:`, result.error)
-        } else {
-          metrics[key] = result.count ?? 0
-        }
-      })
-      setHeaderMetrics(metrics)
     }
 
     loadAdminHeader()
@@ -246,14 +217,6 @@ function Navbar() {
       </div>
     </header>
   )
-}
-
-function getLocalDateString() {
-  const date = new Date()
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 export default Navbar

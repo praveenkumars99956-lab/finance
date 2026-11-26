@@ -1,67 +1,13 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { supabase } from '../../services/supabase'
+import { useDashboardMetrics } from '../../hooks/useDashboardMetrics'
 
 function AdminDashboard() {
   const navigate = useNavigate()
   const { t } = useTranslation()
-  const [dashboardMetrics, setDashboardMetrics] = useState(null)
+  const dashboardMetrics = useDashboardMetrics()
   const [activePortalFilter, setActivePortalFilter] = useState('all')
-
-  useEffect(() => {
-    let active = true
-    const today = getLocalDateString()
-
-    const loadDashboardMetrics = async () => {
-      const [financeResult, pendingResult, paymentResult, customersResult, agentsResult] = await Promise.all([
-        supabase
-          .from('finance_records')
-          .select('id', { count: 'exact', head: true }),
-        supabase
-          .from('finance_records')
-          .select('id', { count: 'exact', head: true })
-          .gt('pending', 0),
-        supabase
-          .from('finance_payments')
-          .select('id', { count: 'exact', head: true })
-          .gte('payment_date', today),
-        supabase
-          .from('customers')
-          .select('id', { count: 'exact', head: true }),
-        supabase
-          .from('agents')
-          .select('id', { count: 'exact', head: true })
-      ])
-
-      if (!active) return
-
-      const metrics = [
-        ['financeAccounts', financeResult],
-        ['pendingAccounts', pendingResult],
-        ['paymentsToday', paymentResult],
-        ['customersCount', customersResult],
-        ['agentsCount', agentsResult]
-      ]
-      const nextMetrics = {}
-
-      metrics.forEach(([key, result]) => {
-        if (result.error) {
-          console.error(`Unable to load dashboard ${key}:`, result.error)
-        } else {
-          nextMetrics[key] = result.count ?? 0
-        }
-      })
-
-      setDashboardMetrics(nextMetrics)
-    }
-
-    loadDashboardMetrics()
-
-    return () => {
-      active = false
-    }
-  }, [])
 
   return (
     <div className="admin-dashboard-page">
@@ -139,9 +85,9 @@ function AdminDashboard() {
 
       {/* Stats Row */}
       <div className="admin-dashboard-stats">
-        <div
-          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px]"
-          onClick={() => navigate('/loans')}
+        <Link
+          to="/loans"
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px] no-underline"
         >
           <div className="flex flex-col gap-1 min-w-0">
             <span className="text-xs font-semibold uppercase tracking-wider text-[#7B6BA0]">{t('financeAccounts', 'Finance Accounts')}</span>
@@ -152,11 +98,11 @@ function AdminDashboard() {
           <div className="w-10 h-10 rounded-xl bg-[#EDE5FF] flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[#351078] text-[20px]">payments</span>
           </div>
-        </div>
+        </Link>
 
-        <div
-          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px]"
-          onClick={() => navigate('/pending')}
+        <Link
+          to="/pending"
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px] no-underline"
         >
           <div className="flex flex-col gap-1 min-w-0">
             <span className="text-xs font-semibold uppercase tracking-wider text-[#7B6BA0]">{t('pendingAccounts', 'Pending Accounts')}</span>
@@ -167,11 +113,11 @@ function AdminDashboard() {
           <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-amber-600 text-[20px]">warning</span>
           </div>
-        </div>
+        </Link>
 
-        <div
-          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px]"
-          onClick={() => navigate('/payments')}
+        <Link
+          to="/payments"
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px] no-underline"
         >
           <div className="flex flex-col gap-1 min-w-0">
             <span className="text-xs font-semibold uppercase tracking-wider text-[#7B6BA0]">{t('paymentsToday', 'Payments Today')}</span>
@@ -182,11 +128,11 @@ function AdminDashboard() {
           <div className="w-10 h-10 rounded-xl bg-[#EDE5FF] flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[#351078] text-[20px]">receipt_long</span>
           </div>
-        </div>
+        </Link>
 
-        <div
-          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px]"
-          onClick={() => navigate('/customers')}
+        <Link
+          to="/customers"
+          className="bg-white rounded-2xl shadow-sm border border-purple-100 p-5 sm:p-6 flex items-center justify-between gap-4 cursor-pointer hover:shadow-md transition-shadow min-h-[108px] no-underline"
         >
           <div className="flex flex-col gap-1 min-w-0">
             <span className="text-xs font-semibold uppercase tracking-wider text-[#7B6BA0]">{t('totalCustomers', 'Total Customers')}</span>
@@ -197,7 +143,7 @@ function AdminDashboard() {
           <div className="w-10 h-10 rounded-xl bg-[#EDE5FF] flex items-center justify-center shrink-0">
             <span className="material-symbols-outlined text-[#351078] text-[20px]">group</span>
           </div>
-        </div>
+        </Link>
       </div>
 
       {/* Bento Grid of Navigation Cards */}
@@ -598,14 +544,6 @@ function AdminDashboard() {
       </div>
     </div>
   )
-}
-
-function getLocalDateString() {
-  const date = new Date()
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
 }
 
 export default AdminDashboard

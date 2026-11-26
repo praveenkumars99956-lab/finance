@@ -448,6 +448,28 @@ test.describe('full app sweep - admin', () => {
     await expect(page.locator('#admin-sidebar')).not.toHaveClass(/is-open/)
   })
 
+  test('dashboard summary cards link to their live views', async () => {
+    await page.goto('/admin')
+
+    const stats = page.locator('.admin-dashboard-stats')
+    const cards = [
+      [/finance accounts/i, '/loans'],
+      [/pending accounts/i, '/pending'],
+      [/payments today/i, '/payments'],
+      [/total customers/i, '/customers']
+    ]
+
+    for (const [name, path] of cards) {
+      await expect(stats.getByRole('link', { name })).toHaveAttribute(
+        'href',
+        path
+      )
+    }
+
+    await stats.getByRole('link', { name: /pending accounts/i }).click()
+    await expect(page).toHaveURL((url) => url.pathname === '/pending')
+  })
+
   test('no uncaught page errors on admin pages', async () => {
     expect(pageErrors).toEqual([])
   })
