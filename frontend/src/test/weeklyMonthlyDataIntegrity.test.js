@@ -7,11 +7,11 @@ const here = path.dirname(fileURLToPath(import.meta.url))
 const frontendRoot = path.resolve(here, '../..')
 
 const weekly = readFileSync(
-  path.join(frontendRoot, 'src/pages/client/Weekly.jsx'),
+  path.join(frontendRoot, 'src/pages/admin/Weekly.jsx'),
   'utf8'
 )
 const monthly = readFileSync(
-  path.join(frontendRoot, 'src/pages/client/Monthly.jsx'),
+  path.join(frontendRoot, 'src/pages/admin/Monthly.jsx'),
   'utf8'
 )
 const collectionMonthMigration = readFileSync(

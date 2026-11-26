@@ -77,7 +77,7 @@ async function rebuildWeeklySchedule(recordId, isEditing) {
 
   if (removed.error) {
     // Some older projects grant no direct DELETE on this table to the
-    // client role. The loan record is already saved, so let the existing
+    // restricted role. The loan record is already saved, so let the existing
     // security-definer generator run rather than reporting a false save
     // failure. It keeps the current plan when one already exists.
     const denied =

@@ -81,7 +81,7 @@ function AgentDashboard() {
       if (!profile) throw new Error(t('agentProfileNotAccessible'))
       const role = String(profile.role || '').trim().toLowerCase()
       if (role !== 'agent') {
-        const roleLabel = ['admin', 'agent', 'client'].includes(role)
+        const roleLabel = ['admin', 'agent'].includes(role)
           ? t(role)
           : role || t('notAssigned')
         throw new Error(t('agentWrongRole', { role: roleLabel }))

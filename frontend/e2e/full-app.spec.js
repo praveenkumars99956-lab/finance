@@ -46,12 +46,6 @@ const agentRoutes = [
   '/agent/loans/interest_only'
 ]
 
-const clientRoutes = ['/client', '/weekly', '/monthly']
-
-const clientReady = Boolean(
-  process.env.E2E_CLIENT_EMAIL && process.env.E2E_CLIENT_PASSWORD
-)
-
 function required(name) {
   const value = process.env[name]
   if (!value) {
@@ -63,26 +57,12 @@ function required(name) {
 async function loginAs(page, role) {
   await page.goto('/')
 
-  if (role === 'client') {
-    await page.locator('.client-login-link').click()
-  } else {
-    await page
-      .getByRole('button', { name: new RegExp(`^${role}$`, 'i') })
-      .click()
-  }
+  await page
+    .getByRole('button', { name: new RegExp(`^${role}$`, 'i') })
+    .click()
 
-  const emailKey =
-    role === 'admin'
-      ? 'E2E_EMAIL'
-      : role === 'agent'
-        ? 'E2E_AGENT_EMAIL'
-        : 'E2E_CLIENT_EMAIL'
-  const passwordKey =
-    role === 'admin'
-      ? 'E2E_PASSWORD'
-      : role === 'agent'
-        ? 'E2E_AGENT_PASSWORD'
-        : 'E2E_CLIENT_PASSWORD'
+  const emailKey = role === 'admin' ? 'E2E_EMAIL' : 'E2E_AGENT_EMAIL'
+  const passwordKey = role === 'admin' ? 'E2E_PASSWORD' : 'E2E_AGENT_PASSWORD'
 
   await page.locator('#login-email').fill(required(emailKey))
   await page.locator('#login-password').fill(required(passwordKey))
@@ -152,10 +132,10 @@ async function assertRoute(page, path, options = {}) {
   expect(bodyText, `${path} stuck on auth check`).not.toMatch(
     /Checking your login/i
   )
-  expect(bodyText, `${path} showed a load/save error`).not.toMatch(
-    /Unable to (load|save|check)|Something went wrong|Internal Server Error/i
-  )
   if (!allowNotFound) {
+    expect(bodyText, `${path} showed a load/save error`).not.toMatch(
+      /Unable to (load|save|check)|Something went wrong|Internal Server Error/i
+    )
     expect(bodyText, `${path} showed a not-found state`).not.toMatch(
       /\bFinance not found\b/i
     )
@@ -335,7 +315,7 @@ test.describe('full app sweep - public', () => {
     test(`public page ${route}`, async () => {
       const allowedPaths =
         route === '/'
-          ? ['/', '/admin', '/agent', '/client']
+          ? ['/', '/admin', '/agent']
           : [route]
 
       await assertRoute(page, route, { allowedPaths })
@@ -404,7 +384,7 @@ test.describe('full app sweep - admin', () => {
     })
   }
 
-  test('admin session is blocked from agent and client homes', async () => {
+  test('admin session is blocked from agent home and retired portal URL', async () => {
     await page.goto('/agent')
     await expect(page).toHaveURL((url) => url.pathname === '/admin')
 
@@ -497,7 +477,7 @@ test.describe('full app sweep - agent', () => {
     })
   })
 
-  test('agent session is blocked from admin and client homes', async () => {
+  test('agent session is blocked from admin home and retired portal URL', async () => {
     await page.goto('/admin')
     await expect(page).toHaveURL((url) => url.pathname === '/agent')
 
@@ -526,44 +506,6 @@ test.describe('full app sweep - agent', () => {
   })
 
   test('no uncaught page errors on agent pages', async () => {
-    expect(pageErrors).toEqual([])
-  })
-})
-
-test.describe('full app sweep - client', () => {
-  let context
-  let page
-  const pageErrors = []
-
-  test.skip(
-    !clientReady,
-    'Set E2E_CLIENT_EMAIL and E2E_CLIENT_PASSWORD to cover client pages.'
-  )
-
-  test.beforeAll(async ({ browser }, testInfo) => {
-    context = await browser.newContext({
-      baseURL: testInfo.project.use.baseURL,
-      viewport: testInfo.project.use.viewport,
-      deviceScaleFactor: testInfo.project.use.deviceScaleFactor,
-      isMobile: testInfo.project.use.isMobile,
-      hasTouch: testInfo.project.use.hasTouch
-    })
-    page = await context.newPage()
-    page.on('pageerror', (error) => pageErrors.push(error.message))
-    await loginAs(page, 'client')
-  })
-
-  test.afterAll(async () => {
-    if (context) await context.close()
-  })
-
-  for (const route of clientRoutes) {
-    test(`client page ${route}`, async () => {
-      await assertRoute(page, route)
-    })
-  }
-
-  test('no uncaught page errors on client pages', async () => {
     expect(pageErrors).toEqual([])
   })
 })

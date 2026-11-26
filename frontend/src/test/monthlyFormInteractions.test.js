@@ -23,8 +23,8 @@ function section(source, startMarker, endMarker) {
   return source.slice(start, end)
 }
 
-const monthly = readSource('src/pages/client/Monthly.jsx')
-const weekly = readSource('src/pages/client/Weekly.jsx')
+const monthly = readSource('src/pages/admin/Monthly.jsx')
+const weekly = readSource('src/pages/admin/Weekly.jsx')
 const selectMenuCss = readSource('src/styles/select-menu.css')
 const motionCss = readSource('src/styles/motion.css')
 

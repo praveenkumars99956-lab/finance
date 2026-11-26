@@ -108,9 +108,9 @@ write on `web1` invalidates `web2` within one version check.
 |---|---|---|
 | `admin` | `/admin` | every admin route, `/weekly`, `/monthly` |
 | `agent` | `/agent` | `/agent/*` only |
-| `client` | `/client` | `/client`, `/weekly`, `/monthly` |
 
-There is no crossover between `/agent/*` and the admin console. `AuthBoundary`
+The former `/client` portal is retired: the route is gone and the URL is denied
+to every role. There is no crossover between `/agent/*` and the admin console. `AuthBoundary`
 redirects a mismatched role to its own home instead of rendering the wrong
 portal.
 
@@ -119,7 +119,7 @@ portal.
 2. Email binding from `public.role_bindings`.
 3. `public.profiles.role`.
 4. JWT metadata claim (only when the database is unreachable).
-5. `client` (least privilege).
+5. `client` (server-side least privilege only; the frontend denies it and signs out).
 
 The frontend mirror of this order is `frontend/src/services/rbac.js`
 (`resolveAccess`). The server result is loaded by
@@ -154,8 +154,8 @@ VITE_RBAC_STRICT=false
 
 - A binding and a profile role that disagree are treated as a **conflict** and
   denied at login until corrected.
-- `VITE_RBAC_STRICT=true` pins unbound accounts to the read-only client portal.
-  Enable it only after `role_bindings` is populated.
+- `VITE_RBAC_STRICT=true` gives unbound accounts no frontend role and signs them
+  out. Enable it only after `role_bindings` is populated.
 
 ### Isolation enforced at three layers
 1. **SPA** — `AuthBoundary` consults the resolved role for every protected path.

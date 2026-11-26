@@ -196,7 +196,6 @@ body::before {
 .monthly-page,
 .modern-loan-manage,
 .settings-page,
-.client-dashboard,
 .agent-dashboard-page,
 .agent-portal {
   background-color: transparent;
@@ -382,7 +381,6 @@ body:has(.admin-shell),
 .daily-loan-page,
 .weekly-page,
 .monthly-page,
-.client-dashboard,
 .agent-dashboard-page {
   width: min(1240px, calc(100% - clamp(1.5rem, 5vw, 3rem))) !important;
   margin-inline: auto !important;
@@ -446,7 +444,6 @@ textarea {
 .monthly-page h1,
 .modern-loan-manage h1,
 .settings-page h1,
-.client-dashboard h1,
 .agent-dashboard-page h1 {
   color: var(--fs-royal);
   letter-spacing: -0.03em;
@@ -732,82 +729,6 @@ button[type='submit']:hover {
   border: 1px solid var(--fs-line);
 }
 
-/* --------------------------------------------------------------------------
-   Client portal & standalone page accents
-   -------------------------------------------------------------------------- */
-
-/* Legacy client hero -> royal purple gradient */
-.client-welcome {
-  background:
-    radial-gradient(circle at 84% 50%, rgba(255, 255, 255, 0.12) 0 110px, transparent 111px),
-    linear-gradient(115deg, var(--fs-royal-dark), var(--fs-royal) 62%, var(--fs-purple-bright)) !important;
-  box-shadow: 0 22px 48px -24px rgba(53, 16, 120, 0.7) !important;
-}
-
-.client-eyebrow {
-  color: rgba(242, 236, 255, 0.82) !important;
-}
-
-.client-welcome p {
-  color: rgba(242, 236, 255, 0.86) !important;
-}
-
-.client-welcome-mark {
-  border-color: rgba(255, 255, 255, 0.3) !important;
-  background: rgba(255, 255, 255, 0.14) !important;
-}
-
-.client-payment-card {
-  background: rgba(255, 255, 255, 0.92) !important;
-  border: 1px solid var(--fs-line) !important;
-  border-radius: var(--fs-radius-lg) !important;
-  box-shadow: var(--fs-shadow) !important;
-  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
-}
-
-.client-payment-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(124, 77, 188, 0.4) !important;
-  box-shadow: var(--fs-shadow-lg) !important;
-}
-
-.client-payment-icon {
-  background: var(--fs-royal-soft) !important;
-  color: var(--fs-royal) !important;
-}
-
-.client-payment-card--monthly .client-payment-icon {
-  background: var(--fs-mist-deep) !important;
-  color: var(--fs-purple) !important;
-}
-
-.client-payment-arrow {
-  color: var(--fs-royal) !important;
-}
-
-.client-payment-copy strong {
-  color: var(--fs-ink) !important;
-}
-
-.client-payment-copy span {
-  color: var(--fs-ink-muted) !important;
-}
-
-.client-dashboard-footer {
-  border-top-color: var(--fs-line) !important;
-  color: var(--fs-ink-muted) !important;
-}
-
-.client-logout-button {
-  background: rgba(255, 255, 255, 0.9) !important;
-  border: 1px solid var(--fs-line) !important;
-  color: var(--fs-danger) !important;
-}
-
-.client-logout-button:hover {
-  background: var(--fs-danger-bg) !important;
-}
-
 /* Legacy headers that still hardcode blue tones */
 .daily-loan-header > p {
   color: var(--fs-purple) !important;
@@ -1082,7 +1003,6 @@ textarea:focus-visible,
   .daily-loan-page,
   .weekly-page,
   .monthly-page,
-  .client-dashboard,
   .agent-dashboard-page {
     width: calc(100% - 1.5rem) !important;
     padding-top: calc(var(--fs-navbar-h) + 1.25rem) !important;
@@ -1256,27 +1176,11 @@ textarea:focus-visible,
 :root[data-theme='dark'] .report-filters,
 :root[data-theme='dark'] .login-card,
 :root[data-theme='dark'] .auth-flow-card,
-:root[data-theme='dark'] .client-payment-card,
 :root[data-theme='dark'] .settings-card,
 :root[data-theme='dark'] .daily-loan-list-section,
 :root[data-theme='dark'] .loan-list-section {
   background: rgba(21, 11, 40, 0.9) !important;
   border-color: rgba(201, 182, 255, 0.14) !important;
-}
-
-:root[data-theme='dark'] .client-payment-icon {
-  background: rgba(201, 182, 255, 0.14) !important;
-  color: var(--fs-royal) !important;
-}
-
-:root[data-theme='dark'] .client-payment-card--monthly .client-payment-icon {
-  background: rgba(168, 132, 242, 0.16) !important;
-  color: var(--fs-purple) !important;
-}
-
-:root[data-theme='dark'] .client-logout-button {
-  background: rgba(255, 255, 255, 0.04) !important;
-  border-color: var(--fs-line) !important;
 }
 
 :root[data-theme='dark'] input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),

@@ -85,8 +85,6 @@ function AgentToday() {
       if (role !== 'agent') {
         if (role === 'admin') {
           navigate('/admin')
-        } else if (role === 'client') {
-          navigate('/client')
         } else {
           await supabase.auth.signOut({ scope: 'local' })
           navigate('/')

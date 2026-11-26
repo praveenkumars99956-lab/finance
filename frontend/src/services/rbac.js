@@ -14,8 +14,7 @@
 
 export const ROLES = Object.freeze({
   ADMIN: 'admin',
-  AGENT: 'agent',
-  CLIENT: 'client'
+  AGENT: 'agent'
 })
 
 const PUBLIC_PATHS = Object.freeze([
@@ -27,8 +26,7 @@ const PUBLIC_PATHS = Object.freeze([
 
 export const ROLE_HOME = Object.freeze({
   admin: '/admin',
-  agent: '/agent',
-  client: '/client'
+  agent: '/agent'
 })
 
 function parseList(value) {
@@ -57,7 +55,7 @@ const runtimeConfig = {
 
 export function normalizeRole(value) {
   const role = String(value || '').trim().toLowerCase()
-  return role === ROLES.ADMIN || role === ROLES.AGENT || role === ROLES.CLIENT ? role : null
+  return role === ROLES.ADMIN || role === ROLES.AGENT ? role : null
 }
 
 export function normalizeEmail(value) {
@@ -133,8 +131,8 @@ export function resolveAccess(user, profileRole = null, serverRole = null, confi
     reason = `email binding (${emailBinding}) disagrees with profile role (${normalizedProfileRole})`
   } else if (config.strictEmailBindings && !emailBinding && !normalizedServerRole) {
     // Strict mode: without a server or email binding, no privileged role is
-    // trusted. The user is pinned to the least-privileged portal.
-    role = ROLES.CLIENT
+    // trusted. The account gets no app role and is signed out.
+    role = null
     source = 'strict-fallback'
     reason = 'strict email bindings enabled and the account has no trusted role binding'
   }
@@ -152,9 +150,8 @@ export function resolveAccess(user, profileRole = null, serverRole = null, confi
 }
 
 /**
- * Route → role-family map. Shared loan pages are the only crossover: admins
- * create loans there and clients use them to record their own payment, but
- * agents are always excluded.
+ * Route → role-family map. The loan forms are admin-only; agents are always
+ * excluded from the admin console.
  */
 export function canAccessPath(roleOrAccess, pathname) {
   const role = typeof roleOrAccess === 'string' ? normalizeRole(roleOrAccess) : roleOrAccess?.role
@@ -167,15 +164,15 @@ export function canAccessPath(roleOrAccess, pathname) {
     return role === ROLES.AGENT
   }
 
-  if (path === '/client') {
-    return role === ROLES.CLIENT
-  }
+  // Retired client portal: never grant access, so the auth boundary redirects
+  // stale links to the signed-in role's home instead of the public login page.
+  if (path === '/client') return false
 
   if (path === '/weekly' || path === '/monthly') {
-    return role === ROLES.ADMIN || role === ROLES.CLIENT
+    return role === ROLES.ADMIN
   }
 
-  // Everything else is the admin console. Agents and clients are rejected.
+  // Everything else is the admin console. Agents are rejected.
   return role === ROLES.ADMIN
 }
 
@@ -192,11 +189,6 @@ export function canAccessAdmin(roleOrAccess) {
 export function canAccessAgent(roleOrAccess) {
   const role = typeof roleOrAccess === 'string' ? normalizeRole(roleOrAccess) : roleOrAccess?.role
   return role === ROLES.AGENT
-}
-
-export function canAccessClient(roleOrAccess) {
-  const role = typeof roleOrAccess === 'string' ? normalizeRole(roleOrAccess) : roleOrAccess?.role
-  return role === ROLES.CLIENT
 }
 
 export const accessConfig = runtimeConfig

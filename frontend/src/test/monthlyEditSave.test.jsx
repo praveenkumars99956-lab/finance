@@ -178,7 +178,7 @@ vi.mock('react-i18next', () => ({
   })
 }))
 
-import Monthly from '../pages/client/Monthly'
+import Monthly from '../pages/admin/Monthly'
 import { notify } from '../utils/notify'
 import { supabase } from '../services/supabase'
 

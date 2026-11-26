@@ -88,7 +88,8 @@ bindings, and workspace isolation still decide what may be written.
 |---|---|---|---|
 | admin | `/admin` | allowed | redirect to `/admin` |
 | agent | `/agent` | redirect to `/agent` | allowed |
-| client | `/client` | redirect to `/client` | redirect to `/client` |
+
+The retired `/client` URL redirects to the signed-in role's home.
 
 ## 5. Tuning
 

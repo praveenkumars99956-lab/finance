@@ -21,7 +21,7 @@ const user = (email, role) => ({
 
 describe('resolveAccess', () => {
   it('prefers the server role over the profile role', () => {
-    const access = resolveAccess(user('owner@example.com'), 'client', 'admin', config)
+    const access = resolveAccess(user('owner@example.com'), 'agent', 'admin', config)
     expect(access.role).toBe('admin')
     expect(access.source).toBe('server')
   })
@@ -38,17 +38,17 @@ describe('resolveAccess', () => {
   })
 
   it('falls back to the profile role when nothing matches', () => {
-    const access = resolveAccess(user('person@example.com'), 'client', null, config)
-    expect(access.role).toBe('client')
+    const access = resolveAccess(user('person@example.com'), 'agent', null, config)
+    expect(access.role).toBe('agent')
     expect(access.conflict).toBe(false)
   })
 
-  it('pins unbound accounts to client in strict mode', () => {
+  it('denies unbound accounts in strict mode', () => {
     const access = resolveAccess(user('person@example.com'), 'agent', null, {
       ...config,
       strictEmailBindings: true
     })
-    expect(access.role).toBe('client')
+    expect(access.role).toBe(null)
     expect(access.source).toBe('strict-fallback')
   })
 
@@ -69,10 +69,16 @@ describe('canAccessPath', () => {
     expect(canAccessPath('admin', '/admin')).toBe(true)
   })
 
-  it('keeps shared loan pages admin + client only', () => {
+  it('keeps loan pages admin only', () => {
     expect(canAccessPath('admin', '/weekly')).toBe(true)
-    expect(canAccessPath('client', '/monthly')).toBe(true)
+    expect(canAccessPath(null, '/monthly')).toBe(false)
     expect(canAccessPath('agent', '/weekly')).toBe(false)
+  })
+
+  it('keeps the retired client portal URL closed to every role', () => {
+    expect(canAccessPath('admin', '/client')).toBe(false)
+    expect(canAccessPath('agent', '/client')).toBe(false)
+    expect(canAccessPath(null, '/client')).toBe(false)
   })
 
   it('allows public routes for anonymous visitors', () => {
@@ -86,7 +92,6 @@ describe('getDefaultPath', () => {
   it('maps each role to its own portal', () => {
     expect(getDefaultPath('admin')).toBe('/admin')
     expect(getDefaultPath('agent')).toBe('/agent')
-    expect(getDefaultPath('client')).toBe('/client')
     expect(getDefaultPath(null)).toBe('/')
   })
 })

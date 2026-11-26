@@ -22,9 +22,8 @@ const AdminCreate = lazy(() => import('./pages/auth/AdminCreate'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
 
-const ClientDashboard = lazy(() => import('./pages/client/ClientDashboard'))
-const Weekly = lazy(() => import('./pages/client/Weekly'))
-const Monthly = lazy(() => import('./pages/client/Monthly'))
+const Weekly = lazy(() => import('./pages/admin/Weekly'))
+const Monthly = lazy(() => import('./pages/admin/Monthly'))
 
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'))
 const Customers = lazy(() => import('./pages/admin/Customers'))
@@ -117,17 +116,6 @@ function App() {
             path="/reset-password"
             element={
               <ResetPassword />
-            }
-          />
-
-          {/* =================================
-              CLIENT
-          ================================== */}
-
-          <Route
-            path="/client"
-            element={
-              <ClientDashboard />
             }
           />
 

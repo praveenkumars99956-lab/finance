@@ -147,11 +147,11 @@ function Login() {
       // The selector expresses login intent; the verified role authorizes access.
       if (role !== selectedRole) {
         // Tell the user what the account actually is. Without this, an agent
-        // signing in with a legacy admin/client account (same contact email,
+        // signing in with an admin/agent account (same contact email,
         // different auth user) only sees a generic mismatch.
         setDetectedRole(role)
         setErrorMessage(
-          ['admin', 'agent', 'client'].includes(role)
+          ['admin', 'agent'].includes(role)
             ? 'accountRoleMismatchRole'
             : 'accountRoleMismatch'
         )
@@ -248,21 +248,6 @@ function Login() {
 
         navigate(
           '/agent',
-          {
-            replace: true
-          }
-        )
-
-        return
-      }
-
-      // =========================================
-      // CLIENT LOGIN
-      // =========================================
-
-      if (role === 'client') {
-        navigate(
-          '/client',
           {
             replace: true
           }
@@ -441,13 +426,6 @@ function Login() {
           </button>
 
         </form>
-        <div className="client-login-prompt">
-          <button type="button" disabled={loading}
-            onClick={() => { setSelectedRole('client'); setErrorMessage(''); setPassword('') }}
-            className="client-login-link">
-            {t('clientLogin')}
-          </button>
-        </div>
 
       </div>
 

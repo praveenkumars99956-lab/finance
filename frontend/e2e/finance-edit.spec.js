@@ -11,11 +11,9 @@ function required(name) {
 async function login(page) {
   await page.goto('/')
 
-  const role = (process.env.E2E_ROLE || 'client').toLowerCase()
+  const role = (process.env.E2E_ROLE || 'admin').toLowerCase()
 
-  if (role === 'client') {
-    await page.locator('.client-login-link').click()
-  } else if (role === 'admin' || role === 'agent') {
+  if (role === 'admin' || role === 'agent') {
     await page
       .getByRole('button', { name: new RegExp(`^${role}$`, 'i') })
       .click()

@@ -1125,155 +1125,6 @@ textarea:focus-visible {
   line-height: 1.55;
 }
 
-.client-dashboard {
-  width: min(1050px, calc(100% - 40px));
-  min-height: calc(100vh - 72px);
-  margin: 0 auto;
-  padding: clamp(88px, 8vw, 104px) 0 32px;
-}
-
-.client-welcome {
-  position: relative;
-  display: flex;
-  min-height: 230px;
-  align-items: center;
-  justify-content: space-between;
-  overflow: hidden;
-  padding: clamp(26px, 6vw, 56px);
-  border-radius: 26px;
-  background:
-    radial-gradient(circle at 84% 50%, rgba(255, 255, 255, 0.1) 0 110px, transparent 111px),
-    linear-gradient(115deg, #0e4e40, #146b55 70%, #1d8066);
-  box-shadow: 0 20px 46px rgba(14, 78, 64, 0.16);
-}
-
-.client-welcome-copy {
-  position: relative;
-  z-index: 1;
-}
-
-.client-eyebrow {
-  color: #e8deff;
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.client-welcome h1 {
-  margin: 12px 0 8px;
-  color: white;
-  font-size: clamp(30px, 5vw, 42px);
-  letter-spacing: -0.045em;
-}
-
-.client-welcome p {
-  margin: 0;
-  color: #f2ecff;
-  font-size: 16px;
-}
-
-.client-welcome-mark {
-  display: grid;
-  width: clamp(76px, 12vw, 120px);
-  height: clamp(76px, 12vw, 120px);
-  flex: 0 0 auto;
-  place-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 32px;
-  background: rgba(255, 255, 255, 0.11);
-  color: white;
-  font-size: clamp(40px, 7vw, 62px);
-  font-weight: 700;
-}
-
-.client-payment-options {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px;
-  margin-top: 24px;
-}
-
-.client-payment-card {
-  display: flex;
-  min-height: 142px;
-  align-items: center;
-  gap: 18px;
-  padding: 24px;
-  border: 1px solid var(--line);
-  border-radius: 19px;
-  background: var(--surface);
-  color: var(--ink);
-  text-align: left;
-  cursor: pointer;
-  box-shadow: var(--shadow-card);
-}
-
-.client-payment-card:hover {
-  transform: translateY(-3px);
-  border-color: #b7d7c6;
-  box-shadow: 0 18px 36px rgba(27, 55, 42, 0.12);
-}
-
-.client-payment-icon {
-  display: grid;
-  width: 54px;
-  height: 54px;
-  flex: 0 0 auto;
-  place-items: center;
-  border-radius: 17px;
-  background: var(--brand-soft);
-  color: var(--brand);
-  font-size: 26px;
-  font-weight: 700;
-}
-
-.client-payment-card--monthly .client-payment-icon {
-  background: #fff3dc;
-  color: #a16d17;
-}
-
-.client-payment-copy {
-  display: grid;
-  gap: 5px;
-}
-
-.client-payment-copy strong {
-  font-size: 18px;
-}
-
-.client-payment-arrow {
-  margin-left: auto;
-  color: var(--brand);
-  font-size: 23px;
-}
-
-.client-dashboard-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-top: 34px;
-  padding-top: 20px;
-  border-top: 1px solid var(--line);
-  color: var(--ink-muted);
-  font-size: 13px;
-}
-
-.client-logout-button {
-  padding: 9px 13px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: white;
-  color: #a63b34;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.client-logout-button:hover {
-  background: #fff3f1;
-}
-
 .login-page {
   position: relative;
   isolation: isolate;
@@ -1567,49 +1418,6 @@ table {
     padding: 18px;
   }
 
-  .client-dashboard {
-    width: calc(100% - 32px);
-    min-height: calc(100vh - 64px);
-    padding-top: 88px;
-  }
-
-  .client-welcome {
-    min-height: 190px;
-    padding: 27px 22px;
-    border-radius: 21px;
-  }
-
-  .client-welcome-mark {
-    width: 66px;
-    height: 66px;
-    border-radius: 20px;
-  }
-
-  .client-welcome h1 {
-    font-size: clamp(26px, 8vw, 34px);
-  }
-
-  .client-welcome p {
-    max-width: 240px;
-    font-size: 14px;
-    line-height: 1.5;
-  }
-
-  .client-payment-options {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    margin-top: 16px;
-  }
-
-  .client-payment-card {
-    min-height: 106px;
-    padding: 18px;
-  }
-
-  .client-dashboard-footer {
-    margin-top: 24px;
-  }
-
   .login-page {
     padding: 16px;
   }
@@ -1863,8 +1671,7 @@ table {
   text-align: right;
 }
 
-.login-card .admin-create-link:hover,
-.login-card .client-login-link:hover {
+.login-card .admin-create-link:hover {
   background: transparent;
   color: #260b57;
   text-decoration: underline;
@@ -1969,27 +1776,6 @@ table {
 .login-card button:disabled {
   cursor: wait;
   opacity: 0.72;
-}
-
-.client-login-prompt {
-  display: flex;
-  justify-content: center;
-  margin-top: 18px;
-  padding-top: 14px;
-  border-top: 1px solid #e9edf3;
-}
-
-.login-card .client-login-link {
-  width: auto;
-  margin: 0;
-  padding: 5px 12px;
-  border: 1px solid #dce6fa;
-  border-radius: 8px;
-  background: #f5f8ff;
-  box-shadow: none;
-  color: #351078;
-  font-size: 11px;
-  font-weight: 750;
 }
 
 .login-footer {
